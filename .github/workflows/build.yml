@@ -26,16 +26,6 @@ jobs:
           pip install --upgrade "buildozer==1.5.0" "cython==3.0.10"
           pip install --upgrade "git+https://github.com/kivy/python-for-android.git@master"
 
-      - name: Restore Buildozer cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            .buildozer
-            ~/.buildozer
-          key: buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            buildozer-
-
       - name: Build APK
         run: |
           cat << 'EOF' > buildozer.spec
@@ -46,8 +36,8 @@ jobs:
           source.dir = .
           source.include_exts = py,png,jpg,kv,atlas
           version = 0.1
-          # Явно заменяем python3 на python311, чтобы не тянулся сломанный python 3.14
-          requirements = python311,kivy==2.3.0
+          # Возвращаем проверенную связку старых версий, которые не знают про Python 3.14
+          requirements = python3,kivy==2.2.1
           orientation = portrait
           fullscreen = 0
           android.permissions = RECORD_AUDIO
@@ -73,15 +63,15 @@ jobs:
 
           export PATH="/opt/hostedtoolcache/Python/3.10.21/x64/bin:$PATH"
 
-          # Очищаем старый кэш сборки p4a, чтобы сбросить старые заголовочные файлы
-          rm -rf .buildozer/android/platform/build-*
+          # Вычищаем вообще всё, включая скрытые папки buildozer, чтобы гарантированно избавиться от следов 3.14
+          rm -rf .buildozer
 
           set +e
           buildozer -v android debug > build.log 2>&1
           BUILD_EXIT=$?
           set -e
 
-          # Сохраняем только последние 150 строк лога для удобства
+          # Сохраняем только последние 150 строк лога
           tail -n 150 build.log > build_tail.log
 
           exit $BUILD_EXIT
@@ -94,3 +84,4 @@ jobs:
           path: |
             build_tail.log
             bin/*.apk
+            

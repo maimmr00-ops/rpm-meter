@@ -17,42 +17,27 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
+        sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip
         pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
     - name: Build with Buildozer
       run: |
         yes | buildozer init
         
-        # Задаем чистый список зависимостей без жесткой привязки минорной версии Python
+        # Конфигурируем buildozer.spec под требования numpy и Kivy
         sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,numpy/g' buildozer.spec
         sed -i 's/#android.permissions = RECORD_AUDIO/android.permissions = RECORD_AUDIO/g' buildozer.spec
         sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
+        
+        # Настройки API и NDK
         sed -i 's/# android.api = .*/android.api = 31/g' buildozer.spec
-        sed -i 's/# android.minapi = .*/android.minapi = 21/g' buildozer.spec
+        sed -i 's/# android.minapi = .*/android.minapi = 24/g' buildozer.spec
         sed -i 's/# android.ndk = .*/android.ndk = 25b/g' buildozer.spec
 
-        # Превентивное создание структуры SDK и подмена sdkmanager
-        SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
-        mkdir -p "$SDK_DIR/cmdline-tools/latest"
-        mkdir -p "$SDK_DIR/tools/bin"
-        
-        # Скачивание командных утилит SDK
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
-        unzip -q cmdline.zip
-        mv cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
-        rm -rf cmdline-tools cmdline.zip
-
-        # Симлинк для legacy-путей Buildozer
-        ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
-        
-        # Автоматическое подтверждение всех лицензий
-        yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
-        # Старт сборки
+        # Запуск сборки без ручных подмен
         buildozer -v android debug
 
     - name: Upload APK

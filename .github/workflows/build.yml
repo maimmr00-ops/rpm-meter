@@ -39,10 +39,8 @@ jobs:
         android.permissions = RECORD_AUDIO
         
         [app:android]
-        android.api = 33
+        android.api = 31
         android.minapi = 24
-        android.sdk = 33
-        android.build_tools_version = 33.0.2
         android.ndk = 25b
         android.accept_sdk_license = True
         android.archs = arm64-v8a, armeabi-v7a
@@ -52,10 +50,24 @@ jobs:
         warn_on_root = 1
         EOF
 
-        # Принудительно принимаем лицензии перед сборкой, чтобы Build-Tools 33 установились без сбоев
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk
-        export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+        # Создаем структуру папок и симлинк, чтобы Buildozer гарантированно нашел sdkmanager
+        SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+        mkdir -p "$SDK_DIR/tools/bin"
+        mkdir -p "$SDK_DIR/cmdline-tools/latest"
         
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
+        unzip -q cmdline.zip -d temp_cmdline
+        cp -r temp_cmdline/cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
+        rm -rf cmdline.zip temp_cmdline
+
+        # Прокладываем мостик (симлинк) туда, куда смотрит старый Buildozer
+        ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
+
+        # Автоматически прописываем лицензии SDK, чтобы сборка не останавливалась
+        mkdir -p "$SDK_DIR/licenses"
+        echo "24333f8a43b682ff24c5b040d1f476906a58390b" > "$SDK_DIR/licenses/android-sdk-license"
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" >> "$SDK_DIR/licenses/android-sdk-license"
+
         buildozer -v android debug
 
     - name: Upload APK

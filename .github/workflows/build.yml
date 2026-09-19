@@ -23,7 +23,7 @@ jobs:
         sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
         pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
-    - name: Create buildozer.spec and Build (Safe Log Mode)
+    - name: Create buildozer.spec and Build (Silent Mode)
       run: |
         cat << 'EOF' > buildozer.spec
         [app]
@@ -33,7 +33,6 @@ jobs:
         source.dir = .
         source.include_exts = py,png,jpg,kv,atlas
         version = 0.1
-        # Убираем numpy на эту попытку, чтобы проверить чистую сборку Kivy
         requirements = python3,kivy==2.2.1
         orientation = portrait
         fullscreen = 0
@@ -68,14 +67,10 @@ jobs:
 
         yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31" || true
 
-        # Запускаем сборку, прячем весь мусор в файл и выводим только хвостик в случае ошибки
-        set +e
-        buildozer android debug > build.log 2>&1
-        BUILD_EXIT_CODE=$?
-        set -e
-
-        if [ $BUILD_EXIT_CODE -ne 0 ]; then
-          echo "=== BUILD FAILED. LAST 30 LINES OF LOG ==="
+        # Абсолютно тихий режим: вообще не пишем в терминал во время сборки
+        echo "Starting silent buildozer compilation..."
+        if ! buildozer android debug > build.log 2>&1; then
+          echo "=== BUILD FAILED. LAST 30 LINES: ==="
           tail -n 30 build.log
           exit 1
         else

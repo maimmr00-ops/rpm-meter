@@ -46,7 +46,8 @@ jobs:
           source.dir = .
           source.include_exts = py,png,jpg,kv,atlas
           version = 0.1
-          requirements = python3,kivy==2.3.0
+          # Явно заменяем python3 на python311, чтобы не тянулся сломанный python 3.14
+          requirements = python311,kivy==2.3.0
           orientation = portrait
           fullscreen = 0
           android.permissions = RECORD_AUDIO
@@ -72,16 +73,15 @@ jobs:
 
           export PATH="/opt/hostedtoolcache/Python/3.10.21/x64/bin:$PATH"
 
-          # Очищаем старый сборочный кэш p4a
+          # Очищаем старый кэш сборки p4a, чтобы сбросить старые заголовочные файлы
           rm -rf .buildozer/android/platform/build-*
 
-          # Запускаем сборку и пишем лог (даже если упадет, скрипт пойдет дальше)
           set +e
           buildozer -v android debug > build.log 2>&1
           BUILD_EXIT=$?
           set -e
 
-          # Оставляем в файле только последние 150 строк лога
+          # Сохраняем только последние 150 строк лога для удобства
           tail -n 150 build.log > build_tail.log
 
           exit $BUILD_EXIT
@@ -94,4 +94,3 @@ jobs:
           path: |
             build_tail.log
             bin/*.apk
-            

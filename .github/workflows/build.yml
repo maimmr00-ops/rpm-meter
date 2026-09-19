@@ -1,39 +1,56 @@
-[app]
+name: Build Android APK
 
-# Название приложения
-title = RPM Meter
-package.name = rpmmeter
-package.domain = org.test
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
-# Исходный код
-source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-version = 0.1
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-# Зависимости и фиксация Cython (ОБЯЗАТЕЛЬНО)
-requirements = python3,kivy==2.3.0,cython==0.29.33
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-orientation = portrait
-fullscreen = 0
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            ffmpeg \
+            libgmpxx4ldbl \
+            libasound2-dev \
+            libffi-dev \
+            libssl-dev \
+            libsqlite3-dev \
+            libbz2-dev \
+            zlib1g-dev \
+            ccache \
+            zip \
+            unzip \
+            openjdk-17-jdk
 
-[buildozer]
-log_level = 2
-warn_on_root = 1
+      - name: Install Python Packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade "buildozer==1.5.0" "cython==0.29.33" virtualenv
 
-[app:android]
-# Версия Android API и Build-Tools
-android.api = 33
-android.minapi = 21
-android.sdk = 33
-android.build_tools_version = 33.0.2
-android.ndk = 25b
+      - name: Build APK with Buildozer
+        run: |
+          buildozer -v android debug
 
-# Автоматически принимать лицензии SDK
-android.accept_sdk_license = True
-
-# Архитектуры процессоров
-android.archs = arm64-v8a, armeabi-v7a
-
-# Дополнительные разрешения
-android.allow_backup = True
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-apk
+          path: bin/*.apk
+          

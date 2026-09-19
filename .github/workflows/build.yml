@@ -21,7 +21,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
-          pip install --upgrade "setuptools" "wheel"
+          python3 --version
+          pip install --upgrade pip setuptools wheel
           pip install --upgrade "buildozer==1.5.0" "cython==3.0.10"
 
       - name: Restore Buildozer cache
@@ -44,7 +45,7 @@ jobs:
           source.dir = .
           source.include_exts = py,png,jpg,kv,atlas
           version = 0.1
-          requirements = python3,kivy==2.2.1
+          requirements = python3,kivy==2.3.0
           orientation = portrait
           fullscreen = 0
           android.permissions = RECORD_AUDIO
@@ -62,12 +63,15 @@ jobs:
           warn_on_root = 1
           EOF
 
-          # Полностью очищаем все системные переменные окружения, конфликтующие с buildozer
+          # Полная очистка переменных окружения Android, чтобы buildozer сам скачал нужные версии
           unset ANDROID_NDK_ROOT
           unset ANDROID_NDK_HOME
           unset ANDROID_HOME
           unset ANDROID_SDK_ROOT
           unset ANDROID_SDK_HOME
+
+          # Привязываем системный python к python3.10 явно
+          export PATH="/opt/hostedtoolcache/Python/3.10.21/x64/bin:$PATH"
 
           set +e
           buildozer -v android debug > build.log 2>&1

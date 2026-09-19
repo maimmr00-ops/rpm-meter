@@ -61,10 +61,12 @@ jobs:
           warn_on_root = 1
           EOF
 
-          # Очищаем системные переменные окружения, конфликтующие с buildozer
+          # Полностью очищаем все системные переменные окружения, конфликтующие с buildozer
           unset ANDROID_NDK_ROOT
+          unset ANDROID_NDK_HOME
           unset ANDROID_HOME
           unset ANDROID_SDK_ROOT
+          unset ANDROID_SDK_HOME
 
           set +e
           buildozer -v android debug > build.log 2>&1
@@ -84,4 +86,5 @@ jobs:
         with:
           name: package
           path: bin/*.apk
+          
           

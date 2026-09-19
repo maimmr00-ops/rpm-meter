@@ -68,10 +68,11 @@ jobs:
 
         yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31" || true
 
-        # Принудительно передаем minapi через переменные окружения, которые читает python-for-android
+        # Запускаем buildozer с принудительным указанием ndk-api через переменные python-for-android
+        # и патчим конфигурацию на лету
+        export P4A_NDK_API=24
         export ANDROID_MINAPI=24
-        export ANDROIDMINAPI=24
-
+        
         buildozer -v android debug
 
     - name: Upload APK
@@ -79,3 +80,4 @@ jobs:
       with:
         name: package
         path: bin/*.apk
+        

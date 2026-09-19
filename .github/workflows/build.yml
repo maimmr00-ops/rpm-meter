@@ -1,4 +1,4 @@
-name: Build Android APK
+ name: Build Android APK
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
         pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
-    - name: Create buildozer.spec and Build (Silent Mode)
+    - name: Create buildozer.spec and Build (Unbuffered Log Mode)
       run: |
         cat << 'EOF' > buildozer.spec
         [app]
@@ -47,7 +47,7 @@ jobs:
         android.archs = arm64-v8a, armeabi-v7a
 
         [buildozer]
-        log_level = 1
+        log_level = 2
         warn_on_root = 1
         EOF
 
@@ -65,13 +65,13 @@ jobs:
         mkdir -p "$SDK_DIR/licenses"
         printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n24333f8a43b682ff24c5b040d1f476906a58390b\nd56f5187479451eabf01fb78af6dfcb131a648b0" > "$SDK_DIR/licenses/android-sdk-license"
 
-        yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31" || true
+        "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" --licenses || true
+        "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31"
 
-        # Абсолютно тихий режим: вообще не пишем в терминал во время сборки
-        echo "Starting silent buildozer compilation..."
-        if ! buildozer android debug > build.log 2>&1; then
-          echo "=== BUILD FAILED. LAST 30 LINES: ==="
-          tail -n 30 build.log
+        echo "Starting unbuffered build..."
+        if ! PYTHONUNBUFFERED=1 buildozer -v android debug > build.log 2>&1; then
+          echo "=== BUILD FAILED. LAST 50 LINES OF REAL LOG ==="
+          tail -n 50 build.log
           exit 1
         else
           echo "=== BUILD SUCCESSFUL ==="

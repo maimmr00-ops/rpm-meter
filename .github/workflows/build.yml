@@ -28,6 +28,12 @@ jobs:
         yes | buildozer init
         sed -i 's/requirements = .*/requirements = python3==3.10.12,kivy==2.2.1,numpy/g' buildozer.spec
         sed -i 's/#android.permissions = RECORD_AUDIO/android.permissions = RECORD_AUDIO/g' buildozer.spec
+        sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
+        
+        # Подготовка структуры SDK и автоматическое принятие лицензий
+        mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
+        yes | buildozer -v android debug || true
+        yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
         buildozer -v android debug
 
     - name: Upload APK
@@ -35,4 +41,3 @@ jobs:
       with:
         name: package
         path: bin/*.apk
-        

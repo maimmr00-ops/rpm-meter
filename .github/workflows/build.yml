@@ -23,7 +23,7 @@ jobs:
           sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
           python3 --version
           pip install --upgrade pip setuptools wheel
-          pip install --upgrade "buildozer==1.5.0" "cython==3.0.10"
+          pip install --upgrade "buildozer==1.5.0" "cython==3.0.10" "git+https://github.com/kivy/python-for-android.git@master"
 
       - name: Restore Buildozer cache
         uses: actions/cache@v4
@@ -35,7 +35,7 @@ jobs:
           restore-keys: |
             buildozer-
 
-      - name: Build APK (Full Log Export)
+      - name: Build APK
         run: |
           cat << 'EOF' > buildozer.spec
           [app]
@@ -63,34 +63,18 @@ jobs:
           warn_on_root = 1
           EOF
 
-          # Полная очистка переменных окружения Android, чтобы buildozer сам скачал нужные версии
           unset ANDROID_NDK_ROOT
           unset ANDROID_NDK_HOME
           unset ANDROID_HOME
           unset ANDROID_SDK_ROOT
           unset ANDROID_SDK_HOME
 
-          # Привязываем системный python к python3.10 явно
           export PATH="/opt/hostedtoolcache/Python/3.10.21/x64/bin:$PATH"
 
-          set +e
-          buildozer -v android debug > build.log 2>&1
-          BUILD_EXIT=$?
-          set -e
+          buildozer -v android debug
 
-          if [ $BUILD_EXIT -ne 0 ]; then
-            echo "=== BUILD FAILED. SAVING FULL LOG TO ARTIFACTS ==="
-            exit 1
-          else
-            echo "=== BUILD SUCCESSFUL ==="
-          fi
-
-      - name: Upload Build Log and APK
-        if: always()
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs-and-apk
-          path: |
-            build.log
-            bin/*.apk
-            
+          name: package
+          path: bin/*.apk

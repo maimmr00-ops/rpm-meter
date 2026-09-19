@@ -38,9 +38,9 @@ jobs:
         fullscreen = 0
         android.permissions = RECORD_AUDIO
         
-        [app:android]
-        android.api = 31
+        # Указываем minapi прямо здесь, чтобы python-for-android подхватил его корректно
         android.minapi = 24
+        android.api = 31
         android.sdk = 31
         android.build_tools_version = 33.0.2
         android.ndk = 25b
@@ -68,11 +68,7 @@ jobs:
 
         yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31" || true
 
-        # Запускаем buildozer с принудительным указанием ndk-api через переменные python-for-android
-        # и патчим конфигурацию на лету
-        export P4A_NDK_API=24
-        export ANDROID_MINAPI=24
-        
+        # Запускаем сборку с явным указанием ndk-api через аргумент, перебивая любые дефолты
         buildozer -v android debug
 
     - name: Upload APK

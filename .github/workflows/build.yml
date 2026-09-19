@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Native Android APK
 
 on:
   push:
@@ -12,76 +12,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+      # Настраиваем Java 17, которая требуется для современных Android SDK и Gradle
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          python-version: '3.10'
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
-          python3 --version
-          pip install --upgrade pip setuptools wheel
-          pip install --upgrade "buildozer==1.5.0" "cython==3.0.10"
-          pip install --upgrade "git+https://github.com/kivy/python-for-android.git@master"
+      # Делаем gradle wrapper исполняемым
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      - name: Build APK
-        run: |
-          cat << 'EOF' > buildozer.spec
-          [app]
-          title = RPM Meter
-          package.name = rpmmeter
-          package.domain = org.test
-          source.dir = .
-          source.include_exts = py,png,jpg,kv,atlas
-          version = 0.1
-          # Возвращаем проверенную связку старых версий, которые не знают про Python 3.14
-          requirements = python3,kivy==2.2.1
-          orientation = portrait
-          fullscreen = 0
-          android.permissions = RECORD_AUDIO
-          
-          android.minapi = 24
-          android.api = 31
-          android.sdk = 31
-          android.build_tools_version = 33.0.2
-          android.ndk = 25b
-          android.accept_sdk_license = True
-          android.archs = arm64-v8a, armeabi-v7a
+      # Собираем debug-версию APK через стандартный Gradle-скрипт
+      - name: Build APK with Gradle
+        run: ./gradlew assembleDebug
 
-          [buildozer]
-          log_level = 2
-          warn_on_root = 1
-          EOF
-
-          unset ANDROID_NDK_ROOT
-          unset ANDROID_NDK_HOME
-          unset ANDROID_HOME
-          unset ANDROID_SDK_ROOT
-          unset ANDROID_SDK_HOME
-
-          export PATH="/opt/hostedtoolcache/Python/3.10.21/x64/bin:$PATH"
-
-          # Вычищаем вообще всё, включая скрытые папки buildozer, чтобы гарантированно избавиться от следов 3.14
-          rm -rf .buildozer
-
-          set +e
-          buildozer -v android debug > build.log 2>&1
-          BUILD_EXIT=$?
-          set -e
-
-          # Сохраняем только последние 150 строк лога
-          tail -n 150 build.log > build_tail.log
-
-          exit $BUILD_EXIT
-
-      - name: Upload Build Log and APK
-        if: always()
+      # Загружаем готовый нативный APK в артефакты GitHub
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs-and-apk
-          path: |
-            build_tail.log
-            bin/*.apk
-            
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
+          

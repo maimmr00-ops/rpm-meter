@@ -20,29 +20,56 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip
+        sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
         pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
-    - name: Prepare SDK & Build APK
+    - name: Create buildozer.spec and Build
       env:
-        ANDROID_HOME: /usr/local/lib/android/sdk
-        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        APP_ANDROID_MINAPI: "24"
+        APP_ANDROID_API: "31"
+        APP_ANDROID_NDK: "25b"
       run: |
-        yes | buildozer init
-        
-        # Настройка параметров сборки
-        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,numpy/g' buildozer.spec
-        sed -i 's/#android.permissions = RECORD_AUDIO/android.permissions = RECORD_AUDIO/g' buildozer.spec
-        sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
-        
-        sed -i 's/# android.api = .*/android.api = 31/g' buildozer.spec
-        sed -i 's/# android.minapi = .*/android.minapi = 24/g' buildozer.spec
-        sed -i 's/# android.ndk = .*/android.ndk = 25b/g' buildozer.spec
+        # Генерируем чистый конфиг без sed
+        cat << 'EOF' > buildozer.spec
+        [app]
+        title = RPM Meter
+        package.name = rpmmeter
+        package.domain = org.test
+        source.dir = .
+        source.include_exts = py,png,jpg,kv,atlas
+        version = 0.1
+        requirements = python3,kivy==2.2.1,numpy
+        orientation = portrait
+        osx.python_version = 3
+        osx.kivy_version = 1.9.1
+        fullscreen = 0
+        android.permissions = RECORD_AUDIO
+        android.api = 31
+        android.minapi = 24
+        android.ndk = 25b
+        android.accept_sdk_license = True
+        android.archs = arm64-v8a, armeabi-v7a
 
-        # Подтверждаем лицензии системного SDK
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        [buildozer]
+        log_level = 2
+        warn_on_root = 1
+        EOF
 
-        # Запуск сборки
+        # Подготовка cmdline-tools под Buildozer 1.5.0
+        SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+        mkdir -p "$SDK_DIR/cmdline-tools/latest"
+        mkdir -p "$SDK_DIR/tools/bin"
+        
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
+        unzip -q cmdline.zip
+        mv cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
+        rm -rf cmdline-tools cmdline.zip
+
+        ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
+        yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+        # Принудительно передаем minapi в env
+        export ANDROIDMINAPI=24
         buildozer -v android debug
 
     - name: Upload APK

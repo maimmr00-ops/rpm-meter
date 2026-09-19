@@ -27,32 +27,32 @@ jobs:
       run: |
         yes | buildozer init
         
-        # Настройка конфига
-        sed -i 's/requirements = .*/requirements = python3==3.10.12,kivy==2.2.1,numpy/g' buildozer.spec
+        # Задаем чистый список зависимостей без жесткой привязки минорной версии Python
+        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,numpy/g' buildozer.spec
         sed -i 's/#android.permissions = RECORD_AUDIO/android.permissions = RECORD_AUDIO/g' buildozer.spec
         sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
         sed -i 's/# android.api = .*/android.api = 31/g' buildozer.spec
         sed -i 's/# android.minapi = .*/android.minapi = 21/g' buildozer.spec
         sed -i 's/# android.ndk = .*/android.ndk = 25b/g' buildozer.spec
 
-        # Превентивное создание структуры SDK и роут бинарников sdkmanager
+        # Превентивное создание структуры SDK и подмена sdkmanager
         SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
         mkdir -p "$SDK_DIR/cmdline-tools/latest"
         mkdir -p "$SDK_DIR/tools/bin"
         
-        # Скачиваем commandlinetools заранее
+        # Скачивание командных утилит SDK
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
         unzip -q cmdline.zip
         mv cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
         rm -rf cmdline-tools cmdline.zip
 
-        # Делаем симлинки для старого buildozer в /tools/bin
+        # Симлинк для legacy-путей Buildozer
         ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
         
-        # Принимаем лицензии
+        # Автоматическое подтверждение всех лицензий
         yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
-        # Запуск сборки
+        # Старт сборки
         buildozer -v android debug
 
     - name: Upload APK

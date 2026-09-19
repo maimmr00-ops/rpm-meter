@@ -52,7 +52,6 @@ jobs:
         warn_on_root = 1
         EOF
 
-        # Настройка путей SDK и командной строки
         SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
         mkdir -p "$SDK_DIR/tools/bin"
         mkdir -p "$SDK_DIR/cmdline-tools/latest"
@@ -64,15 +63,14 @@ jobs:
 
         ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
 
-        # Лицензии SDK
         mkdir -p "$SDK_DIR/licenses"
         printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n24333f8a43b682ff24c5b040d1f476906a58390b\nd56f5187479451eabf01fb78af6dfcb131a648b0" > "$SDK_DIR/licenses/android-sdk-license"
 
         yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31" || true
 
-        # Жестко принудительно задаем minapi для python-for-android на уровне среды
-        export ANDROIDMINAPI=24
+        # Принудительно передаем minapi через переменные окружения, которые читает python-for-android
         export ANDROID_MINAPI=24
+        export ANDROIDMINAPI=24
 
         buildozer -v android debug
 

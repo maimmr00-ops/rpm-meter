@@ -17,27 +17,32 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip
         pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
-    - name: Build with Buildozer
+    - name: Prepare SDK & Build APK
+      env:
+        ANDROID_HOME: /usr/local/lib/android/sdk
+        ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       run: |
         yes | buildozer init
         
-        # Конфигурируем buildozer.spec под требования numpy и Kivy
+        # Настройка параметров сборки
         sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,numpy/g' buildozer.spec
         sed -i 's/#android.permissions = RECORD_AUDIO/android.permissions = RECORD_AUDIO/g' buildozer.spec
         sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
         
-        # Настройки API и NDK
         sed -i 's/# android.api = .*/android.api = 31/g' buildozer.spec
         sed -i 's/# android.minapi = .*/android.minapi = 24/g' buildozer.spec
         sed -i 's/# android.ndk = .*/android.ndk = 25b/g' buildozer.spec
 
-        # Запуск сборки без ручных подмен
+        # Подтверждаем лицензии системного SDK
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+        # Запуск сборки
         buildozer -v android debug
 
     - name: Upload APK

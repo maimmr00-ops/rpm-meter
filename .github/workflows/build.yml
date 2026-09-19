@@ -23,7 +23,7 @@ jobs:
         sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
         pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
-    - name: Create buildozer.spec and Build
+    - name: Create buildozer.spec and Build (Safe Log Mode)
       run: |
         cat << 'EOF' > buildozer.spec
         [app]
@@ -33,12 +33,12 @@ jobs:
         source.dir = .
         source.include_exts = py,png,jpg,kv,atlas
         version = 0.1
-        requirements = python3,kivy==2.2.1,numpy
+        # Убираем numpy на эту попытку, чтобы проверить чистую сборку Kivy
+        requirements = python3,kivy==2.2.1
         orientation = portrait
         fullscreen = 0
         android.permissions = RECORD_AUDIO
         
-        # Указываем minapi прямо здесь, чтобы python-for-android подхватил его корректно
         android.minapi = 24
         android.api = 31
         android.sdk = 31
@@ -48,7 +48,7 @@ jobs:
         android.archs = arm64-v8a, armeabi-v7a
 
         [buildozer]
-        log_level = 2
+        log_level = 1
         warn_on_root = 1
         EOF
 
@@ -68,8 +68,19 @@ jobs:
 
         yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31" || true
 
-        # Запускаем сборку с явным указанием ndk-api через аргумент, перебивая любые дефолты
-        buildozer -v android debug
+        # Запускаем сборку, прячем весь мусор в файл и выводим только хвостик в случае ошибки
+        set +e
+        buildozer android debug > build.log 2>&1
+        BUILD_EXIT_CODE=$?
+        set -e
+
+        if [ $BUILD_EXIT_CODE -ne 0 ]; then
+          echo "=== BUILD FAILED. LAST 30 LINES OF LOG ==="
+          tail -n 30 build.log
+          exit 1
+        else
+          echo "=== BUILD SUCCESSFUL ==="
+        fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4

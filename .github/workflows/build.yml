@@ -23,7 +23,7 @@ jobs:
           sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
           pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
-      - name: Build APK
+      - name: Build APK (Compact Logs)
         run: |
           cat << 'EOF' > buildozer.spec
           [app]
@@ -47,11 +47,19 @@ jobs:
           android.archs = arm64-v8a, armeabi-v7a
 
           [buildozer]
-          log_level = 2
+          log_level = 1
           warn_on_root = 1
           EOF
 
           SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          
+          # Сначала создаем структуру и лицензии ДО любых вызовов sdkmanager
+          mkdir -p "$SDK_DIR/licenses"
+          echo "89335565a30c5d737fa0143f4f14551bd10257e5" > "$SDK_DIR/licenses/android-sdk-license"
+          echo "d56f5187479451eabf01fb78af6dfcb131a648b0" >> "$SDK_DIR/licenses/android-sdk-license"
+          echo "24333f8a43b682ff24c5b040d1f476906a58390b" >> "$SDK_DIR/licenses/android-sdk-license"
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" >> "$SDK_DIR/licenses/android-sdk-license"
+
           mkdir -p "$SDK_DIR/tools/bin"
           mkdir -p "$SDK_DIR/cmdline-tools/latest"
           
@@ -62,7 +70,7 @@ jobs:
 
           ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
 
-          mkdir -p "$SDK_DIR/licenses"
+          # Повторно записываем лицензии на случай перезаписи при распаковке
           echo "89335565a30c5d737fa0143f4f14551bd10257e5" > "$SDK_DIR/licenses/android-sdk-license"
           echo "d56f5187479451eabf01fb78af6dfcb131a648b0" >> "$SDK_DIR/licenses/android-sdk-license"
           echo "24333f8a43b682ff24c5b040d1f476906a58390b" >> "$SDK_DIR/licenses/android-sdk-license"
@@ -71,7 +79,7 @@ jobs:
           "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-31"
 
           set +e
-          buildozer -v android debug > build.log 2>&1
+          buildozer android debug > build.log 2>&1
           BUILD_EXIT=$?
           set -e
 

@@ -23,7 +23,8 @@ jobs:
           sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
           python3 --version
           pip install --upgrade pip setuptools wheel
-          pip install --upgrade "buildozer==1.5.0" "cython==3.0.10" "git+https://github.com/kivy/python-for-android.git@master"
+          pip install --upgrade "buildozer==1.5.0" "cython==3.0.10"
+          pip install --upgrade "git+https://github.com/kivy/python-for-android.git@master"
 
       - name: Restore Buildozer cache
         uses: actions/cache@v4
@@ -71,10 +72,26 @@ jobs:
 
           export PATH="/opt/hostedtoolcache/Python/3.10.21/x64/bin:$PATH"
 
-          buildozer -v android debug
+          # Очищаем старый сборочный кэш p4a
+          rm -rf .buildozer/android/platform/build-*
 
-      - name: Upload APK
+          # Запускаем сборку и пишем лог (даже если упадет, скрипт пойдет дальше)
+          set +e
+          buildozer -v android debug > build.log 2>&1
+          BUILD_EXIT=$?
+          set -e
+
+          # Оставляем в файле только последние 150 строк лога
+          tail -n 150 build.log > build_tail.log
+
+          exit $BUILD_EXIT
+
+      - name: Upload Build Log and APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: package
-          path: bin/*.apk
+          name: build-logs-and-apk
+          path: |
+            build_tail.log
+            bin/*.apk
+            

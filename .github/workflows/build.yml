@@ -20,14 +20,14 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip
+        sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
         pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
     - name: Build with Buildozer
       run: |
         yes | buildozer init
         
-        # Настройка стабильных параметров Android SDK/NDK и зависимостей
+        # Настройка конфига
         sed -i 's/requirements = .*/requirements = python3==3.10.12,kivy==2.2.1,numpy/g' buildozer.spec
         sed -i 's/#android.permissions = RECORD_AUDIO/android.permissions = RECORD_AUDIO/g' buildozer.spec
         sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/g' buildozer.spec
@@ -35,10 +35,24 @@ jobs:
         sed -i 's/# android.minapi = .*/android.minapi = 21/g' buildozer.spec
         sed -i 's/# android.ndk = .*/android.ndk = 25b/g' buildozer.spec
 
-        # Подготовка структуры путей для sdkmanager
-        mkdir -p ~/.buildozer/android/platform/android-sdk/tools/bin
+        # Превентивное создание структуры SDK и роут бинарников sdkmanager
+        SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+        mkdir -p "$SDK_DIR/cmdline-tools/latest"
+        mkdir -p "$SDK_DIR/tools/bin"
         
-        # Запуск сборки с полным логированием (log_level = 2)
+        # Скачиваем commandlinetools заранее
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline.zip
+        unzip -q cmdline.zip
+        mv cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
+        rm -rf cmdline-tools cmdline.zip
+
+        # Делаем симлинки для старого buildozer в /tools/bin
+        ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
+        
+        # Принимаем лицензии
+        yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+        # Запуск сборки
         buildozer -v android debug
 
     - name: Upload APK

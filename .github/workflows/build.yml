@@ -1,39 +1,4 @@
-name: Build Android APK
-
-on:
-  push:
-    branches: [ "main", "master", "основной" ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
-          pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
-
-      - name: Restore Buildozer cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            .buildozer
-            ~/.buildozer
-          key: buildozer-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            buildozer-
-
-      - name: Build APK (Smart Log Mode)
+name: Build APK (Smart Log Mode)
         run: |
           cat << 'EOF' > buildozer.spec
           [app]
@@ -71,16 +36,11 @@ jobs:
           set -e
 
           if [ $BUILD_EXIT -ne 0 ]; then
-            echo "=== BUILD FAILED. HERE ARE THE LAST 60 LINES: ==="
-            tail -n 60 build.log
+            echo "=== REAL BUILD ERROR (FILTERED): ==="
+            # Ищем строки с ошибками или исключаем блок системных переменных
+            grep -i -C 5 "error" build.log || tail -n 120 build.log | head -n 80
             exit 1
           else
             echo "=== BUILD SUCCESSFUL ==="
           fi
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: package
-          path: bin/*.apk
           

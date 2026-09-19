@@ -22,10 +22,18 @@ log_level = 2
 warn_on_root = 1
 
 [app:android]
-# Параметры Android SDK/NDK
+# Фиксация стабильных версий API и Build-Tools (избавляет от ошибки с aidl)
 android.api = 33
 android.minapi = 21
+android.sdk = 33
+android.build_tools_version = 33.0.2
 android.ndk = 25b
+
+# Автоматически принимать лицензии SDK
 android.accept_sdk_license = True
+
+# Архитектуры процессоров
 android.archs = arm64-v8a, armeabi-v7a
+
+# Дополнительные разрешения
 android.allow_backup = True

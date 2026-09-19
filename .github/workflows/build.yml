@@ -33,7 +33,7 @@ jobs:
           restore-keys: |
             buildozer-
 
-      - name: Build APK (Cached SDK Mode)
+      - name: Build APK (Smart Log Mode)
         run: |
           cat << 'EOF' > buildozer.spec
           [app]
@@ -57,23 +57,22 @@ jobs:
           android.archs = arm64-v8a, armeabi-v7a
 
           [buildozer]
-          log_level = 1
+          log_level = 2
           warn_on_root = 1
           EOF
 
-          # Сбрасываем чужие системные переменные NDK/SDK, чтобы они не конфликтовали
           unset ANDROID_NDK_ROOT
           unset ANDROID_HOME
           unset ANDROID_SDK_ROOT
 
           set +e
-          buildozer android debug > build.log 2>&1
+          buildozer -v android debug > build.log 2>&1
           BUILD_EXIT=$?
           set -e
 
           if [ $BUILD_EXIT -ne 0 ]; then
-            echo "=== BUILD FAILED. LAST 40 LINES: ==="
-            tail -n 40 build.log
+            echo "=== BUILD FAILED. HERE ARE THE LAST 60 LINES: ==="
+            tail -n 60 build.log
             exit 1
           else
             echo "=== BUILD SUCCESSFUL ==="
@@ -84,3 +83,4 @@ jobs:
         with:
           name: package
           path: bin/*.apk
+          

@@ -23,7 +23,17 @@ jobs:
           sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev libtool automake autoconf gettext pkg-config openjdk-17-jdk unzip zip wget
           pip install --upgrade "buildozer==1.5.0" "cython==0.29.33"
 
-      - name: Build APK (Auto SDK Mode)
+      - name: Restore Buildozer cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer
+            ~/.buildozer
+          key: buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-
+
+      - name: Build APK (Cached SDK Mode)
         run: |
           cat << 'EOF' > buildozer.spec
           [app]
@@ -51,6 +61,11 @@ jobs:
           warn_on_root = 1
           EOF
 
+          # Сбрасываем чужие системные переменные NDK/SDK, чтобы они не конфликтовали
+          unset ANDROID_NDK_ROOT
+          unset ANDROID_HOME
+          unset ANDROID_SDK_ROOT
+
           set +e
           buildozer android debug > build.log 2>&1
           BUILD_EXIT=$?
@@ -69,4 +84,3 @@ jobs:
         with:
           name: package
           path: bin/*.apk
-          

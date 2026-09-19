@@ -39,8 +39,10 @@ jobs:
         android.permissions = RECORD_AUDIO
         
         [app:android]
-        android.api = 31
+        android.api = 33
         android.minapi = 24
+        android.sdk = 33
+        android.build_tools_version = 33.0.2
         android.ndk = 25b
         android.accept_sdk_license = True
         android.archs = arm64-v8a, armeabi-v7a
@@ -50,7 +52,7 @@ jobs:
         warn_on_root = 1
         EOF
 
-        # Создаем структуру папок и симлинк, чтобы Buildozer гарантированно нашел sdkmanager
+        # Настройка путей SDK и командной строки
         SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
         mkdir -p "$SDK_DIR/tools/bin"
         mkdir -p "$SDK_DIR/cmdline-tools/latest"
@@ -60,13 +62,14 @@ jobs:
         cp -r temp_cmdline/cmdline-tools/* "$SDK_DIR/cmdline-tools/latest/"
         rm -rf cmdline.zip temp_cmdline
 
-        # Прокладываем мостик (симлинк) туда, куда смотрит старый Buildozer
         ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
 
-        # Автоматически прописываем лицензии SDK, чтобы сборка не останавливалась
+        # Создаем файлы лицензий для всех версий, включая злополучную 37-ю
         mkdir -p "$SDK_DIR/licenses"
-        echo "24333f8a43b682ff24c5b040d1f476906a58390b" > "$SDK_DIR/licenses/android-sdk-license"
-        echo "84831b9409646a918e30573bab4c9c91346d8abd" >> "$SDK_DIR/licenses/android-sdk-license"
+        printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n24333f8a43b682ff24c5b040d1f476906a58390b\nd56f5187479451eabf01fb78af6dfcb131a648b0" > "$SDK_DIR/licenses/android-sdk-license"
+
+        # Предварительно устанавливаем именно 33-ю версию через sdkmanager, чтобы Buildozer ее не скачивал заново
+        yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "build-tools;33.0.2" "platforms;android-33" || true
 
         buildozer -v android debug
 

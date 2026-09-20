@@ -95,7 +95,7 @@ class MainActivity : Activity() {
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
-                currentRealRpm = (rpm * currentMultiplier)
+                currentRealRpm = (rpm / currentMultiplier)
                 
                 runOnUiThread {
                     val modeLabel = when (prefsManager.engineType) {

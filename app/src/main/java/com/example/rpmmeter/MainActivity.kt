@@ -59,14 +59,14 @@ class MainActivity : Activity() {
     private lateinit var sharedPreferences: SharedPreferences
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
-    // Защищенная строка авторства в новом формате
-    private val copyrightNotice = "2026 © YouTube_VRT \"Рациональный Труд\""
+    // Защищенная строка авторства с версией
+    private val copyrightNotice = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.1"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        // ЗАЩИТА ЛИЦЕНЗИИ: Проверяем контрольную сумму строки копирайта
+        // Проверка лицензии и целостности строки
         verifyLicenseOrCrash()
 
         sharedPreferences = getSharedPreferences("RpmMeterPrefs", Context.MODE_PRIVATE)
@@ -253,7 +253,7 @@ class MainActivity : Activity() {
 
         layout.addView(tableLayout)
 
-        // --- КОПИРАЙТ В САМОМ НИЗУ ---
+        // --- КОПИРАЙТ И ВЕРСИЯ В САМОМ НИЗУ ---
         val copyrightView = TextView(this).apply {
             text = copyrightNotice
             textSize = 11f
@@ -283,12 +283,10 @@ class MainActivity : Activity() {
         }
     }
 
-    // Метод проверки контрольной суммы под новый формат строки
+    // Проверка лицензии по эталонной строке с версией
     private fun verifyLicenseOrCrash() {
-        // Актуальный hashCode для строки: 2026 © YouTube_VRT "Рациональный Труд"
-        val expectedHashCode = -1674404781 
-        
-        if (copyrightNotice.hashCode() != expectedHashCode) {
+        val expected = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.1"
+        if (copyrightNotice != expected) {
             throw RuntimeException("License Error: Copyright notice integrity violation!")
         }
     }

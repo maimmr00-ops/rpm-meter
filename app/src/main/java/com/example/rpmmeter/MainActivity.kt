@@ -14,7 +14,6 @@ import android.view.Gravity
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.RelativeLayout
 import android.widget.ScrollView
 import android.widget.TableLayout
 import android.widget.TableRow
@@ -30,8 +29,6 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var rpmText: TextView
     private lateinit var debugText: TextView
-    private lateinit var btnHold: Button
-    private lateinit var btnExit: Button
     
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
@@ -48,8 +45,6 @@ class MainActivity : Activity() {
     private lateinit var btnSmoothSoft: Button
 
     private var isRecording = false
-    private var isHoldActive = false
-    private var heldRpmValue = 0
     private var currentRealRpm = 0
 
     private var engineType = 2
@@ -63,7 +58,7 @@ class MainActivity : Activity() {
     private lateinit var sharedPreferences: SharedPreferences
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
-    private val copyrightNotice = "2026 © YouTube_VRT Рациональный Труд | ver 0.1"
+    private val copyrightNotice = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.1"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,72 +78,15 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        val topContainer = RelativeLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        btnExit = Button(this).apply {
-            text = "✕"
-            textSize = 18f
-            setTextColor(Color.parseColor("#FF5252"))
-            setBackgroundColor(Color.parseColor("#424242"))
-            setOnClickListener {
-                finishAffinity()
-            }
-        }
-        val exitParams = RelativeLayout.LayoutParams(110, 110).apply {
-            addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
-            addRule(RelativeLayout.CENTER_VERTICAL)
-        }
-        btnExit.layoutParams = exitParams
-        topContainer.addView(btnExit)
-
-        val centerRpmLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            val params = RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.WRAP_CONTENT,
-                RelativeLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                addRule(RelativeLayout.CENTER_IN_PARENT)
-            }
-            layoutParams = params
-        }
-
+        // Центрированный вывод RPM
         rpmText = TextView(this).apply {
-            text = "0000"
+            text = "0"
             textSize = 72f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
+            setPadding(0, 16, 0, 0)
         }
-        
-        btnHold = Button(this).apply {
-            text = "HOLD"
-            textSize = 13f
-            setOnClickListener {
-                isHoldActive = !isHoldActive
-                if (isHoldActive) {
-                    heldRpmValue = currentRealRpm
-                }
-                updateHoldButtonState()
-            }
-        }
-        
-        val holdParams = LinearLayout.LayoutParams(160, 110).apply {
-            setMargins(20, 0, 0, 0)
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        btnHold.layoutParams = holdParams
-        updateHoldButtonState()
-
-        centerRpmLayout.addView(rpmText)
-        centerRpmLayout.addView(btnHold)
-        topContainer.addView(centerRpmLayout)
-
-        layout.addView(topContainer)
+        layout.addView(rpmText)
 
         val labelRpmText = TextView(this).apply {
             text = "RPM"
@@ -298,16 +236,6 @@ class MainActivity : Activity() {
         row.addView(label)
         row.addView(buttonsLayout)
         table.addView(row)
-    }
-
-    private fun updateHoldButtonState() {
-        if (isHoldActive) {
-            btnHold.setBackgroundColor(Color.parseColor("#FF9800"))
-            btnHold.setTextColor(Color.BLACK)
-        } else {
-            btnHold.setBackgroundColor(Color.parseColor("#424242"))
-            btnHold.setTextColor(Color.WHITE)
-        }
     }
 
     private fun loadSettings() {
@@ -510,14 +438,19 @@ class MainActivity : Activity() {
             runOnUiThread {
                 debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
                 
-                if (isHoldActive) {
-                    val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-                    rpmText.text = String.format("%04d", displayHoldVal)
-                    statusText.text = "Удержание (HOLD)"
+                if (finalRpm > 0) {
+                    rpmText.text = finalRpm.toString()
+                    statusText.text = "Работает (${engineType}T)"
                 } else {
-                    if (finalRpm > 0) {
-                        rpmText.text = String.format("%04d", finalRpm)
-                        statusText.text = "Работает (${engineType}T)"
-                    } else {
-                        rpmText.text = "0000"
-                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание
+                    rpmText.text = "0"
+                    statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        isRecording = false
+        super.onDestroy()
+    }
+}

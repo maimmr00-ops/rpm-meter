@@ -67,11 +67,9 @@ class AudioAnalyzer(
                 }
                 val rawVolume = sqrt(sum / readCount)
                 
-                // Плавная фильтрация громкости
                 smoothedVolume = smoothedVolume + 0.2f * (rawVolume.toFloat() - smoothedVolume)
                 val currentVolInt = smoothedVolume.toInt()
 
-                // Проверка порога чувствительности
                 val minThreshold = prefsManager.minVolumeThreshold
                 if (currentVolInt < minThreshold) {
                     onUpdate(0, 0f, 0f, currentVolInt, "Тишина / Ниже порога")
@@ -86,11 +84,11 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 3. Вычисление оборотов в зависимости от типа мотора
+                // 3. Вычисление оборотов
                 val engineType = prefsManager.engineType
                 val multiplier = when (engineType) {
-                    2 -> 60.0f  // 2T: 1 вспышка на 1 оборот
-                    4 -> 120.0f // 4T: 1 вспышка на 2 оборота
+                    2 -> 60.0f  // 2T
+                    4 -> 120.0f // 4T
                     else -> 60.0f
                 }
 
@@ -101,9 +99,8 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. Сглаживание показаний RPM
+                // 4. Сглаживание RPM с защитой от залипания при сбросе
                 val riseAlpha = prefsManager.riseTimeConstant
-                // Принудительно делаем падение быстрым, чтобы при сбросе газа не было «тупежки» и залипаний
                 val fallAlpha = maxOf(prefsManager.fallTimeConstant, 0.35f)
 
                 val alpha = if (calculatedRpm > smoothedRpm) riseAlpha else fallAlpha
@@ -117,8 +114,8 @@ class AudioAnalyzer(
     }
 
     private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val minLag = sampleRate / 1000 // до 1000 Гц
-        val maxLag = sampleRate / 15  // от 15 Гц
+        val minLag = sampleRate / 1000
+        val maxLag = sampleRate / 15
 
         if (size <= maxLag) return 0f
 

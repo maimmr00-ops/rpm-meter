@@ -22,6 +22,7 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var rpmText: TextView
     private lateinit var btnHold: Button
+    private lateinit var btnExit: Button
     
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
@@ -84,7 +85,7 @@ class MainActivity : Activity() {
         rootLayout.addView(buildSettingsTable())
 
         val copyright = TextView(this)
-        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.9"
+        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 1.0"
         copyright.textSize = 12f
         copyright.setTextColor(Color.parseColor("#9E9E9E"))
         copyright.gravity = Gravity.CENTER
@@ -133,17 +134,45 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
 
-        // Центральный блок для цифр и подписи RPM
+        // 1. Левая симметричная колонка (Кнопка выхода / Exit)
+        val leftCol = LinearLayout(this)
+        leftCol.orientation = LinearLayout.VERTICAL
+        leftCol.gravity = Gravity.CENTER
+        leftCol.layoutParams = LinearLayout.LayoutParams(
+            0, 
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            0.20f
+        )
+
+        btnExit = Button(this)
+        btnExit.text = "EXIT"
+        btnExit.textSize = 12f
+        btnExit.setOnClickListener {
+            finish() // Закрытие приложения
+        }
+        val exitParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            LinearLayout.LayoutParams.MATCH_PARENT
+        )
+        btnExit.layoutParams = exitParams
+        leftCol.addView(btnExit)
+        container.addView(leftCol)
+
+        // Отступ между левой кнопкой и центром
+        val leftSpacer = View(this)
+        leftSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
+        container.addView(leftSpacer)
+
+        // 2. Центральный блок (Обороты и подпись) — теперь идеально по центру экрана
         val rpmBlock = LinearLayout(this)
         rpmBlock.orientation = LinearLayout.VERTICAL
         rpmBlock.gravity = Gravity.CENTER
         rpmBlock.layoutParams = LinearLayout.LayoutParams(
             0, 
             LinearLayout.LayoutParams.WRAP_CONTENT, 
-            0.75f
+            0.60f
         )
 
-        // Огромные цифры оборотов
         rpmText = TextView(this)
         rpmText.text = "0"
         rpmText.textSize = 88f
@@ -152,7 +181,6 @@ class MainActivity : Activity() {
         rpmText.includeFontPadding = false
         rpmBlock.addView(rpmText)
 
-        // Подпись RPM (об / мин) маленьким шрифтом по центру под цифрами
         val rpmLabel = TextView(this)
         rpmLabel.text = "RPM (об / мин)"
         rpmLabel.textSize = 11f
@@ -163,24 +191,24 @@ class MainActivity : Activity() {
 
         container.addView(rpmBlock)
 
-        // Небольшой отступ
-        val middleSpacer = View(this)
-        middleSpacer.layoutParams = LinearLayout.LayoutParams(12, 1)
-        container.addView(middleSpacer)
+        // Отступ между центром и правой кнопкой
+        val rightSpacer = View(this)
+        rightSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
+        container.addView(rightSpacer)
 
-        // Правая колонка для кнопки HOLD
+        // 3. Правая колонка (Кнопка HOLD) — симметрична левой
         val rightCol = LinearLayout(this)
         rightCol.orientation = LinearLayout.VERTICAL
         rightCol.gravity = Gravity.CENTER
         rightCol.layoutParams = LinearLayout.LayoutParams(
             0, 
             LinearLayout.LayoutParams.MATCH_PARENT, 
-            0.25f
+            0.20f
         )
 
         btnHold = Button(this)
         btnHold.text = "HOLD"
-        btnHold.textSize = 13f
+        btnHold.textSize = 12f
         btnHold.setOnClickListener {
             isHoldActive = !isHoldActive
             if (isHoldActive) heldRpmValue = currentRealRpm
@@ -299,6 +327,10 @@ class MainActivity : Activity() {
 
         btnHold.setBackgroundColor(if (isHoldActive) Color.parseColor("#FF9800") else Color.parseColor("#424242"))
         btnHold.setTextColor(if (isHoldActive) Color.BLACK else Color.WHITE)
+
+        // Цвет и стиль кнопки выхода (сделаем её нейтральной темно-серой, при нажатии можно сделать темнее)
+        btnExit.setBackgroundColor(Color.parseColor("#424242"))
+        btnExit.setTextColor(Color.WHITE)
 
         val eType = prefsManager.engineType
         btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))

@@ -95,7 +95,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // Исправленный метод перезапуска с полным гашением старого потока и микрофона
     fun restartAnalyzer() {
         audioAnalyzer?.stop()
         audioAnalyzer = null
@@ -413,14 +412,11 @@ class MainActivity : Activity() {
         settings.btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         listOf(settings.btnRateFast, settings.btnRateNorm, settings.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
-        val rise = prefsManager.riseTimeConstant
-        val isSharp = (rise >= 0.5f)
-        val isNorm = (rise >= 0.1f && rise < 0.5f)
-        val isSoft = (rise < 0.1f)
-
-        settings.btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        settings.btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        settings.btnSmoothSoft.setBackgroundColor(if (isSoft) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        // Подсветка кнопок плавности на основе smoothPreset
+        val preset = prefsManager.smoothPreset
+        settings.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        settings.btnSmoothNorm.setBackgroundColor(if (preset == 1) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        settings.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(settings.btnSmoothSharp, settings.btnSmoothNorm, settings.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
         
         updateVolumeSquaresUI(0)

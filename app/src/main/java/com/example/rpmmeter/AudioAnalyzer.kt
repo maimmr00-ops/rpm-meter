@@ -59,14 +59,13 @@ class AudioAnalyzer(
                 val readCount = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                 if (readCount <= 0) continue
 
-                // 1. Расчет громкости
+                // 1. Расчет громкости по ВСЕМУ прочитанному буферу, чтобы микрофон не забивался
                 var sum = 0.0
-                val limitSamples = minOf(readCount, 512)
-                for (i in 0 until limitSamples) {
+                for (i in 0 until readCount) {
                     val v = buffer[i].toDouble()
                     sum += v * v
                 }
-                val rawVolume = sqrt(sum / limitSamples)
+                val rawVolume = sqrt(sum / readCount)
                 
                 smoothedVolume = smoothedVolume + 0.3f * (rawVolume.toFloat() - smoothedVolume)
                 val currentVolInt = smoothedVolume.toInt()
@@ -80,9 +79,9 @@ class AudioAnalyzer(
                 // 2. Выбор метода анализа в зависимости от типа двигателя
                 val engineType = prefsManager.engineType
                 val rawFreq = if (engineType == 4) {
-                    findFrequencyZeroCrossing(buffer, limitSamples, sampleRate)
+                    findFrequencyZeroCrossing(buffer, readCount, sampleRate)
                 } else {
-                    findFrequencyAutocorrelation(buffer, limitSamples, sampleRate)
+                    findFrequencyAutocorrelation(buffer, readCount, sampleRate)
                 }
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
@@ -102,21 +101,19 @@ class AudioAnalyzer(
                     continue
                 }
 
-                                // 4. Плавность с честной реакцией на выбранный пресет кнопок
+                // 4. Плавность с честной реакцией на выбранный пресет кнопок
                 val riseAlpha = prefsManager.riseTimeConstant 
-                val fallAlpha = prefsManager.fallTimeConstant // Теперь здесь правильные значения из Sharp/Norm/Soft
+                val fallAlpha = prefsManager.fallTimeConstant
 
-                // Если расчетные обороты ниже текущих сглаженных — используем коэффициент падения (fall)
-                // Если выше — коэффициент роста (rise)
                 val alpha = if (calculatedRpm >= smoothedRpm) {
                     riseAlpha
                 } else {
-                    // Делаем падение чуть динамичнее для 4T, но строго подчиненным кнопке плавности
                     fallAlpha * if (engineType == 4) 1.5f else 1.0f
                 }
                 
                 smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
 
+                onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Работа мотора")
             }
         }
         analysisThread?.start()

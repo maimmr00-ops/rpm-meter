@@ -110,10 +110,7 @@ class MainActivity : Activity() {
             }
         }
         
-        val holdParams = LinearLayout.LayoutParams(
-            160, 
-            110  
-        ).apply {
+        val holdParams = LinearLayout.LayoutParams(160, 110).apply {
             setMargins(24, 0, 16, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -129,10 +126,7 @@ class MainActivity : Activity() {
                 finishAffinity()
             }
         }
-        val exitParams = LinearLayout.LayoutParams(
-            110,
-            110
-        ).apply {
+        val exitParams = LinearLayout.LayoutParams(110, 110).apply {
             setMargins(8, 0, 0, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -174,44 +168,6 @@ class MainActivity : Activity() {
 
         val tableLayout = TableLayout(this).apply {
             setPadding(0, 4, 0, 0)
-        }
-
-        fun addSettingRow(labelTxt: String, b1: Button, b2: Button, b3: Button) {
-            val row = TableRow(this).apply {
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 3, 0, 3)
-            }
-
-            val label = TextView(this).apply {
-                text = labelTxt
-                textSize = 12f
-                setTextColor(Color.parseColor("#B0BEC5"))
-                setPadding(0, 0, 8, 0)
-            }
-
-            val buttonsLayout = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-            }
-            
-            val params = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
-                setMargins(2, 0, 2, 0)
-            }
-
-            b1.layoutParams = params
-            b2.layoutParams = params
-            b3.layoutParams = params
-
-            buttonsLayout.addView(b1)
-            buttonsLayout.addView(b2)
-            buttonsLayout.addView(b3)
-
-            val wrapperParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
-            buttonsLayout.layoutParams = wrapperParams
-
-            row.addView(label)
-            row.addView(buttonsLayout)
-            tableLayout.addView(row)
         }
 
         btn2T = Button(this).apply { text = "2T"; setOnClickListener { setEngine(2) } }
@@ -261,9 +217,9 @@ class MainActivity : Activity() {
         engineRow.addView(engineButtonsLayout)
         tableLayout.addView(engineRow)
 
-        addSettingRow("лимит:", btnLimit1, btnLimit2, btnLimit3)
-        addSettingRow("обновление:", btnRateFast, btnRateNorm, btnRateSlow)
-        addSettingRow("плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
+        addSettingRowToTable(tableLayout, "лимит:", btnLimit1, btnLimit2, btnLimit3)
+        addSettingRowToTable(tableLayout, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
+        addSettingRowToTable(tableLayout, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
 
         layout.addView(tableLayout)
 
@@ -294,6 +250,44 @@ class MainActivity : Activity() {
         } else {
             startAudioThread()
         }
+    }
+
+    private fun addSettingRowToTable(table: TableLayout, labelTxt: String, b1: Button, b2: Button, b3: Button) {
+        val row = TableRow(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 3, 0, 3)
+        }
+
+        val label = TextView(this).apply {
+            text = labelTxt
+            textSize = 12f
+            setTextColor(Color.parseColor("#B0BEC5"))
+            setPadding(0, 0, 8, 0)
+        }
+
+        val buttonsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        
+        val params = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(2, 0, 2, 0)
+        }
+
+        b1.layoutParams = params
+        b2.layoutParams = params
+        b3.layoutParams = params
+
+        buttonsLayout.addView(b1)
+        buttonsLayout.addView(b2)
+        buttonsLayout.addView(b3)
+
+        val wrapperParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        buttonsLayout.layoutParams = wrapperParams
+
+        row.addView(label)
+        row.addView(buttonsLayout)
+        table.addView(row)
     }
 
     private fun verifyLicenseOrCrash() {
@@ -475,8 +469,8 @@ class MainActivity : Activity() {
                         correlation += (actualBuffer[i].toLong() * actualBuffer[i + lag].toLong())
                     }
                     if (correlation > maxCorrelation) {
-                       maxCorrelation = correlation
-                       bestLag = lag
+                        maxCorrelation = correlation
+                        bestLag = lag
                     }
                 }
 
@@ -529,4 +523,10 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            
+        }
+    }
+
+    override fun onDestroy() {
+        isRecording = false
+        super.onDestroy()
+  

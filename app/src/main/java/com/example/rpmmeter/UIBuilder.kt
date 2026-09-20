@@ -86,18 +86,21 @@ object UIBuilder {
             setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
 
-        // Рабочие коэффициенты плавности
+        // Четко разнесенные коэффициенты плавности:
+        // Sharp: быстрый отклик (почти без фильтра)
+        // Norm: средний баланс
+        // Soft: максимальное сглаживание для устранения дребезга цифр
         val btnSmoothSharp = Button(context).apply {
             text = "Sharp"
-            setOnClickListener { prefsManager.saveSmooth(0.35f, 0.5f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.6f, 0.8f); onRefreshUI() }
         }
         val btnSmoothNorm = Button(context).apply {
             text = "Norm"
-            setOnClickListener { prefsManager.saveSmooth(0.12f, 0.25f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.15f, 0.25f); onRefreshUI() }
         }
         val btnSmoothSoft = Button(context).apply {
             text = "Soft"
-            setOnClickListener { prefsManager.saveSmooth(0.04f, 0.1f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.03f, 0.06f); onRefreshUI() }
         }
 
         val btnX1 = Button(context).apply { text = "/1" }

@@ -203,10 +203,8 @@ class MainActivity : Activity() {
                         var dominantFreq = 0f
 
                         if (avgVolume > 100) {
-                            // Метод автокорреляции во временной области для поиска основной частоты мотора
-                            // Ищем задержку (lag) с максимальным сходством
-                            val minLag = sampleRate / 200  // Максимум 200 Гц (для высоких оборотов)
-                            val maxLag = sampleRate / 15   // Минимум 15 Гц (для низких оборотов)
+                            val minLag = sampleRate / 200
+                            val maxLag = sampleRate / 15
                             
                             var bestLag = -1
                             var maxCorrelation = 0L
@@ -237,7 +235,6 @@ class MainActivity : Activity() {
                             }
                         }
 
-                        // Плавное сглаживание показаний
                         if (rawRpm > 0) {
                             if (smoothedRpm == 0f) smoothedRpm = rawRpm.toFloat()
                             else smoothedRpm = smoothedRpm * 0.6f + rawRpm * 0.4f
@@ -269,7 +266,7 @@ class MainActivity : Activity() {
         }
     }
 
-    override onDestroy() {
+    override fun onDestroy() {
         super.onDestroy()
         isRecording = false
     }

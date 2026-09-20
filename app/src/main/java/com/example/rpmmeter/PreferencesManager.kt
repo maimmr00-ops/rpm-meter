@@ -22,7 +22,6 @@ class PreferencesManager(context: Context) {
         return prefs.contains("min_volume")
     }
 
-    // Порог громкости (по умолчанию 20 — первый квадрат)
     var minVolumeThreshold: Int
         get() = prefs.getInt("min_volume", 20)
         set(value) = prefs.edit().putInt("min_volume", value).apply()

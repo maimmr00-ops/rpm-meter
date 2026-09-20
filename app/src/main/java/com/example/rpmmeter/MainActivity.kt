@@ -304,6 +304,21 @@ class MainActivity : Activity() {
         table.addView(row)
     }
 
+    private fun getThresholdForSquare(index: Int): Int {
+        return when (index) {
+            0 -> 5000  // 1-й квадрат: максимальный порог (гасит всё тихое)
+            1 -> 4500
+            2 -> 4000
+            3 -> 3500
+            4 -> 3000
+            5 -> 2500
+            6 -> 2000
+            7 -> 1500
+            8 -> 1000
+            else -> 500 // 10-й квадрат: минимальный порог (считает весь звук)
+        }
+    }
+
     private fun addVolumeSquaresRow(table: TableLayout, labelText: String) {
         val row = TableRow(this)
         row.gravity = Gravity.CENTER_VERTICAL
@@ -321,10 +336,7 @@ class MainActivity : Activity() {
 
         for (i in 0 until 10) {
             val squareBtn = Button(this)
-            // ИНВЕРСИЯ: 
-            // i = 0 (1-й квадрат) -> порог 5000 (почти ничего не считает, жесткий фильтр)
-            // i = 9 (10-й квадрат) -> порог 500 (считает весь звук на полную)
-            val thresholdValue = (10 - i) * 500
+            val thresholdValue = getThresholdForSquare(i)
             
             squareBtn.text = ""
             squareBtn.textSize = 10f
@@ -390,17 +402,17 @@ class MainActivity : Activity() {
         btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(btnSmoothSharp, btnSmoothNorm, btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // Инвертированная подсветка квадратиков (чтобы горело от левого до выбранного уровня)
+        // Подсветка квадратиков громкости (подсвечиваем от 1-го до выбранного уровня жесткости)
         val currentThresh = prefsManager.minVolumeThreshold
-        // Вычисляем, сколько квадратиков должно гореть (от 1 до 10)
-        val activeCount = ((10 - (currentThresh / 500))).coerceIn(1, 10)
-        
         for (i in 0 until 10) {
             val btn = volumeStepButtons[i] ?: continue
-            if (i < activeCount) {
-                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Активные (бирюзовые)
+            val tVal = getThresholdForSquare(i)
+            
+            // Если текущий порог выше или равен порогу этого квадрата — считаем его активным в зоне фильтрации
+            if (currentThresh >= tVal) {
+                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Бирюзовый (активен)
             } else {
-                btn.setBackgroundColor(Color.parseColor("#37474F")) // Неактивные (темные)
+                btn.setBackgroundColor(Color.parseColor("#37474F")) // Темный
             }
         }
     }

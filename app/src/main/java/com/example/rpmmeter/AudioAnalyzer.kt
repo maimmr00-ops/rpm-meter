@@ -117,38 +117,39 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. ЖЕСТКИЕ КАДРЫ ПЛАВНОСТИ (Sharp = 1, Norm = 2, Soft = 3)
+                // 4. ЖЕСТКОЕ УПРАВЛЕНИЕ КАДРАМИ ПЛАВНОСТИ
                 val smoothPreset = prefsManager.smoothPreset
 
                 when (smoothPreset) {
                     0 -> {
-                        // SHARP: 1 кадр (мгновенный сброс)
+                        // SHARP: Ровно 1 кадр (абсолютный ноль задержек, сырое значение)
                         smoothedRpm = calculatedRpm
                         decayCounter = 0
                     }
                     1 -> {
-                        // NORM: Ровно 2 кадра на сброс / изменение
+                        // NORM: Строго 2 кадра
                         if (calculatedRpm >= smoothedRpm) {
-                            smoothedRpm = smoothedRpm + 0.8f * (calculatedRpm - smoothedRpm)
+                            smoothedRpm = calculatedRpm // Рост моментальный
                             decayCounter = 0
                         } else {
-                            val diff = smoothedRpm - calculatedRpm
-                            smoothedRpm -= (diff / 2.0f).coerceAtLeast(1.0f)
-                            if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
+                            // Падение ровно за 2 шага
+                            smoothedRpm -= (smoothedRpm - calculatedRpm) / 2.0f
+                            if (smoothedRpm < calculatedRpm + 10f) smoothedRpm = calculatedRpm
                         }
                     }
                     else -> {
-                        // SOFT: Ровно 3 кадра на сброс / изменение
+                        // SOFT: Строго 3 кадра
                         if (calculatedRpm >= smoothedRpm) {
-                            smoothedRpm = smoothedRpm + 0.6f * (calculatedRpm - smoothedRpm)
+                            smoothedRpm = calculatedRpm
                             decayCounter = 0
                         } else {
-                            val diff = smoothedRpm - calculatedRpm
-                            smoothedRpm -= (diff / 3.0f).coerceAtLeast(1.0f)
-                            if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
+                            // Падение ровно за 3 шага
+                            smoothedRpm -= (smoothedRpm - calculatedRpm) / 3.0f
+                            if (smoothedRpm < calculatedRpm + 10f) smoothedRpm = calculatedRpm
                         }
                     }
                 }
+
 
                 onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Работа мотора")
             }

@@ -18,6 +18,7 @@ class AudioAnalyzer(
     private var smoothedRpm = 0f
     private var smoothedVolume = 0f
     private var decayCounter = 0
+    private var lastValidLag = -1 // Память последнего успешного лага для стабильности 2T
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -87,6 +88,7 @@ class AudioAnalyzer(
                 if (currentVolInt < minThreshold) {
                     smoothedRpm *= 0.3f
                     if (smoothedRpm < 100f) smoothedRpm = 0f
+                    lastValidLag = -1 // Сбрасываем память лага при тишине
                     onUpdate(smoothedRpm.toInt(), 0f, smoothedRpm, currentVolInt, "Тишина / Ниже порога")
                     continue
                 }
@@ -101,6 +103,7 @@ class AudioAnalyzer(
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
                     smoothedRpm *= 0.3f
+                    lastValidLag = -1
                     onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Поиск сигнала...")
                     continue
                 }
@@ -117,46 +120,42 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. ИНДИВИДУАЛЬНЫЙ АЛГОРИТМ ДЛЯ КАЖДОЙ КНОПКИ ПЛАВНОСТИ
+                // 4. ИНДИВИДУАЛЬНЫЙ АЛГОРИТМ ПЛАВНОСТИ (Sharp = 1, Norm = 2, Soft = 3)
                 val smoothPreset = prefsManager.smoothPreset
 
                 when (smoothPreset) {
                     0 -> {
-                        // --- SHARP: Чистый «сырой» сигнал (1 кадр) ---
-                        // Никакого сглаживания, максимальная отзывчивость
+                        // --- SHARP: 1 кадр (мгновенный отклик) ---
                         smoothedRpm = calculatedRpm
                         decayCounter = 0
                     }
                     1 -> {
-                        // --- NORM: Сбалансированный режим (строго 2 кадра на спад) ---
+                        // --- NORM: Ровно 2 кадра на спад ---
                         if (calculatedRpm >= smoothedRpm) {
-                            // Вверх идем сразу
                             smoothedRpm = calculatedRpm
                             decayCounter = 0
                         } else {
-                            // Вниз — делим оставшуюся дистанцию ровно пополам за 2 кадра
-                            smoothedRpm -= (smoothedRpm - calculatedRpm) / 2.0f
-                            if (smoothedRpm < calculatedRpm + 5f) smoothedRpm = calculatedRpm
+                            val diff = smoothedRpm - calculatedRpm
+                            smoothedRpm -= (diff / 2.0f).coerceAtLeast(1.0f)
+                            if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
                         }
                     }
                     else -> {
-                        // --- SOFT: Мягкий режим с микро-удержанием (строго 3 кадра) ---
+                        // --- SOFT: Ровно 3 кадра с микро-удержанием ---
                         if (calculatedRpm >= smoothedRpm) {
-                            smoothedRpm = smoothedRpm + 0.8f * (calculatedRpm - smoothedRpm)
-                            decayCounter = 1 // Небольшое удержание на 1 такт при смене тренда
+                            smoothedRpm = smoothedRpm + 0.6f * (calculatedRpm - smoothedRpm)
+                            decayCounter = 1 
                         } else {
                             if (decayCounter > 0) {
-                                decayCounter-- // Стоим на месте 1 кадр, чтобы сгладить пик
+                                decayCounter-- 
                             } else {
-                                // Падаем ровно за 3 шага
-                                smoothedRpm -= (smoothedRpm - calculatedRpm) / 3.0f
-                                if (smoothedRpm < calculatedRpm + 5f) smoothedRpm = calculatedRpm
+                                val diff = smoothedRpm - calculatedRpm
+                                smoothedRpm -= (diff / 3.0f).coerceAtLeast(1.0f)
+                                if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
                             }
                         }
                     }
                 }
-
-
 
                 onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Работа мотора")
             }
@@ -181,15 +180,29 @@ class AudioAnalyzer(
     }
 
     private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val minLag = sampleRate / 300
-        val maxLag = sampleRate / 20
+        val absoluteMinLag = sampleRate / 300 // Максимум 300 Гц (~18000 RPM)
+        val absoluteMaxLag = sampleRate / 20  // Минимум 20 Гц (~1200 RPM)
 
-        if (size <= maxLag) return 0f
+        if (size <= absoluteMaxLag) return 0f
+
+        // Узкий скользящий коридор вокруг предыдущего успешного значения (±35%)
+        // Это полностью блокирует скачки автокорреляции по ложным гармоникам при сбросе газа
+        val minLag: Int
+        val maxLag: Int
+
+        if (lastValidLag > 0) {
+            minLag = (lastValidLag * 0.65f).toInt().coerceAtLeast(absoluteMinLag)
+            maxLag = (lastValidLag * 1.35f).toInt().coerceAtMost(absoluteMaxLag)
+        } else {
+            minLag = absoluteMinLag
+            maxLag = absoluteMaxLag
+        }
 
         var bestLag = -1
         var maxCorrelation = -1.0
 
-        for (lag in minLag..maxLag step 2) {
+        // Первый проход: ищем внутри узкого защитного коридора
+        for (lag in minLag..maxLag step 1) {
             var correlation = 0.0
             val limit = size - lag
             for (i in 0 until limit step 4) {
@@ -201,7 +214,29 @@ class AudioAnalyzer(
             }
         }
 
-        if (bestLag <= 0) return 0f
+        // Если в узком коридоре сигнал потерялся, делаем один полный поиск для подстраховки
+        if (bestLag <= 0 && lastValidLag > 0) {
+            bestLag = -1
+            maxCorrelation = -1.0
+            for (lag in absoluteMinLag..absoluteMaxLag step 2) {
+                var correlation = 0.0
+                val limit = size - lag
+                for (i in 0 until limit step 4) {
+                    correlation += (buffer[i].toDouble() * buffer[i + lag].toDouble())
+                }
+                if (correlation > maxCorrelation) {
+                    maxCorrelation = correlation
+                    bestLag = lag
+                }
+            }
+        }
+
+        if (bestLag <= 0) {
+            lastValidLag = -1
+            return 0f
+        }
+
+        lastValidLag = bestLag
         return sampleRate.toFloat() / bestLag.toFloat()
     }
 

@@ -1,16 +1,34 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:background="#121212">
+package com.example.rpmmeter
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="RPM Meter: Готов к работе"
-        android:textSize="22sp"
-        android:textColor="#FFFFFF" />
+import android.app.Activity
+import android.graphics.Color
+import android.os.Bundle
+import android.view.Window
+import android.widget.LinearLayout
+import android.widget.TextView
 
-</LinearLayout>
+class MainActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Отключаем верхнюю системную панель ( ActionBar ), чтобы не было конфликтов тем
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        // Создаем контейнер с темным фоном
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#1E1E1E")) // Темно-серый фон
+            setPadding(50, 50, 50, 50)
+        }
+
+        // Текст статуса
+        val titleText = TextView(this).apply {
+            text = "RPM Meter: Запуск успешен!"
+            textSize = 24f
+            setTextColor(Color.WHITE)
+        }
+
+        layout.addView(titleText)
+        setContentView(layout)
+    }
+}

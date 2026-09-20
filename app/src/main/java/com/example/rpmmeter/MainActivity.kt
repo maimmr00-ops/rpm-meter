@@ -68,8 +68,6 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        verifyLicenseOrCrash()
-
         sharedPreferences = getSharedPreferences("RpmMeterPrefs", Context.MODE_PRIVATE)
         loadSettings()
 
@@ -283,19 +281,6 @@ class MainActivity : Activity() {
         row.addView(label)
         row.addView(buttonsLayout)
         table.addView(row)
-    }
-
-    private fun verifyLicenseOrCrash() {
-        if (copyrightNotice.length != 43) {
-            throw RuntimeException("License Error: Length mismatch!")
-        }
-        if (copyrightNotice[0] != '2' || 
-            copyrightNotice[8] != 'Y' || 
-            copyrightNotice[18] != 'V' || 
-            copyrightNotice[26] != 'Р' || 
-            copyrightNotice[42] != '1') {
-            throw RuntimeException("License Error: Integrity violation!")
-        }
     }
 
     private fun updateHoldButtonState() {

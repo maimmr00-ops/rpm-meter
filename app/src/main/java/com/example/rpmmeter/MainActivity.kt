@@ -25,6 +25,8 @@ class MainActivity : Activity() {
     private lateinit var rpmTextView: TextView
     private lateinit var btnHold: Button
     private lateinit var btnExit: Button
+    private lateinit var btnMultiplierSide: Button // Новая кнопка множителя сбоку
+    private lateinit var btnEngineSide: Button   // Кнопка режима мотора с другого бока
     
     private var currentMultiplier = 1
 
@@ -56,35 +58,13 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
+        // 1. Верхняя панель (EXIT, Крупные цифры RPM, HOLD)
         rootLayout.addView(buildTopPanel())
 
-        statusLine1 = TextView(this).apply {
-            text = "Ожидание запуска двигателя (тихо)"
-            textSize = 12f
-            setTextColor(Color.YELLOW)
-            gravity = Gravity.CENTER
-            setPadding(0, 2, 0, 1)
-        }
-        rootLayout.addView(statusLine1)
+        // 2. Информационный блок с боковыми кнопками (Множитель слева, текст по центру, Мотор справа)
+        rootLayout.addView(buildInfoPanelWithSides())
 
-        statusLine2 = TextView(this).apply {
-            text = "Громк: 0 | Пор: 20"
-            textSize = 12f
-            setTextColor(Color.parseColor("#80CBC4"))
-            gravity = Gravity.CENTER
-            setPadding(0, 1, 0, 1)
-        }
-        rootLayout.addView(statusLine2)
-
-        statusLine3 = TextView(this).apply {
-            text = "Pre-Freq: 0 Гц | 2T: 0 Гц"
-            textSize = 12f
-            setTextColor(Color.parseColor("#B0BEC5"))
-            gravity = Gravity.CENTER
-            setPadding(0, 1, 0, 4)
-        }
-        rootLayout.addView(statusLine3)
-
+        // 3. Таблица настроек (теперь без строки x1-x4)
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -99,7 +79,7 @@ class MainActivity : Activity() {
         rootLayout.addView(settings.table)
 
         val copyright = TextView(this).apply {
-            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.1"
+            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
             textSize = 12f
             setTextColor(Color.parseColor("#9E9E9E"))
             gravity = Gravity.CENTER
@@ -132,11 +112,11 @@ class MainActivity : Activity() {
                     }
                     
                     if (isHoldActive) {
-                        statusLine1.text = "HOLD. Текущие: $currentRealRpm об/мин ($modeLabel x$currentMultiplier)"
+                        statusLine1.text = "HOLD. Текущие: $currentRealRpm об/мин"
                         statusLine1.setTextColor(Color.parseColor("#FF9800"))
                     } else {
                         if (vol < currentThreshold) {
-                            statusLine1.text = "Ожидание запуска двигателя (тихо)"
+                            statusLine1.text = "Ожидание запуска (тихо)"
                             statusLine1.setTextColor(Color.YELLOW)
                         } else {
                             statusLine1.text = "Работа мотора"
@@ -145,7 +125,7 @@ class MainActivity : Activity() {
                     }
 
                     statusLine2.text = "Громк: $vol | Пор: $currentThreshold"
-                    statusLine3.text = "Pre-Freq: ${rawFreq.roundToInt()} Гц | $modeLabel (x$currentMultiplier): ${filteredFreq.roundToInt()} Гц"
+                    statusLine3.text = "Pre: ${rawFreq.roundToInt()}Гц | $modeLabel: ${filteredFreq.roundToInt()}Гц"
 
                     updateRpmDisplay(displayVal)
                     updateVolumeSquaresUI(vol)
@@ -176,19 +156,18 @@ class MainActivity : Activity() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, 2)
+            setPadding(0, 0, 0, 4)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        // Левая колонка (EXIT) на всю высоту блока
+        // Левая кнопка EXIT
         val leftCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            // Фиксируем высоту под крупный размер цифр
-            layoutParams = LinearLayout.LayoutParams(0, 88, 0.22f)
+            gravity = Gravity.FILL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
         }
 
         btnExit = Button(this).apply {
@@ -205,7 +184,7 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок с RPM (увеличили размер шрифта до 76sp)
+        // Центральный блок с крупными цифрами RPM
         val rpmBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -214,7 +193,7 @@ class MainActivity : Activity() {
 
         rpmTextView = TextView(this).apply {
             text = "00000"
-            textSize = 76f // Увеличенный размер цифр
+            textSize = 82f // Еще крупнее, так как освободилось место сверху!
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -234,11 +213,11 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правая колонка (HOLD) на всю высоту блока
+        // Правая кнопка HOLD
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, 88, 0.22f)
+            gravity = Gravity.FILL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
         }
 
         btnHold = Button(this).apply {
@@ -256,6 +235,93 @@ class MainActivity : Activity() {
         }
         rightCol.addView(btnHold)
         container.addView(rightCol)
+
+        return container
+    }
+
+    private fun buildInfoPanelWithSides(): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 4, 0, 8)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        // Левая боковая кнопка: быстрый переключатель множителя (x1 -> x2 -> x3 -> x4 -> x1)
+        btnMultiplierSide = Button(this).apply {
+            text = "x1"
+            textSize = 13f
+            setOnClickListener {
+                currentMultiplier = when (currentMultiplier) {
+                    1 -> 2
+                    2 -> 3
+                    3 -> 4
+                    else -> 1
+                }
+                refreshAllUI()
+            }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.20f)
+        }
+        container.addView(btnMultiplierSide)
+
+        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
+
+        // Центральная колонка с текстовыми статусами
+        val centerTextCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.58f)
+        }
+
+        statusLine1 = TextView(this).apply {
+            text = "Ожидание запуска"
+            textSize = 12f
+            setTextColor(Color.YELLOW)
+            gravity = Gravity.CENTER
+            setPadding(0, 1, 0, 1)
+        }
+        centerTextCol.addView(statusLine1)
+
+        statusLine2 = TextView(this).apply {
+            text = "Громк: 0 | Пор: 20"
+            textSize = 11f
+            setTextColor(Color.parseColor("#80CBC4"))
+            gravity = Gravity.CENTER
+            setPadding(0, 1, 0, 1)
+        }
+        centerTextCol.addView(statusLine2)
+
+        statusLine3 = TextView(this).apply {
+            text = "Pre: 0 Гц | 2T: 0 Гц"
+            textSize = 11f
+            setTextColor(Color.parseColor("#B0BEC5"))
+            gravity = Gravity.CENTER
+            setPadding(0, 1, 0, 1)
+        }
+        centerTextCol.addView(statusLine3)
+
+        container.addView(centerTextCol)
+
+        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
+
+        // Правая боковая кнопка: быстрый переключатель режима двигателя (2T / 4T / Озеро)
+        btnEngineSide = Button(this).apply {
+            text = "2T"
+            textSize = 13f
+            setOnClickListener {
+                prefsManager.engineType = when (prefsManager.engineType) {
+                    2 -> 4
+                    4 -> 3
+                    else -> 2
+                }
+                refreshAllUI()
+            }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.20f)
+        }
+        container.addView(btnEngineSide)
 
         return container
     }
@@ -315,6 +381,22 @@ class MainActivity : Activity() {
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 
+        // Обновляем текст и цвет левой боковой кнопки множителя
+        btnMultiplierSide.text = "x$currentMultiplier"
+        btnMultiplierSide.setBackgroundColor(Color.parseColor("#00E676"))
+        btnMultiplierSide.setTextColor(Color.BLACK)
+
+        // Обновляем правую боковую кнопку двигателя
+        val eType = prefsManager.engineType
+        btnEngineSide.text = when(eType) {
+            2 -> "2T"
+            4 -> "4T"
+            else -> "Озеро"
+        }
+        btnEngineSide.setBackgroundColor(Color.parseColor("#0288D1"))
+        btnEngineSide.setTextColor(Color.WHITE)
+
+        // Синхронизация внутри таблицы настроек (если пользователь нажимает в таблице)
         settings.btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
         settings.btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
@@ -324,7 +406,6 @@ class MainActivity : Activity() {
         settings.btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
 
-        val eType = prefsManager.engineType
         settings.btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btn2T.setTextColor(if (eType == 2) Color.BLACK else Color.WHITE)
         settings.btn4T.setBackgroundColor(if (eType == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))

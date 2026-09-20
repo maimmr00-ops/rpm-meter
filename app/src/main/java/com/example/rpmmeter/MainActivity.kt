@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
@@ -122,7 +123,6 @@ class MainActivity : Activity() {
                     if (isHoldActive) {
                         statusText.text = "Удержание (HOLD)"
                     } else {
-                        // Если анализатор присылает сообщение о тишине или ожидании, подменяем на требуемый текст
                         statusText.text = if (status.contains("Тишина") || status.contains("порог") || status.contains("Ожидание") || status.isEmpty()) {
                             "Ожидание запуска двигателя (тихо)"
                         } else {
@@ -427,7 +427,6 @@ class MainActivity : Activity() {
             val btn = volumeStepButtons[i] ?: continue
             val tVal = getThresholdForSquare(i)
             
-            // Гарантированно ставим плашку на 1-й квадрат (индекс 0), если в памяти еще ничего нет
             val isSelectedThreshold = if (!prefsManager.hasStoredThreshold()) {
                 i == 0
             } else {
@@ -438,13 +437,13 @@ class MainActivity : Activity() {
 
             when {
                 isSelectedThreshold && isReachedByVolume -> {
-                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (плашка совпала с дошедшей громкостью)
+                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый
                 }
                 isSelectedThreshold -> {
-                    btn.setBackgroundColor(Color.parseColor("#FF9800")) // Оранжевый (плашка порога, громкость еще не дошла)
+                    btn.setBackgroundColor(Color.parseColor("#FF9800")) // Оранжевый (плашка порога)
                 }
                 isReachedByVolume -> {
-                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (громкость дошла до этого квадрата)
+                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (громкость дошла)
                 }
                 else -> {
                     btn.setBackgroundColor(Color.parseColor("#00BCD4")) // Светло-голубой (неактивный фон шкалы)

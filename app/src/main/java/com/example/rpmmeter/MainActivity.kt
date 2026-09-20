@@ -16,6 +16,7 @@ import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.concurrent.thread
+import kotlin.math.abs
 
 class MainActivity : Activity() {
 
@@ -24,9 +25,14 @@ class MainActivity : Activity() {
     private lateinit var debugText: TextView
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
+    private lateinit var btnLimit1: Button
+    private lateinit var btnLimit2: Button
+    private lateinit var btnLimit3: Button
 
     private var isRecording = false
     private var engineType = 2
+    private var maxAllowedRpm = 12000
+
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,50 +42,85 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#121212"))
-            setPadding(40, 40, 40, 40)
+            setPadding(30, 30, 30, 30)
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        val switchLayout = LinearLayout(this).apply {
+        // Переключатели режима двигателя (2T / 4T)
+        val engineBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, 20, 0, 30)
+            setPadding(0, 10, 0, 15)
         }
 
         btn2T = Button(this).apply {
             text = "Режим 2T"
-            setOnClickListener { engineType = 2; updateButtonsStyle() }
+            setOnClickListener { engineType = 2; updateEngineButtons() }
         }
-
         btn4T = Button(this).apply {
             text = "Режим 4T"
-            setOnClickListener { engineType = 4; updateButtonsStyle() }
+            setOnClickListener { engineType = 4; updateEngineButtons() }
+        }
+        engineBar.addView(btn2T)
+        engineBar.addView(btn4T)
+        layout.addView(engineBar)
+
+        // Кнопки выбора лимита / фильтра оборотов
+        val limitBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 20)
         }
 
-        switchLayout.addView(btn2T)
-        switchLayout.addView(btn4T)
-        layout.addView(switchLayout)
+        btnLimit1 = Button(this).apply {
+            text = "До 6k"
+            setOnClickListener { maxAllowedRpm = 6000; updateLimitButtons() }
+        }
+        btnLimit2 = Button(this).apply {
+            text = "До 12k"
+            setOnClickListener { maxAllowedRpm = 12000; updateLimitButtons() }
+        }
+        btnLimit3 = Button(this).apply {
+            text = "До 20k"
+            setOnClickListener { maxAllowedRpm = 20000; updateLimitButtons() }
+        }
+        limitBar.addView(btnLimit1)
+        limitBar.addView(btnLimit2)
+        limitBar.addView(btnLimit3)
+        layout.addView(limitBar)
 
+        // Крупные цифры оборотов
         rpmText = TextView(this).apply {
-            text = "0 RPM"
-            textSize = 48f
+            text = "0 000"
+            textSize = 68f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
-            setPadding(0, 20, 0, 20)
+            setPadding(0, 20, 0, 0)
         }
         layout.addView(rpmText)
 
+        val labelRpmText = TextView(this).apply {
+            text = "RPM"
+            textSize = 18f
+            setTextColor(Color.parseColor("#80CBC4"))
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 30)
+        }
+        layout.addView(labelRpmText)
+
+        // Статус
         statusText = TextView(this).apply {
             text = "Ожидание запуска мотора..."
-            textSize = 16f
+            textSize = 15f
             setTextColor(Color.LTGRAY)
             gravity = Gravity.CENTER
         }
         layout.addView(statusText)
 
+        // Отладка
         debugText = TextView(this).apply {
             text = "Громкость: 0 | Частота: 0 Гц"
-            textSize = 14f
+            textSize = 13f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
             setPadding(0, 20, 0, 0)
@@ -87,7 +128,8 @@ class MainActivity : Activity() {
         layout.addView(debugText)
 
         setContentView(layout)
-        updateButtonsStyle()
+        updateEngineButtons()
+        updateLimitButtons()
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
@@ -101,7 +143,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun updateButtonsStyle() {
+    private fun updateEngineButtons() {
         if (engineType == 2) {
             btn2T.setBackgroundColor(Color.parseColor("#00E676")); btn2T.setTextColor(Color.BLACK)
             btn4T.setBackgroundColor(Color.parseColor("#424242")); btn4T.setTextColor(Color.WHITE)
@@ -109,6 +151,15 @@ class MainActivity : Activity() {
             btn4T.setBackgroundColor(Color.parseColor("#00E676")); btn4T.setTextColor(Color.BLACK)
             btn2T.setBackgroundColor(Color.parseColor("#424242")); btn2T.setTextColor(Color.WHITE)
         }
+    }
+
+    private fun updateLimitButtons() {
+        btnLimit1.setBackgroundColor(if (maxAllowedRpm == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+        btnLimit2.setBackgroundColor(if (maxAllowedRpm == 12000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+        btnLimit3.setBackgroundColor(if (maxAllowedRpm == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+        btnLimit1.setTextColor(Color.WHITE)
+        btnLimit2.setTextColor(Color.WHITE)
+        btnLimit3.setTextColor(Color.WHITE)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -137,8 +188,6 @@ class MainActivity : Activity() {
 
                 val buffer = ShortArray(bufferSize)
                 audioRecord.startRecording()
-
-                // Переменная для сглаживания показаний (фильтр скользящего среднего)
                 var smoothedRpm = 0f
 
                 while (isRecording) {
@@ -146,69 +195,71 @@ class MainActivity : Activity() {
                     if (readSize > 0) {
                         var volume = 0L
                         for (i in 0 until readSize) {
-                            volume += kotlin.math.abs(buffer[i].toLong())
+                            volume += abs(buffer[i].toLong())
                         }
                         val avgVolume = (volume / readSize).toInt()
 
                         var rawRpm = 0
-                        var frequency = 0f
+                        var dominantFreq = 0f
 
-                        // Порог громкости поднят, чтобы отсечь фоновый шум комнаты
-                        if (avgVolume > 150) {
-                            // Простейший фильтр нижних частот (сглаживаем высокие гармоники)
-                            val filtered = ShortArray(readSize)
-                            filtered[0] = buffer[0]
-                            for (i in 1 until readSize) {
-                                // alpha = 0.5 (простейшее RC-звено)
-                                filtered[i] = ((filtered[i - 1] + buffer[i]) / 2).toShort()
-                            }
+                        if (avgVolume > 100) {
+                            // Метод автокорреляции во временной области для поиска основной частоты мотора
+                            // Ищем задержку (lag) с максимальным сходством
+                            val minLag = sampleRate / 200  // Максимум 200 Гц (для высоких оборотов)
+                            val maxLag = sampleRate / 15   // Минимум 15 Гц (для низких оборотов)
+                            
+                            var bestLag = -1
+                            var maxCorrelation = 0L
 
-                            // Считаем переходы через ноль по отфильтрованному сигналу
-                            var crossings = 0
-                            for (i in 0 until readSize - 1) {
-                                if ((filtered[i] >= 0 && filtered[i + 1] < 0) || (filtered[i] < 0 && filtered[i + 1] >= 0)) {
-                                    crossings++
+                            for (lag in minLag..maxLag) {
+                                var correlation = 0L
+                                val limit = readSize - lag
+                                for (i in 0 until limit) {
+                                    correlation += (buffer[i].toLong() * buffer[i + lag].toLong())
+                                }
+                                if (correlation > maxCorrelation) {
+                                    maxCorrelation = correlation
+                                    bestLag = lag
                                 }
                             }
 
-                            val durationSeconds = readSize.toFloat() / sampleRate
-                            frequency = (crossings / 2.0f) / durationSeconds
+                            if (bestLag > 0) {
+                                dominantFreq = sampleRate.toFloat() / bestLag
+                                val calculatedRpm = if (engineType == 2) {
+                                    (dominantFreq * 60).toInt()
+                                } else {
+                                    (dominantFreq * 120).toInt()
+                                }
 
-                            val calculatedRpm = if (engineType == 2) {
-                                (frequency * 60).toInt()
-                            } else {
-                                (frequency * 120).toInt()
-                            }
-
-                            // Жесткие рамки для моторов: от 800 до 12000 RPM
-                            if (calculatedRpm in 800..12000) {
-                                rawRpm = calculatedRpm
+                                if (calculatedRpm in 500..maxAllowedRpm) {
+                                    rawRpm = calculatedRpm
+                                }
                             }
                         }
 
-                        // Плавное обновление, чтобы цифры не дергались
+                        // Плавное сглаживание показаний
                         if (rawRpm > 0) {
                             if (smoothedRpm == 0f) smoothedRpm = rawRpm.toFloat()
-                            else smoothedRpm = smoothedRpm * 0.7f + rawRpm * 0.3f
+                            else smoothedRpm = smoothedRpm * 0.6f + rawRpm * 0.4f
                         } else {
-                            smoothedRpm = smoothedRpm * 0.9f // Плавное затухание к нулю при прекращении звука
-                            if (smoothedRpm < 500) smoothedRpm = 0f
+                            smoothedRpm = smoothedRpm * 0.85f
+                            if (smoothedRpm < 400) smoothedRpm = 0f
                         }
 
                         val finalRpm = smoothedRpm.toInt()
 
                         runOnUiThread {
-                            debugText.text = "Громкость: $avgVolume | Частота: ${frequency.toInt()} Гц"
+                            debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
                             if (finalRpm > 0) {
-                                rpmText.text = "$finalRpm RPM"
+                                rpmText.text = String.format("%,d", finalRpm).replace(',', ' ')
                                 statusText.text = "Работает (${engineType}T)"
                             } else {
-                                rpmText.text = "0 RPM"
-                                statusText.text = if (avgVolume > 150) "Анализ звука..." else "Ожидание запуска мотора..."
+                                rpmText.text = "0 000"
+                                statusText.text = if (avgVolume > 100) "Анализ тона..." else "Ожидание запуска мотора..."
                             }
                         }
                     }
-                    Thread.sleep(50)
+                    Thread.sleep(40)
                 }
                 audioRecord.stop()
                 audioRecord.release()
@@ -218,7 +269,7 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onDestroy() {
+    override onDestroy() {
         super.onDestroy()
         isRecording = false
     }

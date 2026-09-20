@@ -11,18 +11,35 @@ import android.widget.TextView
 
 object UIBuilder {
 
+    data class SettingsButtons(
+        val table: TableLayout,
+        val btn2T: Button,
+        val btn4T: Button,
+        val btnOthers: Button,
+        val btnLimit1: Button,
+        val btnLimit2: Button,
+        val btnLimit3: Button,
+        val btnRateFast: Button,
+        val btnRateNorm: Button,
+        val btnRateSlow: Button,
+        val btnSmoothSharp: Button,
+        val btnSmoothNorm: Button,
+        val btnSmoothSoft: Button
+    )
+
     fun buildSettingsTable(
         context: Context,
         prefsManager: PreferencesManager,
         onRefreshUI: () -> Unit,
         volumeStepButtons: Array<Button?>
-    ): TableLayout {
-        val table = TableLayout(context)
-        table.setPadding(0, 2, 0, 0)
-        table.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+    ): SettingsButtons {
+        val table = TableLayout(context).apply {
+            setPadding(0, 2, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
 
         val btn2T = Button(context).apply {
             text = "2T"
@@ -82,13 +99,19 @@ object UIBuilder {
         addRow(context, table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
         addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
 
-        return table
+        return SettingsButtons(
+            table, btn2T, btn4T, btnOthers,
+            btnLimit1, btnLimit2, btnLimit3,
+            btnRateFast, btnRateNorm, btnRateSlow,
+            btnSmoothSharp, btnSmoothNorm, btnSmoothSoft
+        )
     }
 
     private fun addRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button) {
-        val row = TableRow(context)
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.setPadding(0, 2, 0, 2)
+        val row = TableRow(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 2, 0, 2)
+        }
 
         val label = TextView(context).apply {
             text = labelText
@@ -127,9 +150,10 @@ object UIBuilder {
         prefsManager: PreferencesManager,
         onRefreshUI: () -> Unit
     ) {
-        val row = TableRow(context)
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.setPadding(0, 2, 0, 2)
+        val row = TableRow(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 2, 0, 2)
+        }
 
         val label = TextView(context).apply {
             text = labelText
@@ -144,18 +168,17 @@ object UIBuilder {
         }
 
         for (i in 0 until 10) {
+            val thresholdValue = getThresholdForSquare(i)
             val squareBtn = Button(context).apply {
                 text = ""
                 textSize = 10f
                 setPadding(0, 0, 0, 0)
                 minWidth = 0
                 minimumWidth = 0
-            }
-            
-            val thresholdValue = getThresholdForSquare(i)
-            squareBtn.setOnClickListener {
-                prefsManager.minVolumeThreshold = thresholdValue
-                onRefreshUI()
+                setOnClickListener {
+                    prefsManager.minVolumeThreshold = thresholdValue
+                    onRefreshUI()
+                }
             }
 
             val p = LinearLayout.LayoutParams(0, 42, 1f).apply {
@@ -167,8 +190,7 @@ object UIBuilder {
             squaresLayout.addView(squareBtn)
         }
 
-        val rowParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
-        squaresLayout.layoutParams = rowParams
+        squaresLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
 
         row.addView(label)
         row.addView(squaresLayout)

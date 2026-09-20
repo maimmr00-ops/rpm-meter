@@ -423,30 +423,51 @@ class MainActivity : Activity() {
     private fun updateVolumeSquaresUI(currentVol: Int) {
         val currentSensitivityThreshold = prefsManager.minVolumeThreshold
         
+        // Определяем индекс квадрата плашки порога (если в памяти пусто, по умолчанию 1-й квадрат)
+        var thresholdIndex = 0
+        if (prefsManager.hasStoredThreshold()) {
+            for (i in 0 until 10) {
+                if (getThresholdForSquare(i) == currentSensitivityThreshold) {
+                    thresholdIndex = i
+                    break
+                }
+            }
+        }
+        
+        // Определяем, до какого квадрата дошла текущая громкость
+        var volumeIndex = -1
+        if (currentVol > 0) {
+            for (i in 9 downTo 0) {
+                if (currentVol >= getThresholdForSquare(i)) {
+                    volumeIndex = i
+                    break
+                }
+            }
+        }
+
         for (i in 0 until 10) {
             val btn = volumeStepButtons[i] ?: continue
-            val tVal = getThresholdForSquare(i)
             
-            val isSelectedThreshold = if (!prefsManager.hasStoredThreshold()) {
-                i == 0
-            } else {
-                (currentSensitivityThreshold == tVal)
-            }
-            
-            val isReachedByVolume = (currentVol > 0 && currentVol >= tVal)
-
             when {
-                isSelectedThreshold && isReachedByVolume -> {
-                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый
+                // 1. Квадрат совпадает с плашкой, и громкость ДОШЛА до него -> Ярко-зеленый
+                i == thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#00E676"))
                 }
-                isSelectedThreshold -> {
-                    btn.setBackgroundColor(Color.parseColor("#FF9800")) // Оранжевый (плашка порога)
+                // 2. Это квадрат плашки, но громкость до него ЕЩЕ НЕ ДОШЛА -> Оранжевый
+                i == thresholdIndex -> {
+                    btn.setBackgroundColor(Color.parseColor("#FF9800"))
                 }
-                isReachedByVolume -> {
-                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (громкость дошла)
+                // 3. Квадрат ниже плашки и громкость до него дошла -> Светло-голубой
+                i < thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#00BCD4"))
                 }
+                // 4. Квадрат ВЫШЕ плашки, и громкость до него дошла (пересекла порог) -> Белый с легким зелёным отливом
+                i > thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#D0F8E8"))
+                }
+                // 5. Тихо / выше текущей громкости -> Тёмный фоновый квадрат
                 else -> {
-                    btn.setBackgroundColor(Color.parseColor("#00BCD4")) // Светло-голубой (неактивный фон шкалы)
+                    btn.setBackgroundColor(Color.parseColor("#37474F"))
                 }
             }
         }

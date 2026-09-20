@@ -1,0 +1,192 @@
+package com.example.rpmmeter
+
+import android.content.Context
+import android.graphics.Color
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TableLayout
+import android.widget.TableRow
+import android.widget.TextView
+
+object UIBuilder {
+
+    fun buildSettingsTable(
+        context: Context,
+        prefsManager: PreferencesManager,
+        onRefreshUI: () -> Unit,
+        volumeStepButtons: Array<Button?>
+    ): TableLayout {
+        val table = TableLayout(context)
+        table.setPadding(0, 2, 0, 0)
+        table.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        val btn2T = Button(context).apply {
+            text = "2T"
+            setOnClickListener { prefsManager.engineType = 2; onRefreshUI() }
+        }
+        val btn4T = Button(context).apply {
+            text = "4T"
+            setOnClickListener { prefsManager.engineType = 4; onRefreshUI() }
+        }
+        val btnOthers = Button(context).apply {
+            text = "Озеро"
+            setOnClickListener { prefsManager.engineType = 3; onRefreshUI() }
+        }
+
+        val btnLimit1 = Button(context).apply {
+            text = "6k"
+            setOnClickListener { prefsManager.maxAllowedRpm = 6000; onRefreshUI() }
+        }
+        val btnLimit2 = Button(context).apply {
+            text = "12k"
+            setOnClickListener { prefsManager.maxAllowedRpm = 12000; onRefreshUI() }
+        }
+        val btnLimit3 = Button(context).apply {
+            text = "20k"
+            setOnClickListener { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
+        }
+
+        val btnRateFast = Button(context).apply {
+            text = "Fast"
+            setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI() }
+        }
+        val btnRateNorm = Button(context).apply {
+            text = "Norm"
+            setOnClickListener { prefsManager.audioBufferSize = 2560; onRefreshUI() }
+        }
+        val btnRateSlow = Button(context).apply {
+            text = "Slow"
+            setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI() }
+        }
+
+        val btnSmoothSharp = Button(context).apply {
+            text = "Sharp"
+            setOnClickListener { prefsManager.saveSmooth(0.02f, 0.05f); onRefreshUI() }
+        }
+        val btnSmoothNorm = Button(context).apply {
+            text = "Norm"
+            setOnClickListener { prefsManager.saveSmooth(0.06f, 0.18f); onRefreshUI() }
+        }
+        val btnSmoothSoft = Button(context).apply {
+            text = "Soft"
+            setOnClickListener { prefsManager.saveSmooth(0.15f, 0.40f); onRefreshUI() }
+        }
+
+        addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
+        addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
+        addRow(context, table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
+        addRow(context, table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
+        addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
+
+        return table
+    }
+
+    private fun addRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button) {
+        val row = TableRow(context)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(0, 2, 0, 2)
+
+        val label = TextView(context).apply {
+            text = labelText
+            textSize = 12f
+            setTextColor(Color.parseColor("#B0BEC5"))
+            setPadding(0, 0, 8, 0)
+        }
+
+        val bLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+
+        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(2, 0, 2, 0)
+        }
+        b1.layoutParams = p
+        b2.layoutParams = p
+        b3.layoutParams = p
+
+        bLayout.addView(b1)
+        bLayout.addView(b2)
+        bLayout.addView(b3)
+        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+
+        row.addView(label)
+        row.addView(bLayout)
+        table.addView(row)
+    }
+
+    private fun addVolumeSquaresRow(
+        context: Context, 
+        table: TableLayout, 
+        labelText: String, 
+        volumeStepButtons: Array<Button?>,
+        prefsManager: PreferencesManager,
+        onRefreshUI: () -> Unit
+    ) {
+        val row = TableRow(context)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(0, 2, 0, 2)
+
+        val label = TextView(context).apply {
+            text = labelText
+            textSize = 12f
+            setTextColor(Color.parseColor("#B0BEC5"))
+            setPadding(0, 0, 8, 0)
+        }
+
+        val squaresLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+
+        for (i in 0 until 10) {
+            val squareBtn = Button(context).apply {
+                text = ""
+                textSize = 10f
+                setPadding(0, 0, 0, 0)
+                minWidth = 0
+                minimumWidth = 0
+            }
+            
+            val thresholdValue = getThresholdForSquare(i)
+            squareBtn.setOnClickListener {
+                prefsManager.minVolumeThreshold = thresholdValue
+                onRefreshUI()
+            }
+
+            val p = LinearLayout.LayoutParams(0, 42, 1f).apply {
+                setMargins(1, 0, 1, 0)
+            }
+            squareBtn.layoutParams = p
+
+            volumeStepButtons[i] = squareBtn
+            squaresLayout.addView(squareBtn)
+        }
+
+        val rowParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        squaresLayout.layoutParams = rowParams
+
+        row.addView(label)
+        row.addView(squaresLayout)
+        table.addView(row)
+    }
+
+    fun getThresholdForSquare(index: Int): Int {
+        return when (index) {
+            0 -> 20
+            1 -> 150
+            2 -> 400
+            3 -> 800
+            4 -> 1400
+            5 -> 2200
+            6 -> 3200
+            7 -> 4800
+            8 -> 6800
+            else -> 9000
+        }
+    }
+}

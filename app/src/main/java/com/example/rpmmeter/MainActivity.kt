@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
@@ -138,7 +137,7 @@ class MainActivity : Activity() {
         rpmTextView.text = formatted
     }
 
-    private fun buildTopPanel(): View {
+    private fun buildTopPanel(): android.view.View {
         val container = LinearLayout(this)
         container.orientation = LinearLayout.HORIZONTAL
         container.gravity = Gravity.CENTER_VERTICAL
@@ -161,7 +160,7 @@ class MainActivity : Activity() {
         leftCol.addView(btnExit)
         container.addView(leftCol)
 
-        val leftSpacer = View(this)
+        val leftSpacer = android.view.View(this)
         leftSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
         container.addView(leftSpacer)
 
@@ -188,7 +187,7 @@ class MainActivity : Activity() {
 
         container.addView(rpmBlock)
 
-        val rightSpacer = View(this)
+        val rightSpacer = android.view.View(this)
         rightSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
         container.addView(rightSpacer)
 
@@ -212,7 +211,7 @@ class MainActivity : Activity() {
         return container
     }
 
-    private fun buildSettingsTable(): View {
+    private fun buildSettingsTable(): android.view.View {
         val table = TableLayout(this)
         table.setPadding(0, 2, 0, 0)
         table.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -269,8 +268,6 @@ class MainActivity : Activity() {
         addRow(table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
         addRow(table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
-        
-        // ДОБАВЛЕНО: Ряд чувствительности по громкости (10 квадратиков)
         addVolumeSquaresRow(table, "громкость:")
 
         return table
@@ -324,7 +321,8 @@ class MainActivity : Activity() {
 
         for (i in 0 until 10) {
             val squareBtn = Button(this)
-            val thresholdValue = (i + 1) * 20
+            // Шаг по 500: от 500 (1-й квадрат) до 5000 (10-й квадрат)
+            val thresholdValue = (i + 1) * 500
             
             squareBtn.text = ""
             squareBtn.textSize = 10f
@@ -390,15 +388,15 @@ class MainActivity : Activity() {
         btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(btnSmoothSharp, btnSmoothNorm, btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // Обновление подсветки квадратиков громкости
+        // Подсветка квадратиков громкости по шагу 500
         val currentThresh = prefsManager.minVolumeThreshold
-        val activeIndex = ((currentThresh / 20) - 1).coerceIn(0, 9)
+        val activeIndex = ((currentThresh / 500) - 1).coerceIn(0, 9)
         for (i in 0 until 10) {
             val btn = volumeStepButtons[i] ?: continue
             if (i <= activeIndex) {
-                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Бирюзовый для активных
+                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Активные
             } else {
-                btn.setBackgroundColor(Color.parseColor("#37474F")) // Темный для неактивных
+                btn.setBackgroundColor(Color.parseColor("#37474F")) // Неактивные
             }
         }
     }

@@ -29,6 +29,7 @@ class MainActivity : Activity() {
     private lateinit var rpmText: TextView
     private lateinit var debugText: TextView
     private lateinit var btnHold: Button
+    private lateinit var btnExit: Button
     
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
@@ -82,7 +83,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты и фиксированная кнопка HOLD ---
+        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты, HOLD и кнопка Выхода (исправленная структура) ---
 
         val topRpmLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -112,14 +113,33 @@ class MainActivity : Activity() {
             160, 
             110  
         ).apply {
-            setMargins(24, 0, 0, 0)
+            setMargins(24, 0, 16, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
         btnHold.layoutParams = holdParams
         updateHoldButtonState()
 
+        btnExit = Button(this).apply {
+            text = "✕"
+            textSize = 18f
+            setTextColor(Color.parseColor("#FF5252"))
+            setBackgroundColor(Color.parseColor("#424242"))
+            setOnClickListener {
+                finishAffinity()
+            }
+        }
+        val exitParams = LinearLayout.LayoutParams(
+            110,
+            110
+        ).apply {
+            setMargins(8, 0, 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        btnExit.layoutParams = exitParams
+
         topRpmLayout.addView(rpmText)
         topRpmLayout.addView(btnHold)
+        topRpmLayout.addView(btnExit)
         layout.addView(topRpmLayout)
 
         val labelRpmText = TextView(this).apply {
@@ -217,7 +237,6 @@ class MainActivity : Activity() {
             setOnClickListener { setSmooth(0.15f, 0.40f) }
         }
 
-        // 1. Строка двигателя
         val engineRow = TableRow(this).apply { setPadding(0, 3, 0, 3) }
         val engineLabel = TextView(this).apply {
             text = "двигатель:"
@@ -241,13 +260,8 @@ class MainActivity : Activity() {
         engineRow.addView(engineButtonsLayout)
         tableLayout.addView(engineRow)
 
-        // 2. Лимит оборотов
         addSettingRow("лимит:", btnLimit1, btnLimit2, btnLimit3)
-
-        // 3. Скорость обновления
         addSettingRow("обновление:", btnRateFast, btnRateNorm, btnRateSlow)
-
-        // 4. Плавность
         addSettingRow("плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
 
         layout.addView(tableLayout)
@@ -381,18 +395,39 @@ class MainActivity : Activity() {
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
 
+            var audioRecord: AudioRecord? = null
             try {
                 val minBuf = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-                
+                if (minBuf <= 0) {
+                    runOnUiThread { statusText.text = "Ошибка: Микрофон не поддерживается" }
+                    return@thread
+                }
+
                 while (isRecording) {
-                    val currentBufferSz = audioBufferSize
-                    val audioRecord = AudioRecord(
+                    val currentBufferSz = maxOf(minBuf, audioBufferSize)
+
+                    audioRecord?.let {
+                        try {
+                            if (it.state == AudioRecord.STATE_INITIALIZED) {
+                                it.stop()
+                            }
+                            it.release()
+                        } catch (_: Exception) {}
+                    }
+
+                    audioRecord = AudioRecord(
                         MediaRecorder.AudioSource.MIC,
                         sampleRate,
                         channelConfig,
                         audioFormat,
-                        minBuf.coerceAtLeast(currentBufferSz)
+                        currentBufferSz
                     )
+
+                    if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
+                        runOnUiThread { statusText.text = "Ошибка инициализации микрофона" }
+                        Thread.sleep(1000)
+                        continue
+                    }
 
                     val actualBuffer = ShortArray(currentBufferSz)
                     audioRecord.startRecording()
@@ -466,31 +501,4 @@ class MainActivity : Activity() {
                                 
                                 if (isHoldActive) {
                                     val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-                                    rpmText.text = String.format("%,d", displayHoldVal).replace(',', ' ')
-                                    statusText.text = "Удержание (HOLD)"
-                                } else {
-                                    if (finalRpm > 0) {
-                                        rpmText.text = String.format("%,d", finalRpm).replace(',', ' ')
-                                        statusText.text = "Работает (${engineType}T)"
-                                    } else {
-                                        rpmText.text = "0 000"
-                                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    audioRecord.stop()
-                    audioRecord.release()
-                }
-            } catch (e: Exception) {
-                runOnUiThread { statusText.text = "Ошибка: ${e.message}" }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        isRecording = false
-    }
-}
+                                    rpmText.text = String.format("%,d", display

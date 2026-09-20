@@ -36,7 +36,7 @@ class MainActivity : Activity() {
     private var currentRealRpm = 0
 
     private lateinit var prefsManager: PreferencesManager
-    private lateinit var audioAnalyzer: AudioAnalyzer
+    private var audioAnalyzer: AudioAnalyzer? = null
     private val PERMISSION_CODE = 200
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +91,17 @@ class MainActivity : Activity() {
 
         refreshAllUI()
 
+        // Проверяем разрешения и запускаем анализатор
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
+        } else {
+            initAndStartAudioAnalyzer()
+        }
+    }
+
+    private fun initAndStartAudioAnalyzer() {
+        audioAnalyzer?.stop()
+        
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
@@ -134,12 +145,7 @@ class MainActivity : Activity() {
                 }
             }
         )
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
-        } else {
-            audioAnalyzer.start()
-        }
+        audioAnalyzer?.start()
     }
 
     private fun updateRpmDisplay(value: Int) {
@@ -418,17 +424,22 @@ class MainActivity : Activity() {
         listOf(settings.btnSmoothSharp, settings.btnSmoothNorm, settings.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
         updateVolumeSquaresUI(0)
+
+        // Перезапускаем анализатор с новыми настройками при изменении параметров
+        if (::prefsManager.isInitialized) {
+            initAndStartAudioAnalyzer()
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            audioAnalyzer.start()
+            initAndStartAudioAnalyzer()
         }
     }
 
     override fun onDestroy() {
-        audioAnalyzer.stop()
+        audioAnalyzer?.stop()
         super.onDestroy()
     }
 }

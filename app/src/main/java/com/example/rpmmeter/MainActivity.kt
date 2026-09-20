@@ -408,7 +408,7 @@ class MainActivity : Activity() {
         }
     }
 
-    override onDestroy() {
+    override fun onDestroy() {
         audioAnalyzer.stop()
         super.onDestroy()
     }

@@ -63,7 +63,7 @@ class MainActivity : Activity() {
     private lateinit var sharedPreferences: SharedPreferences
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
-    private val copyrightNotice = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.1"
+    private val copyrightNotice = "2026 © YouTube_VRT 'Рациональный Труд' | ver 0.1"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -520,4 +520,4 @@ class MainActivity : Activity() {
                         statusText.text = "Работает (${engineType}T)"
                     } else {
                         rpmText.text = "0000"
-                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожид
+                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидан

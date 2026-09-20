@@ -116,7 +116,7 @@ class MainActivity : Activity() {
                         statusLine1.setTextColor(Color.parseColor("#FF9800"))
                     } else {
                         if (vol < currentThreshold) {
-                            statusLine1.text = "Ожидание запуска (тихо)"
+                            statusLine1.text = "Ожидание запуска двигателя (тихо)"
                             statusLine1.setTextColor(Color.YELLOW)
                         } else {
                             statusLine1.text = "Работа мотора"
@@ -124,7 +124,7 @@ class MainActivity : Activity() {
                         }
                     }
 
-                    statusLine2.text = "Громк: $vol | Пор: $currentThreshold"
+                    statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
                     statusLine3.text = "Pre: ${rawFreq.roundToInt()}Гц | $modeLabel: ${filteredFreq.roundToInt()}Гц"
 
                     updateRpmDisplay(displayVal)
@@ -282,7 +282,7 @@ class MainActivity : Activity() {
         }
 
         statusLine1 = TextView(this).apply {
-            text = "Ожидание запуска"
+            text = "Ожидание запуска двигателя (тихо)"
             textSize = 11f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
@@ -291,7 +291,7 @@ class MainActivity : Activity() {
         centerTextCol.addView(statusLine1)
 
         statusLine2 = TextView(this).apply {
-            text = "Громк: 0 | Пор: 20"
+            text = "Громкость: 0 | Порог: 20"
             textSize = 10f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
@@ -300,7 +300,7 @@ class MainActivity : Activity() {
         centerTextCol.addView(statusLine2)
 
         statusLine3 = TextView(this).apply {
-            text = "Pre: 0 Гц | Others: 0 Гц"
+            text = "Pre-Freq: 0 Гц | Others: 0 Гц"
             textSize = 10f
             setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER

@@ -84,7 +84,7 @@ class MainActivity : Activity() {
         rootLayout.addView(buildSettingsTable())
 
         val copyright = TextView(this)
-        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.3"
+        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.4"
         copyright.textSize = 12f
         copyright.setTextColor(Color.parseColor("#9E9E9E"))
         copyright.gravity = Gravity.CENTER
@@ -127,24 +127,27 @@ class MainActivity : Activity() {
         val container = LinearLayout(this)
         container.orientation = LinearLayout.HORIZONTAL
         container.gravity = Gravity.CENTER_VERTICAL
-        container.setPadding(0, 12, 0, 4)
+        container.setPadding(0, 12, 0, 8)
         container.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
 
+        // Левый пустой отступ для центрирования
         val leftSpacer = View(this)
-        leftSpacer.layoutParams = LinearLayout.LayoutParams(0, 1, 0.05f)
+        leftSpacer.layoutParams = LinearLayout.LayoutParams(0, 1, 0.03f)
         container.addView(leftSpacer)
 
+        // Центральный блок для цифр и метки RPM (выравнивание по правому краю)
         val rpmContainer = LinearLayout(this)
         rpmContainer.orientation = LinearLayout.HORIZONTAL
         rpmContainer.gravity = Gravity.END or Gravity.CENTER_VERTICAL
-        rpmContainer.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.75f)
+        rpmContainer.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.72f)
 
+        // Огромные цифры оборотов (выровнены по правому краю, не скачут при смене разряда)
         rpmText = TextView(this)
         rpmText.text = "0"
-        rpmText.textSize = 76f
+        rpmText.textSize = 86f
         rpmText.setTextColor(Color.parseColor("#00E676"))
         rpmText.gravity = Gravity.END or Gravity.CENTER_VERTICAL
         rpmText.includeFontPadding = false
@@ -159,36 +162,42 @@ class MainActivity : Activity() {
         textWrapper.addView(rpmText)
         rpmContainer.addView(textWrapper)
 
+        // Аккуратная и уменьшенная подпись RPM сразу за цифрами
         val rpmLabel = TextView(this)
         rpmLabel.text = " RPM"
-        rpmLabel.textSize = 22f
+        rpmLabel.textSize = 16f
         rpmLabel.setTextColor(Color.parseColor("#80CBC4"))
         rpmLabel.gravity = Gravity.BOTTOM or Gravity.START
-        rpmLabel.setPadding(4, 0, 0, 16)
+        rpmLabel.setPadding(4, 0, 0, 18)
         rpmLabel.includeFontPadding = false
         rpmContainer.addView(rpmLabel)
 
         container.addView(rpmContainer)
 
+        // Добавляем отступ (распорку) между блоком RPM и кнопкой HOLD
+        val middleSpacer = View(this)
+        middleSpacer.layoutParams = LinearLayout.LayoutParams(0, 1, 0.05f)
+        container.addView(middleSpacer)
+
+        // Правая колонка для кнопки HOLD (на всю высоту контейнера)
         val rightCol = LinearLayout(this)
         rightCol.orientation = LinearLayout.VERTICAL
-        rightCol.gravity = Gravity.CENTER_HORIZONTAL
-        rightCol.layoutParams = LinearLayout.LayoutParams(0, 120, 0.2f)
+        rightCol.gravity = Gravity.CENTER
+        rightCol.layoutParams = LinearLayout.LayoutParams(0, 140, 0.2f)
 
         btnHold = Button(this)
         btnHold.text = "HOLD"
-        btnHold.textSize = 11f
+        btnHold.textSize = 13f
         btnHold.setOnClickListener {
             isHoldActive = !isHoldActive
             if (isHoldActive) heldRpmValue = currentRealRpm
             refreshAllUI()
         }
-        
+
         val holdParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
             LinearLayout.LayoutParams.MATCH_PARENT
         )
-        holdParams.setMargins(8, 0, 0, 0)
         btnHold.layoutParams = holdParams
         rightCol.addView(btnHold)
         
@@ -214,7 +223,7 @@ class MainActivity : Activity() {
         btn4T.setOnClickListener { prefsManager.engineType = 4; refreshAllUI() }
 
         btnElectro = Button(this)
-        btnElectro.text = "Электро"
+        btnElectro.text = "Others"
         btnElectro.setOnClickListener { prefsManager.engineType = 3; refreshAllUI() }
 
         btnLimit1 = Button(this)

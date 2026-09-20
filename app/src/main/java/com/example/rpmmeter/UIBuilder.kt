@@ -47,6 +47,7 @@ object UIBuilder {
             )
         }
 
+        // Возвращены обработчики для типа мотора
         val btn2T = Button(context).apply {
             text = "2T"
             setOnClickListener { prefsManager.engineType = 2; onRefreshUI() }
@@ -73,7 +74,6 @@ object UIBuilder {
             setOnClickListener { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
         }
 
-        // Исправлено: возвращены клики для кнопок обновления (размера буфера)
         val btnRateFast = Button(context).apply {
             text = "Fast"
             setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI() }
@@ -87,7 +87,6 @@ object UIBuilder {
             setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI() }
         }
 
-        // Исправлено: возвращены клики для кнопок плавности
         val btnSmoothSharp = Button(context).apply {
             text = "Sharp"
             setOnClickListener { prefsManager.saveSmooth(0.02f, 0.05f); onRefreshUI() }

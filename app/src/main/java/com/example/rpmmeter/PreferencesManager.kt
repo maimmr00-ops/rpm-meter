@@ -27,7 +27,7 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putFloat("fall_time", value).apply()
 
     var minVolumeThreshold: Int
-        get() = prefs.getInt("min_volume_threshold", 1500)
+        get() = prefs.getInt("min_volume_threshold", 8000) // По умолчанию жесткий порог
         set(value) = prefs.edit().putInt("min_volume_threshold", value).apply()
 
     fun saveSmooth(rise: Float, fall: Float) {

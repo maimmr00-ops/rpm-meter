@@ -269,7 +269,8 @@ class MainActivity : Activity() {
         addRow(table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
         addRow(table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
-
+        
+        // ДОБАВЛЕНО: Ряд чувствительности по громкости (10 квадратиков)
         addVolumeSquaresRow(table, "громкость:")
 
         return table
@@ -389,14 +390,15 @@ class MainActivity : Activity() {
         btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(btnSmoothSharp, btnSmoothNorm, btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
+        // Обновление подсветки квадратиков громкости
         val currentThresh = prefsManager.minVolumeThreshold
         val activeIndex = ((currentThresh / 20) - 1).coerceIn(0, 9)
         for (i in 0 until 10) {
             val btn = volumeStepButtons[i] ?: continue
             if (i <= activeIndex) {
-                btn.setBackgroundColor(Color.parseColor("#00BFA5"))
+                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Бирюзовый для активных
             } else {
-                btn.setBackgroundColor(Color.parseColor("#37474F"))
+                btn.setBackgroundColor(Color.parseColor("#37474F")) // Темный для неактивных
             }
         }
     }

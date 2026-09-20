@@ -13,6 +13,8 @@ import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.TableLayout
+import android.widget.TableRow
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -45,10 +47,7 @@ class MainActivity : Activity() {
     private var maxAllowedRpm = 12000
     private var volumeThreshold = 30
 
-    // Параметры обновления (размер звукового буфера)
     private var audioBufferSize = 1024 
-
-    // Параметры плавности и затухания
     private var smoothingFactor = 0.8f 
     private var dropFactor = 0.2f
 
@@ -65,79 +64,16 @@ class MainActivity : Activity() {
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(20, 20, 20, 20)
+            setPadding(16, 16, 16, 16)
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // 1. Режим двигателя (2T / 4T)
-        val engineBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 2, 0, 6)
-        }
-        btn2T = Button(this).apply { text = "2T"; setOnClickListener { engineType = 2; updateEngineButtons() } }
-        btn4T = Button(this).apply { text = "4T"; setOnClickListener { engineType = 4; updateEngineButtons() } }
-        engineBar.addView(btn2T); engineBar.addView(btn4T)
-        layout.addView(engineBar)
-
-        // 2. Лимит оборотов
-        val limitBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 6)
-        }
-        btnLimit1 = Button(this).apply { text = "6k"; setOnClickListener { maxAllowedRpm = 6000; updateLimitButtons() } }
-        btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { maxAllowedRpm = 12000; updateLimitButtons() } }
-        btnLimit3 = Button(this).apply { text = "20k"; setOnClickListener { maxAllowedRpm = 20000; updateLimitButtons() } }
-        limitBar.addView(btnLimit1); limitBar.addView(btnLimit2); limitBar.addView(btnLimit3)
-        layout.addView(limitBar)
-
-        // 3. Скорость обновления (Rate: Fast / Normal / Slow)
-        val rateBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 6)
-        }
-        btnRateFast = Button(this).apply { 
-            text = "Rate: Fast"
-            setOnClickListener { audioBufferSize = 512; updateRateButtons() }
-        }
-        btnRateNorm = Button(this).apply { 
-            text = "Rate: Norm"
-            setOnClickListener { audioBufferSize = 1024; updateRateButtons() }
-        }
-        btnRateSlow = Button(this).apply { 
-            text = "Rate: Slow"
-            setOnClickListener { audioBufferSize = 2048; updateRateButtons() }
-        }
-        rateBar.addView(btnRateFast); rateBar.addView(btnRateNorm); rateBar.addView(btnRateSlow)
-        layout.addView(rateBar)
-
-        // 4. Плавность и затухание (Smooth: Sharp / Normal / Soft)
-        val smoothBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 12)
-        }
-        btnSmoothSharp = Button(this).apply { 
-            text = "Smooth: Sharp"
-            setOnClickListener { smoothingFactor = 1.0f; dropFactor = 0.0f; updateSmoothButtons() }
-        }
-        btnSmoothNorm = Button(this).apply { 
-            text = "Smooth: Norm"
-            setOnClickListener { smoothingFactor = 0.8f; dropFactor = 0.2f; updateSmoothButtons() }
-        }
-        btnSmoothSoft = Button(this).apply { 
-            text = "Smooth: Soft"
-            setOnClickListener { smoothingFactor = 0.4f; dropFactor = 0.5f; updateSmoothButtons() }
-        }
-        smoothBar.addView(btnSmoothSharp); smoothBar.addView(btnSmoothNorm); smoothBar.addView(btnSmoothSoft)
-        layout.addView(smoothBar)
+        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты и статус ---
 
         // Крупные цифры оборотов
         rpmText = TextView(this).apply {
             text = "0 000"
-            textSize = 64f
+            textSize = 68f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
         }
@@ -148,7 +84,7 @@ class MainActivity : Activity() {
             textSize = 16f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 10)
+            setPadding(0, 0, 0, 4)
         }
         layout.addView(labelRpmText)
 
@@ -167,9 +103,106 @@ class MainActivity : Activity() {
             textSize = 12f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
-            setPadding(0, 10, 0, 0)
+            setPadding(0, 4, 0, 16)
         }
         layout.addView(debugText)
+
+
+        // --- НИЖНЯЯ ЧАСТЬ: Кнопки и настройки (Сетка) ---
+
+        val tableLayout = TableLayout(this).apply {
+            setPadding(0, 8, 0, 0)
+        }
+
+        // Вспомогательная функция для создания строк таблицы
+        fun addSettingRow(labelTxt: String, b1: Button, b2: Button, b3: Button) {
+            val row = TableRow(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 4, 0, 4)
+            }
+
+            val label = TextView(this).apply {
+                text = labelTxt
+                textSize = 13f
+                setTextColor(Color.parseColor("#B0BEC5"))
+                setPadding(0, 0, 8, 0)
+            }
+
+            val buttonsLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            
+            val params = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(2, 0, 2, 0)
+            }
+
+            b1.layoutParams = params
+            b2.layoutParams = params
+            b3.layoutParams = params
+
+            buttonsLayout.addView(b1)
+            buttonsLayout.addView(b2)
+            buttonsLayout.addView(b3)
+
+            val wrapperParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+            buttonsLayout.layoutParams = wrapperParams
+
+            row.addView(label)
+            row.addView(buttonsLayout)
+            tableLayout.addView(row)
+        }
+
+        // Инициализация кнопок
+        btn2T = Button(this).apply { text = "2T"; setOnClickListener { engineType = 2; updateEngineButtons() } }
+        btn4T = Button(this).apply { text = "4T"; setOnClickListener { engineType = 4; updateEngineButtons() } }
+        
+        btnLimit1 = Button(this).apply { text = "6k"; setOnClickListener { maxAllowedRpm = 6000; updateLimitButtons() } }
+        btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { maxAllowedRpm = 12000; updateLimitButtons() } }
+        btnLimit3 = Button(this).apply { text = "20k"; setOnClickListener { maxAllowedRpm = 20000; updateLimitButtons() } }
+
+        btnRateFast = Button(this).apply { text = "Fast"; setOnClickListener { audioBufferSize = 1024; updateRateButtons() } }
+        btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { audioBufferSize = 2048; updateRateButtons() } }
+        btnRateSlow = Button(this).apply { text = "Slow"; setOnClickListener { audioBufferSize = 4096; updateRateButtons() } }
+
+        btnSmoothSharp = Button(this).apply { text = "Sharp"; setOnClickListener { smoothingFactor = 1.0f; dropFactor = 0.0f; updateSmoothButtons() } }
+        btnSmoothNorm = Button(this).apply { text = "Norm"; setOnClickListener { smoothingFactor = 0.8f; dropFactor = 0.2f; updateSmoothButtons() } }
+        btnSmoothSoft = Button(this).apply { text = "Soft"; setOnClickListener { smoothingFactor = 0.4f; dropFactor = 0.5f; updateSmoothButtons() } }
+
+        // 1. Строка двигателя (2T / 4T)
+        val engineRow = TableRow(this).apply { setPadding(0, 4, 0, 4) }
+        val engineLabel = TextView(this).apply {
+            text = "двигатель:"
+            textSize = 13f
+            setTextColor(Color.parseColor("#B0BEC5"))
+            setPadding(0, 0, 8, 0)
+        }
+        val engineButtonsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        val halfParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(2, 0, 2, 0)
+        }
+        btn2T.layoutParams = halfParams
+        btn4T.layoutParams = halfParams
+        engineButtonsLayout.addView(btn2T)
+        engineButtonsLayout.addView(btn4T)
+        engineButtonsLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        engineRow.addView(engineLabel)
+        engineRow.addView(engineButtonsLayout)
+        tableLayout.addView(engineRow)
+
+        // 2. Лимит оборотов
+        addSettingRow("лимит:", btnLimit1, btnLimit2, btnLimit3)
+
+        // 3. Скорость обновления
+        addSettingRow("обновление:", btnRateFast, btnRateNorm, btnRateSlow)
+
+        // 4. Плавность
+        addSettingRow("плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
+
+        layout.addView(tableLayout)
 
         scrollView.addView(layout)
         setContentView(scrollView)
@@ -206,9 +239,9 @@ class MainActivity : Activity() {
     }
 
     private fun updateRateButtons() {
-        btnRateFast.setBackgroundColor(if (audioBufferSize == 512) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateNorm.setBackgroundColor(if (audioBufferSize == 1024) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateSlow.setBackgroundColor(if (audioBufferSize == 2048) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+        btnRateFast.setBackgroundColor(if (audioBufferSize == 1024) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+        btnRateNorm.setBackgroundColor(if (audioBufferSize == 2048) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+        btnRateSlow.setBackgroundColor(if (audioBufferSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         btnRateFast.setTextColor(Color.WHITE); btnRateNorm.setTextColor(Color.WHITE); btnRateSlow.setTextColor(Color.WHITE)
     }
 
@@ -246,17 +279,16 @@ class MainActivity : Activity() {
                         minBuf.coerceAtLeast(currentBufferSz)
                     )
 
-                    val buffer = ShortArray(currentBufferSz)
+                    val actualBuffer = ShortArray(currentBufferSz)
                     audioRecord.startRecording()
                     var smoothedRpm = 0f
 
-                    // Крутимся внутри с текущим размером буфера, пока пользователь не нажмет другую кнопку скорости обновления
                     while (isRecording && audioBufferSize == currentBufferSz) {
-                        val readSize = audioRecord.read(buffer, 0, currentBufferSz)
+                        val readSize = audioRecord.read(actualBuffer, 0, currentBufferSz)
                         if (readSize > 0) {
                             var volume = 0L
                             for (i in 0 until readSize) {
-                                volume += abs(buffer[i].toLong())
+                                volume += abs(actualBuffer[i].toLong())
                             }
                             val avgVolume = (volume / readSize).toInt()
 
@@ -274,7 +306,7 @@ class MainActivity : Activity() {
                                     var correlation = 0L
                                     val limit = readSize - lag
                                     for (i in 0 until limit) {
-                                        correlation += (buffer[i].toLong() * buffer[i + lag].toLong())
+                                        correlation += (actualBuffer[i].toLong() * actualBuffer[i + lag].toLong())
                                     }
                                     if (correlation > maxCorrelation) {
                                        maxCorrelation = correlation

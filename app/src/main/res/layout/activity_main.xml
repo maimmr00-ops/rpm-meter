@@ -1,14 +1,30 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical">
+package com.example.rpmmeter
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="RPM Meter: Ожидание замера"
-        android:textSize="20sp" />
+import android.graphics.Color
+import android.os.Bundle
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 
-</LinearLayout>
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Создаем контейнер во весь экран
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#121212")) // Темный фон
+            setPadding(40, 40, 40, 40)
+        }
+
+        // Текстовое поле для вывода оборотов (RPM)
+        val titleText = TextView(this).apply {
+            text = "RPM Meter: Готов к работе"
+            textSize = 22f
+            setTextColor(Color.WHITE)
+        }
+
+        layout.addView(titleText)
+        setContentView(layout)
+    }
+}

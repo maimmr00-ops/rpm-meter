@@ -321,7 +321,7 @@ class MainActivity : Activity() {
 
         for (i in 0 until 10) {
             val squareBtn = Button(this)
-            // Шаг по 500: от 500 (1-й квадрат) до 5000 (10-й квадрат)
+            // Прямой порядок: 1-й квадрат = 500 (слышит всё), 10-й = 5000 (только сильный шум)
             val thresholdValue = (i + 1) * 500
             
             squareBtn.text = ""
@@ -388,13 +388,13 @@ class MainActivity : Activity() {
         btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(btnSmoothSharp, btnSmoothNorm, btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // Подсветка квадратиков громкости по шагу 500
+        // Подсветка шкалы громкости
         val currentThresh = prefsManager.minVolumeThreshold
         val activeIndex = ((currentThresh / 500) - 1).coerceIn(0, 9)
         for (i in 0 until 10) {
             val btn = volumeStepButtons[i] ?: continue
             if (i <= activeIndex) {
-                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Активные
+                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Активные квадратики
             } else {
                 btn.setBackgroundColor(Color.parseColor("#37474F")) // Неактивные
             }

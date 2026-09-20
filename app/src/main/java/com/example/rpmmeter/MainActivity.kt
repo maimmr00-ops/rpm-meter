@@ -414,11 +414,12 @@ class MainActivity : Activity() {
             val btn = volumeStepButtons[i] ?: continue
             val tVal = getThresholdForSquare(i)
             
-            // Подсветка квадратов активной зоны порога
-            if (currentThresh >= tVal) {
-                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Бирюзовый (активный порог)
+            if (currentThresh == tVal) {
+                btn.setBackgroundColor(Color.parseColor("#FF9800")) // Оранжевый — выбранный порог отсечки
+            } else if (currentVol >= tVal) {
+                btn.setBackgroundColor(Color.parseColor("#00E676")) // Зеленый — текущая громкость звука
             } else {
-                btn.setBackgroundColor(Color.parseColor("#37474F")) // Темный
+                btn.setBackgroundColor(Color.parseColor("#37474F")) // Темный — тишина
             }
         }
     }

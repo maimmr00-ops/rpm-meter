@@ -56,7 +56,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // Сначала создаем настройки через UIBuilder, чтобы получить ссылки на кнопки x1-x4
+        // Сначала создаем настройки через UIBuilder, чтобы получить ссылки на кнопки /1-/4
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -72,7 +72,7 @@ class MainActivity : Activity() {
         // 1. Верхняя панель (EXIT, Крупные цифры RPM, HOLD)
         rootLayout.addView(buildTopPanel())
 
-        // 2. Информационный блок: [x1, x2] слева, текст по центру, [x3, x4] справа
+        // 2. Информационный блок: [/1, /2] слева, текст по центру, [/3, /4] справа
         rootLayout.addView(buildInfoPanelWithSides())
 
         // 3. Таблица настроек
@@ -95,14 +95,10 @@ class MainActivity : Activity() {
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
-                currentRealRpm = (rpm / currentMultiplier)
+                // Расчет оборотов с делением на множитель (цилиндры)
+                currentRealRpm = if (currentMultiplier > 0) (rpm / currentMultiplier) else rpm
                 
                 runOnUiThread {
-                    val modeLabel = when (prefsManager.engineType) {
-                        2 -> "2T"
-                        4 -> "4T"
-                        else -> "Others"
-                    }
                     val currentThreshold = prefsManager.minVolumeThreshold
                     
                     val displayVal = if (isHoldActive) {
@@ -116,7 +112,7 @@ class MainActivity : Activity() {
                         statusLine1.setTextColor(Color.parseColor("#FF9800"))
                     } else {
                         if (vol < currentThreshold) {
-                            statusLine1.text = "Ожидание запуска двигателя (тихо)"
+                            statusLine1.text = "Ожидание запуска двигателя"
                             statusLine1.setTextColor(Color.YELLOW)
                         } else {
                             statusLine1.text = "Работа мотора"
@@ -124,8 +120,8 @@ class MainActivity : Activity() {
                         }
                     }
 
-                    statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
-                    statusLine3.text = "Pre: ${rawFreq.roundToInt()}Гц | $modeLabel: ${filteredFreq.roundToInt()}Гц"
+                    statusLine2.text = "Громк: $vol | Пор: $currentThreshold"
+                    statusLine3.text = "Pre: ${rawFreq.roundToInt()}Гц | All: ${filteredFreq.roundToInt()}Гц"
 
                     updateRpmDisplay(displayVal)
                     updateVolumeSquaresUI(vol)
@@ -255,7 +251,7 @@ class MainActivity : Activity() {
             setMargins(1, 0, 1, 0)
         }
 
-        // --- ЛЕВАЯ ПАРА КНОПОК: x1, x2 ---
+        // --- ЛЕВАЯ ПАРА КНОПОК: /1, /2 ---
         val leftMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -274,7 +270,7 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // --- ЦЕНТРАЛЬНЫЙ БЛОК: Текстовые строки состояния (Громкость, порог, частоты) ---
+        // --- ЦЕНТРАЛЬНЫЙ БЛОК: Текстовые строки состояния ---
         val centerTextCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -282,7 +278,7 @@ class MainActivity : Activity() {
         }
 
         statusLine1 = TextView(this).apply {
-            text = "Ожидание запуска двигателя (тихо)"
+            text = "Ожидание запуска двигателя"
             textSize = 11f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
@@ -291,7 +287,7 @@ class MainActivity : Activity() {
         centerTextCol.addView(statusLine1)
 
         statusLine2 = TextView(this).apply {
-            text = "Громкость: 0 | Порог: 20"
+            text = "Громк: 0 | Пор: 20"
             textSize = 10f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
@@ -300,7 +296,7 @@ class MainActivity : Activity() {
         centerTextCol.addView(statusLine2)
 
         statusLine3 = TextView(this).apply {
-            text = "Pre-Freq: 0 Гц | Others: 0 Гц"
+            text = "Pre: 0 Гц | All: 0 Гц"
             textSize = 10f
             setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER
@@ -312,7 +308,7 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // --- ПРАВАЯ ПАРА КНОПОК: x3, x4 ---
+        // --- ПРАВАЯ ПАРА КНОПОК: /3, /4 ---
         val rightMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -387,7 +383,7 @@ class MainActivity : Activity() {
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 
-        // Подсветка кнопок множителей x1-x4
+        // Подсветка кнопок-делителей /1-/4
         settings.btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
         settings.btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))

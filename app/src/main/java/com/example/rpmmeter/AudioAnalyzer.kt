@@ -17,7 +17,7 @@ class AudioAnalyzer(
 
     private var smoothedRpm = 0f
     private var smoothedVolume = 0f
-    private var decayCounter = 0 // Счетчик для удержания оборотов в режиме Soft
+    private var decayCounter = 0
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -25,7 +25,7 @@ class AudioAnalyzer(
         isRunning = true
 
         analysisThread = Thread {
-            val sampleRate = 8000 // Оптимальная частота для анализа моторов
+            val sampleRate = 8000
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
 
@@ -34,7 +34,7 @@ class AudioAnalyzer(
             
             val buffer = ShortArray(bufferSize)
 
-            audioRecord = AudioRecord(
+            val record = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
                 sampleRate,
                 channelConfig,
@@ -42,14 +42,16 @@ class AudioAnalyzer(
                 bufferSize
             )
 
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+            audioRecord = record
+
+            if (record.state != AudioRecord.STATE_INITIALIZED) {
                 onError("Ошибка инициализации микрофона")
                 isRunning = false
                 return@Thread
             }
 
             try {
-                audioRecord?.startRecording()
+                record.startRecording()
             } catch (e: Exception) {
                 onError("Ошибка запуска записи: ${e.localizedMessage}")
                 isRunning = false
@@ -57,8 +59,19 @@ class AudioAnalyzer(
             }
 
             while (isRunning) {
-                val readCount = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                if (readCount <= 0) continue
+                // Защита от зависания потока при пересоздании буфера или остановке
+                if (!isRunning) break
+
+                val readCount = try {
+                    record.read(buffer, 0, buffer.size)
+                } catch (e: Exception) {
+                    -1
+                }
+
+                if (readCount <= 0) {
+                    try { Thread.sleep(10) } catch (_: InterruptedException) {}
+                    continue
+                }
 
                 // 1. Расчет громкости по ВСЕМУ прочитанному буферу
                 var sum = 0.0
@@ -73,8 +86,7 @@ class AudioAnalyzer(
 
                 val minThreshold = prefsManager.minVolumeThreshold
                 if (currentVolInt < minThreshold) {
-                    // Плавное затухание при тишине
-                    smoothedRpm *= 0.7f
+                    smoothedRpm *= 0.5f
                     if (smoothedRpm < 100f) smoothedRpm = 0f
                     onUpdate(smoothedRpm.toInt(), 0f, smoothedRpm, currentVolInt, "Тишина / Ниже порога")
                     continue
@@ -89,7 +101,7 @@ class AudioAnalyzer(
                 }
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
-                    smoothedRpm *= 0.8f
+                    smoothedRpm *= 0.5f
                     onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Поиск сигнала...")
                     continue
                 }
@@ -97,7 +109,7 @@ class AudioAnalyzer(
                 // 3. Расчет RPM
                 val calculatedRpm = when (engineType) {
                     2 -> rawFreq * 60.0f
-                    4 -> rawFreq * 30.0f // 4T: 1 вспышка на 2 оборота
+                    4 -> rawFreq * 30.0f
                     else -> rawFreq * 60.0f
                 }
 
@@ -106,33 +118,39 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. Логика кнопок плавности (Sharp, Norm, Soft)
+                // 4. СТРОГИЕ КАДРЫ ПЛАВНОСТИ (Sharp = 1, Norm = 3, Soft = 5)
                 val smoothPreset = prefsManager.smoothPreset
 
                 when (smoothPreset) {
                     0 -> {
-                        // SHARP: Мгновенное обновление (без задержек)
+                        // SHARP: 1 кадр (мгновенный сброс)
                         smoothedRpm = calculatedRpm
                         decayCounter = 0
                     }
                     1 -> {
-                        // NORM: Сбалансированный фильтр
-                        val alpha = if (calculatedRpm >= smoothedRpm) 0.6f else 0.3f
-                        smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
-                        decayCounter = 0
+                        // NORM: Ровно 3 кадра на сброс / изменение
+                        if (calculatedRpm >= smoothedRpm) {
+                            smoothedRpm = smoothedRpm + 0.7f * (calculatedRpm - smoothedRpm)
+                            decayCounter = 0
+                        } else {
+                            val diff = smoothedRpm - calculatedRpm
+                            smoothedRpm -= (diff / 3.0f).coerceAtLeast(1.0f)
+                            if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
+                        }
                     }
                     else -> {
-                        // SOFT: Удержание на спаде (8 кадров перед плавным падением)
+                        // SOFT: Ровно 5 кадров на сброс / изменение
                         if (calculatedRpm >= smoothedRpm) {
-                            decayCounter = 8 
-                            smoothedRpm = smoothedRpm + 0.5f * (calculatedRpm - smoothedRpm)
+                            decayCounter = 5
+                            smoothedRpm = smoothedRpm + 0.4f * (calculatedRpm - smoothedRpm)
                         } else {
                             if (decayCounter > 0) {
                                 decayCounter--
-                                smoothedRpm = smoothedRpm * 0.94f // Удерживаем значение
+                                smoothedRpm = smoothedRpm * 0.8f 
                             } else {
-                                val alpha = 0.15f
-                                smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
+                                val diff = smoothedRpm - calculatedRpm
+                                smoothedRpm -= (diff / 5.0f).coerceAtLeast(1.0f)
+                                if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
                             }
                         }
                     }

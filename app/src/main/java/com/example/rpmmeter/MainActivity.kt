@@ -412,7 +412,6 @@ class MainActivity : Activity() {
         settings.btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         listOf(settings.btnRateFast, settings.btnRateNorm, settings.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
-        // Подсветка кнопок плавности на основе smoothPreset
         val preset = prefsManager.smoothPreset
         settings.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         settings.btnSmoothNorm.setBackgroundColor(if (preset == 1) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))

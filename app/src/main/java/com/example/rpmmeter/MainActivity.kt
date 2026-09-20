@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
@@ -228,7 +229,7 @@ class MainActivity : Activity() {
 
         btnOthers = Button(this)
         btnOthers.text = "Others"
-        btnOthers.setOnClickListener { prefsManager.engineType = 3; refreshAllUI() } // Others = без коррекции (озеро / все шумы)
+        btnOthers.setOnClickListener { prefsManager.engineType = 3; refreshAllUI() }
 
         btnLimit1 = Button(this)
         btnLimit1.text = "6k"
@@ -306,19 +307,18 @@ class MainActivity : Activity() {
         table.addView(row)
     }
 
-    // Новые точные пороги по вашей шкале (от все шумы до выше 9000)
     private fun getThresholdForSquare(index: Int): Int {
         return when (index) {
-            0 -> 50    // Первый: ловит все шумы полностью
-            1 -> 300   // Второй: от 300
-            2 -> 700   // Третий: от 700
-            3 -> 1200  // Четвертый: от 1200
-            4 -> 1800  // Пятый: от 1800
-            5 -> 2500  // Шестой: от 2500
-            6 -> 3500  // Седьмой: от 3500
-            7 -> 5000  // Восьмой: от 5000
-            8 -> 7000  // Девятый: от 7000
-            else -> 9000 // Десятый: выше 9000
+            0 -> 50
+            1 -> 300
+            2 -> 700
+            3 -> 1200
+            4 -> 1800
+            5 -> 2500
+            6 -> 3500
+            7 -> 5000
+            8 -> 7000
+            else -> 9000
         }
     }
 
@@ -416,13 +416,10 @@ class MainActivity : Activity() {
             val tVal = getThresholdForSquare(i)
             
             if (currentSensitivityThreshold == tVal) {
-                // Выбранный уровень чувствительности (шумодава) — ОРАНЖЕВЫЙ
                 btn.setBackgroundColor(Color.parseColor("#FF9800"))
             } else if (currentVol >= tVal) {
-                // Текущая громкость мотора (VU-метр) — ЗЕЛЕНЫЙ
                 btn.setBackgroundColor(Color.parseColor("#00E676"))
             } else {
-                // Тишина / фоновый шум — ТЕМНО-СЕРЫЙ
                 btn.setBackgroundColor(Color.parseColor("#37474F"))
             }
         }

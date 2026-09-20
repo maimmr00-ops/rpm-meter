@@ -16,7 +16,6 @@ import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.concurrent.thread
-import kotlin.math.abs
 
 class MainActivity : Activity() {
 
@@ -26,13 +25,14 @@ class MainActivity : Activity() {
     private lateinit var btn4T: Button
 
     private var isRecording = false
-    private var engineType = 2 // По умолчанию 2Т (2-тактный)
+    private var engineType = 2 // 2 — это 2T, 4 — это 4T
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
+        // Главный контейнер
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#121212"))
@@ -40,15 +40,16 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // Переключатели режимов 2Т / 4Т
+        // Панель с кнопками выбора 2T / 4T
         val switchLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 40)
+            setPadding(0, 20, 0, 40)
         }
 
         btn2T = Button(this).apply {
             text = "Режим 2T"
+            textSize = 16f
             setOnClickListener {
                 engineType = 2
                 updateButtonsStyle()
@@ -57,6 +58,7 @@ class MainActivity : Activity() {
 
         btn4T = Button(this).apply {
             text = "Режим 4T"
+            textSize = 16f
             setOnClickListener {
                 engineType = 4
                 updateButtonsStyle()
@@ -67,20 +69,20 @@ class MainActivity : Activity() {
         switchLayout.addView(btn4T)
         layout.addView(switchLayout)
 
-        // Большое поле для вывода RPM
+        // Крупный вывод RPM
         rpmText = TextView(this).apply {
             text = "0 RPM"
-            textSize = 48f
-            setTextColor(Color.GREEN)
+            textSize = 52f
+            setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
-            setPadding(0, 50, 0, 50)
+            setPadding(0, 40, 0, 40)
         }
         layout.addView(rpmText)
 
-        // Информационный статус
+        // Статусная строка
         statusText = TextView(this).apply {
-            text = "Инициализация микрофона..."
-            textSize = 18f
+            text = "Инициализация..."
+            textSize = 16f
             setTextColor(Color.LTGRAY)
             gravity = Gravity.CENTER
         }
@@ -89,7 +91,7 @@ class MainActivity : Activity() {
         setContentView(layout)
         updateButtonsStyle()
 
-        // Запрос разрешений
+        // Проверка разрешений на микрофон
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
@@ -98,34 +100,34 @@ class MainActivity : Activity() {
                 REQUEST_RECORD_AUDIO_PERMISSION
             )
         } else {
-            startRpmCalculation()
+            startAudioThread()
         }
     }
 
     private fun updateButtonsStyle() {
         if (engineType == 2) {
-            btn2T.setBackgroundColor(Color.DKGRAY)
-            btn2T.setTextColor(Color.GREEN)
-            btn4T.setBackgroundColor(Color.LTGRAY)
-            btn4T.setTextColor(Color.BLACK)
-        } else {
-            btn4T.setBackgroundColor(Color.DKGRAY)
-            btn4T.setTextColor(Color.GREEN)
-            btn2T.setBackgroundColor(Color.LTGRAY)
+            btn2T.setBackgroundColor(Color.parseColor("#00E676"))
             btn2T.setTextColor(Color.BLACK)
+            btn4T.setBackgroundColor(Color.parseColor("#424242"))
+            btn4T.setTextColor(Color.WHITE)
+        } else {
+            btn4T.setBackgroundColor(Color.parseColor("#00E676"))
+            btn4T.setTextColor(Color.BLACK)
+            btn2T.setBackgroundColor(Color.parseColor("#424242"))
+            btn2T.setTextColor(Color.WHITE)
         }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startRpmCalculation()
+            startAudioThread()
         } else {
             statusText.text = "Нет доступа к микрофону!"
         }
     }
 
-    private fun startRpmCalculation() {
+    private fun startAudioThread() {
         isRecording = true
         statusText.text = "Слушаем двигатель..."
 
@@ -150,29 +152,51 @@ class MainActivity : Activity() {
                 while (isRecording) {
                     val readSize = audioRecord.read(buffer, 0, bufferSize)
                     if (readSize > 0) {
-                        // Простой поиск пиков (частоты выхлопа/оборотов) методом автокорреляции во временной области
-                        val freq = estimateFrequency(buffer, readSize, sampleRate)
-                        
-                        // Пересчет частоты в RPM в зависимости от типа двигателя (2T или 4T)
-                        // Для 2T: 1 вспышка за 1 оборот -> RPM = freq * 60
-                        // Для 4T: 1 вспышка за 2 оборота -> RPM = freq * 60 * 2
-                        val calculatedRpm = if (freq > 15 && freq < 300) {
-                            if (engineType == 2) (freq * 60).toInt() else (freq * 120).toInt()
-                        } else {
-                            0
+                        // Вычисляем общую громкость (амплитуду) для фильтрации тишины
+                        var volume = 0L
+                        for (i in 0 until readSize) {
+                            volume += kotlin.math.abs(buffer[i].toLong())
+                        }
+                        val avgVolume = volume / readSize
+
+                        var rpm = 0
+                        if (avgVolume > 100) { // Порог шума, чтобы не реагировать на тишину
+                            // Считаем частоту через переходы через ноль (Zero-Crossing Rate)
+                            var crossings = 0
+                            for (i in 0 until readSize - 1) {
+                                if ((buffer[i] >= 0 && buffer[i + 1] < 0) || (buffer[i] < 0 && buffer[i + 1] >= 0)) {
+                                    crossings++
+                                }
+                            }
+
+                            // Частота сигнала = (количество пересечений / 2) * (sampleRate / размер буфера)
+                            val durationSeconds = readSize.toFloat() / sampleRate
+                            val frequency = (crossings / 2.0f) / durationSeconds
+
+                            // Перевод в RPM с учетом типа двигателя (2T или 4T)
+                            rpm = if (engineType == 2) {
+                                (frequency * 60).toInt()
+                            } else {
+                                (frequency * 120).toInt() // 4T делает вспышку в 2 раза реже
+                            }
+                            
+                            // Фильтрация нереалистичных значений
+                            if (rpm < 500 || rpm > 15000) {
+                                rpm = 0
+                            }
                         }
 
                         runOnUiThread {
-                            if (calculatedRpm > 0) {
-                                rpmText.text = "$calculatedRpm RPM"
-                                statusText.text = "Частота: ${freq.toInt()} Гц ($engineType-тактный)"
+                            if (rpm > 0) {
+                                rpmText.text = "$rpm RPM"
+                                statusText.text = "Режим: ${engineType}T | Громкость: $avgVolume"
                             } else {
                                 rpmText.text = "0 RPM"
-                                statusText.text = "Ожидание стабильного сигнала..."
+                                statusText.text = if (avgVolume > 100) "Сигнал нестабилен..." else "Ожидание звука двигателя..."
                             }
                         }
                     }
-                    Thread.sleep(50)
+                    Thread.sleep(60)
                 }
                 audioRecord.stop()
                 audioRecord.release()
@@ -182,35 +206,6 @@ class MainActivity : Activity() {
                 }
             }
         }
-    }
-
-    // Метод оценки основной частоты звука (питча)
-    private fun estimateFrequency(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        // Проверка порога громкости (шумоподавление)
-        var sum = 0L
-        for (i in 0 until size) sum += abs(buffer[i].toInt())
-        val avg = sum / size
-        if (avg < 50) return 0f // Тишина
-
-        // Поиск периода с помощью автокорреляции
-        var bestLag = -1
-        var maxCorrelation = -1L
-
-        val minLag = sampleRate / 300 // Макс частота 300 Гц (~18000 RPM для 2T)
-        val maxLag = sampleRate / 15  // Мин частота 15 Гц
-
-        for (lag in minLag..maxLag.coerceAtMost(size / 2)) {
-            var correlation = 0L
-            for (i in 0 until (size - lag)) {
-                correlation += (buffer[i].toLong() * buffer[i + lag].toLong())
-            }
-            if (correlation > maxCorrelation) {
-                maxCorrelation = correlation
-                bestLag = lag
-            }
-        }
-
-        return if (bestLag > 0) sampleRate.toFloat() / bestLag else 0f
     }
 
     override fun onDestroy() {

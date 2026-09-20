@@ -2,6 +2,8 @@ package com.example.rpmmeter
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.media.AudioFormat
@@ -20,13 +22,14 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.concurrent.thread
 import kotlin.math.abs
-import kotlin.math.pow
 
 class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var rpmText: TextView
     private lateinit var debugText: TextView
+    private lateinit var btnHold: Button
+    
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
     private lateinit var btnLimit1: Button
@@ -42,22 +45,32 @@ class MainActivity : Activity() {
     private lateinit var btnSmoothSoft: Button
 
     private var isRecording = false
+    private var isHoldActive = false
+    private var heldRpmValue = 0
+
     private var engineType = 2
     private var maxAllowedRpm = 12000
-    private var volumeThreshold = 30
+    private val volumeThreshold = 30
 
     private var audioBufferSize = 1024 
-    
-    // Базовые константы времени полураспада (в секундах) для независимой плавности
-    // Чем больше значение, тем инерционнее и плавнее меняются цифры независимо от Rate
-    private var riseTimeConstant = 0.05f // Время реакции на рост (в секундах)
-    private var dropTimeConstant = 0.15f // Время затухания при сбросе газа (в секундах)
+    private var riseTimeConstant = 0.06f 
+    private var dropTimeConstant = 0.18f
 
+    private lateinit var sharedPreferences: SharedPreferences
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
+
+    // Защищенная строка авторства в новом формате
+    private val copyrightNotice = "2026 © YouTube_VRT \"Рациональный Труд\""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        // ЗАЩИТА ЛИЦЕНЗИИ: Проверяем контрольную сумму строки копирайта
+        verifyLicenseOrCrash()
+
+        sharedPreferences = getSharedPreferences("RpmMeterPrefs", Context.MODE_PRIVATE)
+        loadSettings()
 
         val scrollView = ScrollView(this).apply {
             setBackgroundColor(Color.parseColor("#121212"))
@@ -70,15 +83,45 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты (сделали еще крупнее!) ---
+        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты и кнопка HOLD ---
+
+        val topRpmLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
 
         rpmText = TextView(this).apply {
             text = "0 000"
-            textSize = 82f // Увеличенный размер цифр
+            textSize = 82f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
         }
-        layout.addView(rpmText)
+        
+        btnHold = Button(this).apply {
+            text = "HOLD"
+            textSize = 12f
+            setOnClickListener {
+                isHoldActive = !isHoldActive
+                if (isHoldActive) {
+                    val cleanText = rpmText.text.toString().replace(" ", "")
+                    heldRpmValue = cleanText.toIntOrNull() ?: 0
+                }
+                updateHoldButtonState()
+            }
+        }
+        val holdParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            setMargins(16, 24, 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        btnHold.layoutParams = holdParams
+        updateHoldButtonState()
+
+        topRpmLayout.addView(rpmText)
+        topRpmLayout.addView(btnHold)
+        layout.addView(topRpmLayout)
 
         val labelRpmText = TextView(this).apply {
             text = "RPM"
@@ -151,29 +194,28 @@ class MainActivity : Activity() {
             tableLayout.addView(row)
         }
 
-        btn2T = Button(this).apply { text = "2T"; setOnClickListener { engineType = 2; updateEngineButtons() } }
-        btn4T = Button(this).apply { text = "4T"; setOnClickListener { engineType = 4; updateEngineButtons() } }
+        btn2T = Button(this).apply { text = "2T"; setOnClickListener { setEngine(2) } }
+        btn4T = Button(this).apply { text = "4T"; setOnClickListener { setEngine(4) } }
         
-        btnLimit1 = Button(this).apply { text = "6k"; setOnClickListener { maxAllowedRpm = 6000; updateLimitButtons() } }
-        btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { maxAllowedRpm = 12000; updateLimitButtons() } }
-        btnLimit3 = Button(this).apply { text = "20k"; setOnClickListener { maxAllowedRpm = 20000; updateLimitButtons() } }
+        btnLimit1 = Button(this).apply { text = "6k"; setOnClickListener { setLimit(6000) } }
+        btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { setLimit(12000) } }
+        btnLimit3 = Button(this).apply { text = "20k"; setOnClickListener { setLimit(20000) } }
 
-        btnRateFast = Button(this).apply { text = "Fast"; setOnClickListener { audioBufferSize = 1024; updateRateButtons() } }
-        btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { audioBufferSize = 2048; updateRateButtons() } }
-        btnRateSlow = Button(this).apply { text = "Slow"; setOnClickListener { audioBufferSize = 4096; updateRateButtons() } }
+        btnRateFast = Button(this).apply { text = "Fast"; setOnClickListener { setRate(1024) } }
+        btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { setRate(2048) } }
+        btnRateSlow = Button(this).apply { text = "Slow"; setOnClickListener { setRate(4096) } }
 
-        // Настройки независимой плавности (задаем время реакции в секундах)
         btnSmoothSharp = Button(this).apply { 
             text = "Sharp"
-            setOnClickListener { riseTimeConstant = 0.02f; dropTimeConstant = 0.05f; updateSmoothButtons() }
+            setOnClickListener { setSmooth(0.02f, 0.05f) }
         }
         btnSmoothNorm = Button(this).apply { 
             text = "Norm"
-            setOnClickListener { riseTimeConstant = 0.06f; dropTimeConstant = 0.18f; updateSmoothButtons() }
+            setOnClickListener { setSmooth(0.06f, 0.18f) }
         }
         btnSmoothSoft = Button(this).apply { 
             text = "Soft"
-            setOnClickListener { riseTimeConstant = 0.15f; dropTimeConstant = 0.40f; updateSmoothButtons() }
+            setOnClickListener { setSmooth(0.15f, 0.40f) }
         }
 
         // 1. Строка двигателя
@@ -211,6 +253,16 @@ class MainActivity : Activity() {
 
         layout.addView(tableLayout)
 
+        // --- КОПИРАЙТ В САМОМ НИЗУ ---
+        val copyrightView = TextView(this).apply {
+            text = copyrightNotice
+            textSize = 11f
+            setTextColor(Color.parseColor("#616161"))
+            gravity = Gravity.CENTER
+            setPadding(0, 24, 0, 0)
+        }
+        layout.addView(copyrightView)
+
         scrollView.addView(layout)
         setContentView(scrollView)
 
@@ -229,6 +281,59 @@ class MainActivity : Activity() {
         } else {
             startAudioThread()
         }
+    }
+
+    // Метод проверки контрольной суммы под новый формат строки
+    private fun verifyLicenseOrCrash() {
+        // Актуальный hashCode для строки: 2026 © YouTube_VRT "Рациональный Труд"
+        val expectedHashCode = -1674404781 
+        
+        if (copyrightNotice.hashCode() != expectedHashCode) {
+            throw RuntimeException("License Error: Copyright notice integrity violation!")
+        }
+    }
+
+    private fun updateHoldButtonState() {
+        if (isHoldActive) {
+            btnHold.setBackgroundColor(Color.parseColor("#FF9800"))
+            btnHold.setTextColor(Color.BLACK)
+        } else {
+            btnHold.setBackgroundColor(Color.parseColor("#424242"))
+            btnHold.setTextColor(Color.WHITE)
+        }
+    }
+
+    private fun loadSettings() {
+        engineType = sharedPreferences.getInt("engineType", 2)
+        maxAllowedRpm = sharedPreferences.getInt("maxAllowedRpm", 12000)
+        audioBufferSize = sharedPreferences.getInt("audioBufferSize", 1024)
+        riseTimeConstant = sharedPreferences.getFloat("riseTimeConstant", 0.06f)
+        dropTimeConstant = sharedPreferences.getFloat("dropTimeConstant", 0.18f)
+    }
+
+    private fun setEngine(type: Int) {
+        engineType = type
+        sharedPreferences.edit().putInt("engineType", type).apply()
+        updateEngineButtons()
+    }
+
+    private fun setLimit(limit: Int) {
+        maxAllowedRpm = limit
+        sharedPreferences.edit().putInt("maxAllowedRpm", limit).apply()
+        updateLimitButtons()
+    }
+
+    private fun setRate(size: Int) {
+        audioBufferSize = size
+        sharedPreferences.edit().putInt("audioBufferSize", size).apply()
+        updateRateButtons()
+    }
+
+    private fun setSmooth(rise: Float, drop: Float) {
+        riseTimeConstant = rise
+        dropTimeConstant = drop
+        sharedPreferences.edit().putFloat("riseTimeConstant", rise).putFloat("dropTimeConstant", drop).apply()
+        updateSmoothButtons()
     }
 
     private fun updateEngineButtons() {
@@ -292,7 +397,6 @@ class MainActivity : Activity() {
                     audioRecord.startRecording()
                     var smoothedRpm = 0f
 
-                    // Время одного звукового блока в секундах (dt)
                     val dt = currentBufferSz.toFloat() / sampleRate.toFloat()
 
                     while (isRecording && audioBufferSize == currentBufferSz) {
@@ -308,13 +412,13 @@ class MainActivity : Activity() {
                             var dominantFreq = 0f
 
                             if (avgVolume > volumeThreshold) {
-                                val minLag = sampleRate / 200
-                                val maxLag = sampleRate / 15
+                                val logMinLag = sampleRate / 200
+                                val logMaxLag = sampleRate / 15
                                 
                                 var bestLag = -1
                                 var maxCorrelation = 0L
 
-                                for (lag in minLag..maxLag) {
+                                for (lag in logMinLag..logMaxLag) {
                                     var correlation = 0L
                                     val limit = readSize - lag
                                     for (i in 0 until limit) {
@@ -340,12 +444,10 @@ class MainActivity : Activity() {
                                 }
                             }
 
-                            // Независимое от частоты обновления сглаживание по времени (dt)
                             if (rawRpm > 0) {
                                 if (smoothedRpm == 0f) {
                                     smoothedRpm = rawRpm.toFloat()
                                 } else {
-                                    // Альфа-коэффициент рассчитывается через экспоненциальное затухание по времени
                                     val alpha = 1f - (-dt / riseTimeConstant).toDouble().let { kotlin.math.exp(it) }.toFloat()
                                     smoothedRpm = smoothedRpm + alpha * (rawRpm - smoothedRpm)
                                 }
@@ -359,12 +461,18 @@ class MainActivity : Activity() {
 
                             runOnUiThread {
                                 debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
-                                if (finalRpm > 0) {
-                                    rpmText.text = String.format("%,d", finalRpm).replace(',', ' ')
-                                    statusText.text = "Работает (${engineType}T)"
+                                
+                                if (isHoldActive) {
+                                    rpmText.text = String.format("%,d", heldRpmValue).replace(',', ' ')
+                                    statusText.text = "Удержание (HOLD)"
                                 } else {
-                                    rpmText.text = "0 000"
-                                    statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
+                                    if (finalRpm > 0) {
+                                        rpmText.text = String.format("%,d", finalRpm).replace(',', ' ')
+                                        statusText.text = "Работает (${engineType}T)"
+                                    } else {
+                                        rpmText.text = "0 000"
+                                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
+                                    }
                                 }
                             }
                         }

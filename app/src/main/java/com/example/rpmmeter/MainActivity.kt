@@ -26,7 +26,6 @@ class PreferencesManager(context: Context) {
         get() = prefs.getFloat("fallTime", 0.18f)
         set(value) = prefs.edit().putFloat("fallTime", value).apply()
 
-    // Порог чувствительности по громкости (отсечение мелких фоновых звуков, от 20 до 200)
     var minVolumeThreshold: Int
         get() = prefs.getInt("minVolumeThreshold", 60)
         set(value) = prefs.edit().putInt("minVolumeThreshold", value).apply()

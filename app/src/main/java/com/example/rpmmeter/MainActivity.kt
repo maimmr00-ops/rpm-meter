@@ -457,6 +457,52 @@ class MainActivity : Activity() {
         table.addView(row)
     }
 
+    private fun updateVolumeSquaresUI(currentVol: Int) {
+        val currentSensitivityThreshold = prefsManager.minVolumeThreshold
+        
+        var thresholdIndex = 0
+        if (prefsManager.hasStoredThreshold()) {
+            for (i in 0 until 10) {
+                if (getThresholdForSquare(i) == currentSensitivityThreshold) {
+                    thresholdIndex = i
+                    break
+                }
+            }
+        }
+        
+        var volumeIndex = -1
+        if (currentVol > 0) {
+            for (i in 9 downTo 0) {
+                if (currentVol >= getThresholdForSquare(i)) {
+                    volumeIndex = i
+                    break
+                }
+            }
+        }
+
+        for (i in 0 until 10) {
+            val btn = volumeStepButtons[i] ?: continue
+            
+            when {
+                i == thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#00E676"))
+                }
+                i == thresholdIndex -> {
+                    btn.setBackgroundColor(Color.parseColor("#FF9800"))
+                }
+                i < thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#00BCD4"))
+                }
+                i > thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#D0F8E8"))
+                }
+                else -> {
+                    btn.setBackgroundColor(Color.parseColor("#37474F"))
+                }
+            }
+        }
+    }
+
     private fun refreshAllUI() {
         if (!::btnHold.isInitialized) return
 
@@ -484,26 +530,4 @@ class MainActivity : Activity() {
         btnOthers.setTextColor(if (eType == 3) Color.BLACK else Color.WHITE)
 
         val limit = prefsManager.maxAllowedRpm
-        btnLimit1.setBackgroundColor(if (limit == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-        btnLimit2.setBackgroundColor(if (limit == 12000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-        btnLimit3.setBackgroundColor(if (limit == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-        listOf(btnLimit1, btnLimit2, btnLimit3).forEach { it.setTextColor(Color.WHITE) }
-
-        val bufSize = prefsManager.audioBufferSize
-        btnRateFast.setBackgroundColor(if (bufSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateNorm.setBackgroundColor(if (bufSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        listOf(btnRateFast, btnRateNorm, btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
-
-        val rise = prefsManager.riseTimeConstant
-        val isSharp = (rise == 0.02f)
-        val isNorm = (rise == 0.06f)
-        btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        listOf(btnSmoothSharp, btnSmoothNorm, btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
-
-        updateVolumeSquaresUI(0)
-    }
-
-    
+        btnLimit1.setBackgrou

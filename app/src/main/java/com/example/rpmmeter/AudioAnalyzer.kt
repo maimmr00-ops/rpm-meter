@@ -24,7 +24,7 @@ class AudioAnalyzer(
         isRunning = true
 
         analysisThread = Thread {
-            val sampleRate = 16000
+            val sampleRate = 8000 // Оптимальная частота для анализа моторов
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
 
@@ -59,15 +59,16 @@ class AudioAnalyzer(
                 val readCount = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                 if (readCount <= 0) continue
 
-                // 1. Расчет громкости (RMS)
+                // 1. Расчет громкости
                 var sum = 0.0
-                for (i in 0 until readCount) {
+                val limitSamples = minOf(readCount, 512)
+                for (i in 0 until limitSamples) {
                     val v = buffer[i].toDouble()
                     sum += v * v
                 }
-                val rawVolume = sqrt(sum / readCount)
+                val rawVolume = sqrt(sum / limitSamples)
                 
-                smoothedVolume = smoothedVolume + 0.2f * (rawVolume.toFloat() - smoothedVolume)
+                smoothedVolume = smoothedVolume + 0.3f * (rawVolume.toFloat() - smoothedVolume)
                 val currentVolInt = smoothedVolume.toInt()
 
                 val minThreshold = prefsManager.minVolumeThreshold
@@ -76,19 +77,23 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 2. Автокорреляционный анализ частоты
-                val rawFreq = findFrequencyAutocorrelation(buffer, readCount, sampleRate)
+                // 2. Выбор метода анализа в зависимости от типа двигателя
+                val engineType = prefsManager.engineType
+                val rawFreq = if (engineType == 4) {
+                    findFrequencyZeroCrossing(buffer, limitSamples, sampleRate)
+                } else {
+                    findFrequencyAutocorrelation(buffer, limitSamples, sampleRate)
+                }
 
-                if (rawFreq < 15.0f || rawFreq > 1000.0f) {
+                if (rawFreq < 10.0f || rawFreq > 400.0f) {
                     onUpdate(0, rawFreq, 0f, currentVolInt, "Поиск сигнала...")
                     continue
                 }
 
-                // 3. Вычисление оборотов (для 4T корректный расчет через деление/множение частоты)
-                val engineType = prefsManager.engineType
+                // 3. Расчет RPM
                 val calculatedRpm = when (engineType) {
-                    2 -> rawFreq * 60.0f  // 2T: 1 вспышка на оборот
-                    4 -> rawFreq * 30.0f  // 4T: вспышка каждые 2 оборота (реальная частота коленвала вдвое выше частоты вспышек)
+                    2 -> rawFreq * 60.0f
+                    4 -> rawFreq * 30.0f // 4T: 1 вспышка на 2 оборота
                     else -> rawFreq * 60.0f
                 }
 
@@ -97,33 +102,52 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. Честное сглаживание RPM из настроек без жестких костылей
-                val riseAlpha = prefsManager.riseTimeConstant
-                val fallAlpha = prefsManager.fallTimeConstant
+                // 4. РАБОТАЮЩАЯ ПЛАВНОСТЬ (Четкое применение настроек из PreferencesManager)
+                val riseAlpha = prefsManager.riseTimeConstant // Коэффициент при росте оборотов
+                val fallAlpha = prefsManager.fallTimeConstant // Коэффициент при падении оборотов
 
-                val alpha = if (calculatedRpm > smoothedRpm) riseAlpha else fallAlpha
+                // Выбираем коэффициент: если обороты растут — используем rise, если падают — fall
+                val alpha = if (calculatedRpm >= smoothedRpm) riseAlpha else fallAlpha
+                
+                // Применяем формулу сглаживания
                 smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
 
                 val finalRpm = smoothedRpm.toInt()
-                onUpdate(finalRpm, rawFreq, calculatedRpm, currentVolInt, "Работа мотора")
+                onUpdate(finalRpm, rawFreq, calculatedRpm, currentVolInt, if (engineType == 4) "Работа мотора (4T)" else "Работа мотора")
             }
         }
         analysisThread?.start()
     }
 
+    private fun findFrequencyZeroCrossing(buffer: ShortArray, size: Int, sampleRate: Int): Float {
+        var crossings = 0
+        var sum = 0L
+        for (i in 0 until size) sum += buffer[i]
+        val avg = (sum / size).toInt()
+
+        for (i in 0 until size - 1) {
+            val curr = buffer[i] - avg
+            val next = buffer[i + 1] - avg
+            if ((curr <= 0 && next > 0) || (curr >= 0 && next < 0)) {
+                crossings++
+            }
+        }
+        return (crossings.toFloat() / 2.0f) * (sampleRate.toFloat() / size.toFloat())
+    }
+
     private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val minLag = sampleRate / 1000
-        val maxLag = sampleRate / 15
+        val minLag = sampleRate / 300
+        val maxLag = sampleRate / 20
 
         if (size <= maxLag) return 0f
 
         var bestLag = -1
         var maxCorrelation = -1.0
 
-        for (lag in minLag..maxLag) {
+        for (lag in minLag..maxLag step 2) {
             var correlation = 0.0
             val limit = size - lag
-            for (i in 0 until limit) {
+            for (i in 0 until limit step 4) {
                 correlation += (buffer[i].toDouble() * buffer[i + lag].toDouble())
             }
             if (correlation > maxCorrelation) {

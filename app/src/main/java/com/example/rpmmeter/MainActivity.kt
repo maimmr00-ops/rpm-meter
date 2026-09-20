@@ -70,14 +70,13 @@ class MainActivity : Activity() {
         layout.addView(rpmText)
 
         statusText = TextView(this).apply {
-            text = "Слушаем..."
+            text = "Ожидание запуска мотора..."
             textSize = 16f
             setTextColor(Color.LTGRAY)
             gravity = Gravity.CENTER
         }
         layout.addView(statusText)
 
-        // Отладочное поле для видения реальных цифр с микрофона
         debugText = TextView(this).apply {
             text = "Громкость: 0 | Частота: 0 Гц"
             textSize = 14f
@@ -125,7 +124,7 @@ class MainActivity : Activity() {
             val sampleRate = 8000
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-            val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat).coerceAtLeast(2048)
+            val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat).coerceAtLeast(4096)
 
             try {
                 val audioRecord = AudioRecord(
@@ -139,6 +138,9 @@ class MainActivity : Activity() {
                 val buffer = ShortArray(bufferSize)
                 audioRecord.startRecording()
 
+                // Переменная для сглаживания показаний (фильтр скользящего среднего)
+                var smoothedRpm = 0f
+
                 while (isRecording) {
                     val readSize = audioRecord.read(buffer, 0, bufferSize)
                     if (readSize > 0) {
@@ -148,35 +150,65 @@ class MainActivity : Activity() {
                         }
                         val avgVolume = (volume / readSize).toInt()
 
-                        // Считаем переходы через ноль без жестких фильтров
-                        var crossings = 0
-                        for (i in 0 until readSize - 1) {
-                            if ((buffer[i] >= 0 && buffer[i + 1] < 0) || (buffer[i] < 0 && buffer[i + 1] >= 0)) {
-                                crossings++
+                        var rawRpm = 0
+                        var frequency = 0f
+
+                        // Порог громкости поднят, чтобы отсечь фоновый шум комнаты
+                        if (avgVolume > 150) {
+                            // Простейший фильтр нижних частот (сглаживаем высокие гармоники)
+                            val filtered = ShortArray(readSize)
+                            filtered[0] = buffer[0]
+                            for (i in 1 until readSize) {
+                                // alpha = 0.5 (простейшее RC-звено)
+                                filtered[i] = ((filtered[i - 1] + buffer[i]) / 2).toShort()
+                            }
+
+                            // Считаем переходы через ноль по отфильтрованному сигналу
+                            var crossings = 0
+                            for (i in 0 until readSize - 1) {
+                                if ((filtered[i] >= 0 && filtered[i + 1] < 0) || (filtered[i] < 0 && filtered[i + 1] >= 0)) {
+                                    crossings++
+                                }
+                            }
+
+                            val durationSeconds = readSize.toFloat() / sampleRate
+                            frequency = (crossings / 2.0f) / durationSeconds
+
+                            val calculatedRpm = if (engineType == 2) {
+                                (frequency * 60).toInt()
+                            } else {
+                                (frequency * 120).toInt()
+                            }
+
+                            // Жесткие рамки для моторов: от 800 до 12000 RPM
+                            if (calculatedRpm in 800..12000) {
+                                rawRpm = calculatedRpm
                             }
                         }
 
-                        val durationSeconds = readSize.toFloat() / sampleRate
-                        val frequency = (crossings / 2.0f) / durationSeconds
-
-                        val rpm = if (engineType == 2) {
-                            (frequency * 60).toInt()
+                        // Плавное обновление, чтобы цифры не дергались
+                        if (rawRpm > 0) {
+                            if (smoothedRpm == 0f) smoothedRpm = rawRpm.toFloat()
+                            else smoothedRpm = smoothedRpm * 0.7f + rawRpm * 0.3f
                         } else {
-                            (frequency * 120).toInt()
+                            smoothedRpm = smoothedRpm * 0.9f // Плавное затухание к нулю при прекращении звука
+                            if (smoothedRpm < 500) smoothedRpm = 0f
                         }
 
+                        val finalRpm = smoothedRpm.toInt()
+
                         runOnUiThread {
-                            debugText.text = "Громкость: $avgVolume | Част: ${frequency.toInt()} Гц"
-                            if (avgVolume > 10) { // Снизили порог до минимума
-                                rpmText.text = "$rpm RPM"
+                            debugText.text = "Громкость: $avgVolume | Частота: ${frequency.toInt()} Гц"
+                            if (finalRpm > 0) {
+                                rpmText.text = "$finalRpm RPM"
                                 statusText.text = "Работает (${engineType}T)"
                             } else {
                                 rpmText.text = "0 RPM"
-                                statusText.text = "Тишина..."
+                                statusText.text = if (avgVolume > 150) "Анализ звука..." else "Ожидание запуска мотора..."
                             }
                         }
                     }
-                    Thread.sleep(40)
+                    Thread.sleep(50)
                 }
                 audioRecord.stop()
                 audioRecord.release()

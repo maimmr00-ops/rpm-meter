@@ -3,6 +3,7 @@ package com.example.rpmmeter
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 class AudioAnalyzer(
@@ -92,7 +93,7 @@ class AudioAnalyzer(
             smoothedVolume = smoothedVolume * 0.7f + rawVolume * 0.3f
             val currentVolume = smoothedVolume.toInt()
 
-            // 2. ЖЕСТКАЯ ОТСЕЧКА ПО ПОРОГУ (Самый первый шаг!)
+            // 2. Отсечка по порогу (шумодав квадратиков VU-метра)
             val threshold = prefsManager.minVolumeThreshold
             if (currentVolume < threshold) {
                 smoothedRpm = 0f
@@ -100,27 +101,72 @@ class AudioAnalyzer(
                 continue
             }
 
-            // 3. Анализ частоты (только если громкость выше порога)
-            var zeroCrossings = 0
-            for (i in 1 until readCount) {
-                if ((shortBuffer[i - 1] < 0 && shortBuffer[i] >= 0) || 
-                    (shortBuffer[i - 1] >= 0 && shortBuffer[i] < 0)) {
-                    zeroCrossings++
-                }
-            }
-
-            val frequency = (zeroCrossings.toFloat() * sampleRate) / (2.0f * readCount)
-            
             val engineType = prefsManager.engineType
-            val rawRpm = when (engineType) {
-                2 -> (frequency * 60f).toInt()
-                4 -> (frequency * 30f).toInt()
-                else -> (frequency * 60f).toInt()
+            var frequency = 0f
+            var rawRpm = 0
+
+            if (engineType == 3) {
+                // РЕЖИМ OTHERS ("ОЗЕРО"): считает всё подряд, всю частоту без фильтрации пиков
+                var zeroCrossings = 0
+                for (i in 1 until readCount) {
+                    if ((shortBuffer[i - 1] < 0 && shortBuffer[i] >= 0) || 
+                        (shortBuffer[i - 1] >= 0 && shortBuffer[i] < 0)) {
+                        zeroCrossings++
+                    }
+                }
+                frequency = (zeroCrossings.toFloat() * sampleRate) / (2.0f * readCount)
+                rawRpm = (frequency * 60f).toInt()
+            } else {
+                // РЕЖИМЫ 2T и 4T: Ищет именно мощные ПИКИ выхлопа, отсекая мелкие гармоники и шум
+                var peakCount = 0
+                
+                // Динамический порог амплитуды для поиска основных пиков внутри буфера
+                var maxAmplitude = 0
+                for (i in 0 until readCount) {
+                    val absVal = abs(shortBuffer[i].toInt())
+                    if (absVal > maxAmplitude) maxAmplitude = absVal
+                }
+                
+                // Пиком считаем всплеск, достигающий хотя бы 40% от максимального в текущем буфере
+                val peakThreshold = (maxAmplitude * 0.4f).toInt().coerceAtLeast(100)
+                
+                // Минимальное расстояние между пиками (в отсчетах), чтобы избежать дребезга гармоник
+                // Ограничивает максимальный фиксируемый RPM разумными пределами
+                val minSamplesBetweenPeaks = 15 
+                var lastPeakIndex = -999
+
+                for (i in 1 until (readCount - 1)) {
+                    val prev = shortBuffer[i - 1].toInt()
+                    val curr = shortBuffer[i].toInt()
+                    val next = shortBuffer[i + 1].toInt()
+
+                    // Проверяем локальный максимум, превышающий порог пика выхлопа
+                    if (curr > prev && curr >= next && curr > peakThreshold) {
+                        if ((i - lastPeakIndex) >= minSamplesBetweenPeaks) {
+                            peakCount++
+                            lastPeakIndex = i
+                        }
+                    }
+                }
+
+                // Переводим количество найденных пиков за время буфера в частоту вспышек в секунду (Гц)
+                val durationSec = readCount.toFloat() / sampleRate
+                frequency = if (durationSec > 0f) peakCount / durationSec else 0f
+
+                // Коррекция под такты мотора:
+                // 2T: 1 вспышка на 1 оборот -> умножаем на 60
+                // 4T: 1 вспышка на 2 оборота -> умножаем на 120
+                rawRpm = when (engineType) {
+                    2 -> (frequency * 60f).toInt()
+                    4 -> (frequency * 120f).toInt()
+                    else -> (frequency * 60f).toInt()
+                }
             }
 
             val maxLimit = prefsManager.maxAllowedRpm
             val clampedRpm = rawRpm.coerceIn(0, maxLimit)
 
+            // Сглаживание рывков RPM (Rise / Fall)
             val rise = prefsManager.riseTimeConstant
             val fall = prefsManager.fallTimeConstant
             val alpha = if (clampedRpm > smoothedRpm) rise else fall
@@ -128,9 +174,9 @@ class AudioAnalyzer(
 
             val finalRpm = smoothedRpm.toInt()
             val statusMsg = when (engineType) {
-                2 -> "Работает (2T)"
-                4 -> "Работает (4T)"
-                else -> "Работает (Others)"
+                2 -> "Работает (2T - Пики)"
+                4 -> "Работает (4T - Пики)"
+                else -> "Работает (Others - Озеро)"
             }
 
             onUpdate(finalRpm, frequency, currentVolume, statusMsg)

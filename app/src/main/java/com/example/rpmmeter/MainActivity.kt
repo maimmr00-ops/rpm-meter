@@ -330,6 +330,8 @@ class MainActivity : Activity() {
         rightMultipliers.addView(settings.btnX4)
         container.addView(rightMultipliers)
 
+        container.addView(rightMultipliers)
+
         return container
     }
 

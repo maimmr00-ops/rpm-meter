@@ -60,7 +60,7 @@ class MainActivity : Activity() {
             context = this,
             prefsManager = prefsManager,
             onRefreshUI = { 
-                refreshAllUI() // Только обновление интерфейса без лишних перезапусков
+                refreshAllUI()
             },
             volumeStepButtons = volumeStepButtons,
             onMultiplierChange = { mult ->
@@ -95,7 +95,10 @@ class MainActivity : Activity() {
         }
     }
 
+    // Исправленный метод перезапуска с полным гашением старого потока и микрофона
     fun restartAnalyzer() {
+        audioAnalyzer?.stop()
+        audioAnalyzer = null
         initAndStartAudioAnalyzer()
     }
 

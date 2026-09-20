@@ -21,7 +21,6 @@ class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var rpmText: TextView
-    private lateinit var debugText: TextView
     private lateinit var btnHold: Button
     
     private lateinit var btn2T: Button
@@ -70,25 +69,26 @@ class MainActivity : Activity() {
         statusText.textSize = 13f
         statusText.setTextColor(Color.LTGRAY)
         statusText.gravity = Gravity.CENTER
-        statusText.setPadding(0, 8, 0, 0)
+        statusText.setPadding(0, 4, 0, 0)
         rootLayout.addView(statusText)
 
-        debugText = TextView(this)
-        debugText.text = "Громкость: 0 | Частота: 0 Гц"
-        debugText.textSize = 11f
-        debugText.setTextColor(Color.YELLOW)
-        debugText.gravity = Gravity.CENTER
-        debugText.setPadding(0, 2, 0, 12)
-        rootLayout.addView(debugText)
+        val debugText = TextView(this)
+        val localDebugText = debugText
+        localDebugText.text = "Громкость: 0 | Частота: 0 Гц"
+        localDebugText.textSize = 11f
+        localDebugText.setTextColor(Color.YELLOW)
+        localDebugText.gravity = Gravity.CENTER
+        localDebugText.setPadding(0, 2, 0, 8)
+        rootLayout.addView(localDebugText)
 
         rootLayout.addView(buildSettingsTable())
 
         val copyright = TextView(this)
-        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.6"
+        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.9"
         copyright.textSize = 12f
         copyright.setTextColor(Color.parseColor("#9E9E9E"))
         copyright.gravity = Gravity.CENTER
-        copyright.setPadding(16, 20, 16, 12)
+        copyright.setPadding(16, 16, 16, 8)
         rootLayout.addView(copyright)
 
         scrollView.addView(rootLayout)
@@ -101,7 +101,7 @@ class MainActivity : Activity() {
             onUpdate = { rpm, freq, vol, status ->
                 currentRealRpm = rpm
                 runOnUiThread {
-                    debugText.text = "Громкость: $vol | Частота: ${freq.toInt()} Гц"
+                    localDebugText.text = "Громкость: $vol | Частота: ${freq.toInt()} Гц"
                     if (isHoldActive) {
                         rpmText.text = (if (heldRpmValue > 0) heldRpmValue else 0).toString()
                         statusText.text = "Удержание (HOLD)"
@@ -127,77 +127,66 @@ class MainActivity : Activity() {
         val container = LinearLayout(this)
         container.orientation = LinearLayout.HORIZONTAL
         container.gravity = Gravity.CENTER_VERTICAL
-        container.setPadding(0, 12, 0, 8)
+        container.setPadding(0, 4, 0, 4)
         container.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
 
-        // Центральный блок для цифр и метки RPM — по центру строки
-        val rpmContainer = LinearLayout(this)
-        rpmContainer.orientation = LinearLayout.HORIZONTAL
-        rpmContainer.gravity = Gravity.CENTER
-        rpmContainer.layoutParams = LinearLayout.LayoutParams(
+        // Центральный блок для цифр и подписи RPM
+        val rpmBlock = LinearLayout(this)
+        rpmBlock.orientation = LinearLayout.VERTICAL
+        rpmBlock.gravity = Gravity.CENTER
+        rpmBlock.layoutParams = LinearLayout.LayoutParams(
             0, 
             LinearLayout.LayoutParams.WRAP_CONTENT, 
-            0.72f
+            0.75f
         )
 
-        // Огромные цифры оборотов (растут влево, правый край зафиксирован)
+        // Огромные цифры оборотов
         rpmText = TextView(this)
         rpmText.text = "0"
-        rpmText.textSize = 96f
+        rpmText.textSize = 88f
         rpmText.setTextColor(Color.parseColor("#00E676"))
-        rpmText.gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        rpmText.gravity = Gravity.CENTER
         rpmText.includeFontPadding = false
+        rpmBlock.addView(rpmText)
 
-        val textWrapper = LinearLayout(this)
-        textWrapper.orientation = LinearLayout.HORIZONTAL
-        textWrapper.gravity = Gravity.END
-        textWrapper.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT, 
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        textWrapper.addView(rpmText)
-        rpmContainer.addView(textWrapper)
-
-        // Метка RPM уменьшена в два раза (до 36f), аккуратно пристроена справа
+        // Подпись RPM (об / мин) маленьким шрифтом по центру под цифрами
         val rpmLabel = TextView(this)
-        rpmLabel.text = " RPM"
-        rpmLabel.textSize = 36f
+        rpmLabel.text = "RPM (об / мин)"
+        rpmLabel.textSize = 11f
         rpmLabel.setTextColor(Color.parseColor("#80CBC4"))
-        rpmLabel.gravity = Gravity.BOTTOM or Gravity.START
-        rpmLabel.setPadding(4, 0, 0, 10)
+        rpmLabel.gravity = Gravity.CENTER
         rpmLabel.includeFontPadding = false
-        rpmContainer.addView(rpmLabel)
+        rpmBlock.addView(rpmLabel)
 
-        container.addView(rpmContainer)
+        container.addView(rpmBlock)
 
-        // Небольшой отступ перед кнопкой HOLD
+        // Небольшой отступ
         val middleSpacer = View(this)
-        middleSpacer.layoutParams = LinearLayout.LayoutParams(16, 1)
+        middleSpacer.layoutParams = LinearLayout.LayoutParams(12, 1)
         container.addView(middleSpacer)
 
-        // Правая колонка для кнопки HOLD — растягивается на всю высоту строки
+        // Правая колонка для кнопки HOLD
         val rightCol = LinearLayout(this)
         rightCol.orientation = LinearLayout.VERTICAL
         rightCol.gravity = Gravity.CENTER
         rightCol.layoutParams = LinearLayout.LayoutParams(
             0, 
             LinearLayout.LayoutParams.MATCH_PARENT, 
-            0.28f
+            0.25f
         )
 
         btnHold = Button(this)
         btnHold.text = "HOLD"
-        btnHold.textSize = 14f
+        btnHold.textSize = 13f
         btnHold.setOnClickListener {
             isHoldActive = !isHoldActive
             if (isHoldActive) heldRpmValue = currentRealRpm
             refreshAllUI()
         }
 
-        // Кнопка заполняет всю высоту контейнера
         val holdParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
             LinearLayout.LayoutParams.MATCH_PARENT
@@ -212,7 +201,7 @@ class MainActivity : Activity() {
 
     private fun buildSettingsTable(): View {
         val table = TableLayout(this)
-        table.setPadding(0, 4, 0, 0)
+        table.setPadding(0, 2, 0, 0)
         table.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -277,7 +266,7 @@ class MainActivity : Activity() {
     private fun addRow(table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button) {
         val row = TableRow(this)
         row.gravity = Gravity.CENTER_VERTICAL
-        row.setPadding(0, 3, 0, 3)
+        row.setPadding(0, 2, 0, 2)
 
         val label = TextView(this)
         label.text = labelText

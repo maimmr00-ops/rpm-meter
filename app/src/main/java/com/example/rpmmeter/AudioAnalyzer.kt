@@ -101,9 +101,10 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. Сглаживание показаний RPM (применяем коэффициенты плавности из настроек)
+                // 4. Сглаживание показаний RPM
                 val riseAlpha = prefsManager.riseTimeConstant
-                val fallAlpha = prefsManager.fallTimeConstant
+                // Принудительно делаем падение быстрым, чтобы при сбросе газа не было «тупежки» и залипаний
+                val fallAlpha = maxOf(prefsManager.fallTimeConstant, 0.35f)
 
                 val alpha = if (calculatedRpm > smoothedRpm) riseAlpha else fallAlpha
                 smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
@@ -124,7 +125,6 @@ class AudioAnalyzer(
         var bestLag = -1
         var maxCorrelation = -1.0
 
-        // Оптимальный поиск пика автокорреляции
         for (lag in minLag..maxLag) {
             var correlation = 0.0
             val limit = size - lag

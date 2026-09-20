@@ -101,20 +101,17 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. Фиксированное количество кадров на падение: 2, 4 или 7
-                val riseAlpha = prefsManager.riseTimeConstant 
-                
-                val targetFrames = when {
-                    riseAlpha >= 0.5f -> 2   // Sharp -> ровно 2 кадра на сброс
-                    riseAlpha >= 0.1f -> 4   // Norm  -> ровно 4 кадра на сброс
-                    else -> 7                // Soft  -> ровно 7 кадров на сброс
+                // 4. Плавность управляется кнопками Sharp (1 фрейм), Norm (3 фрейма), Soft (5 фреймов)
+                val targetFrames = when (prefsManager.smoothPreset) {
+                    0 -> 1   // Sharp -> 1 фрейм (мгновенно)
+                    1 -> 3   // Norm  -> 3 фрейма
+                    else -> 5 // Soft  -> 5 фреймов
                 }
 
                 val alpha = if (calculatedRpm >= smoothedRpm) {
-                    riseAlpha // Рост оборотов идет по скорости выбранного пресета
+                    0.7f // Быстрый набор оборотов
                 } else {
-                    // Сброс оборотов идет строго за заданное количество кадров (2, 4 или 7)
-                    1.0f / targetFrames
+                    1.0f / targetFrames.toFloat() // Сброс строго за 1, 3 или 5 кадров
                 }
                 
                 smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)

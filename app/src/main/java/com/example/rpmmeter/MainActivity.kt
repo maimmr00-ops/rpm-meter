@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RelativeLayout
 import android.widget.ScrollView
 import android.widget.TableLayout
 import android.widget.TableRow
@@ -82,13 +83,44 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        val topRpmLayout = LinearLayout(this).apply {
+        // Шапка с фиксированным правым углом для крестика
+        val topContainer = RelativeLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        btnExit = Button(this).apply {
+            text = "✕"
+            textSize = 18f
+            setTextColor(Color.parseColor("#FF5252"))
+            setBackgroundColor(Color.parseColor("#424242"))
+            setOnClickListener {
+                finishAffinity()
+            }
+        }
+        val exitParams = RelativeLayout.LayoutParams(110, 110).apply {
+            addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+            addRule(RelativeLayout.CENTER_VERTICAL)
+        }
+        btnExit.layoutParams = exitParams
+        topContainer.addView(btnExit)
+
+        val centerRpmLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            val params = RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.WRAP_CONTENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                addRule(RelativeLayout.CENTER_IN_PARENT)
+            }
+            layoutParams = params
         }
 
         rpmText = TextView(this).apply {
-            text = "0"
+            text = "0000"
             textSize = 72f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
@@ -107,31 +139,17 @@ class MainActivity : Activity() {
         }
         
         val holdParams = LinearLayout.LayoutParams(160, 110).apply {
-            setMargins(24, 0, 16, 0)
+            setMargins(20, 0, 0, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
         btnHold.layoutParams = holdParams
         updateHoldButtonState()
 
-        btnExit = Button(this).apply {
-            text = "✕"
-            textSize = 18f
-            setTextColor(Color.parseColor("#FF5252"))
-            setBackgroundColor(Color.parseColor("#424242"))
-            setOnClickListener {
-                finishAffinity()
-            }
-        }
-        val exitParams = LinearLayout.LayoutParams(110, 110).apply {
-            setMargins(8, 0, 0, 0)
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        btnExit.layoutParams = exitParams
+        centerRpmLayout.addView(rpmText)
+        centerRpmLayout.addView(btnHold)
+        topContainer.addView(centerRpmLayout)
 
-        topRpmLayout.addView(rpmText)
-        topRpmLayout.addView(btnHold)
-        topRpmLayout.addView(btnExit)
-        layout.addView(topRpmLayout)
+        layout.addView(topContainer)
 
         val labelRpmText = TextView(this).apply {
             text = "RPM"
@@ -495,23 +513,12 @@ class MainActivity : Activity() {
                 
                 if (isHoldActive) {
                     val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-                    rpmText.text = displayHoldVal.toString()
+                    rpmText.text = String.format("%04d", displayHoldVal)
                     statusText.text = "Удержание (HOLD)"
                 } else {
                     if (finalRpm > 0) {
-                        rpmText.text = finalRpm.toString()
+                        rpmText.text = String.format("%04d", finalRpm)
                         statusText.text = "Работает (${engineType}T)"
                     } else {
-                        rpmText.text = "0"
-                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
-                    }
-                }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        isRecording = false
-        super.onDestroy()
-    }
-}
+                        rpmText.text = "0000"
+                        statusText.text = i

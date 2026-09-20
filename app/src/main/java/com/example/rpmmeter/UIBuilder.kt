@@ -47,7 +47,6 @@ object UIBuilder {
             )
         }
 
-        // Переключение мотора с явным перезапуском анализатора
         val btn2T = Button(context).apply {
             text = "2T"
             setOnClickListener { prefsManager.engineType = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
@@ -74,7 +73,6 @@ object UIBuilder {
             setOnClickListener { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
         }
 
-        // Изменение буфера (обновления) с перезапуском анализатора
         val btnRateFast = Button(context).apply {
             text = "Fast"
             setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
@@ -88,18 +86,18 @@ object UIBuilder {
             setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
 
-        // Плавность (перезапуск не нужен, меняется налету)
+        // Рабочие коэффициенты плавности (теперь реально реагируют на нажатия)
         val btnSmoothSharp = Button(context).apply {
             text = "Sharp"
-            setOnClickListener { prefsManager.saveSmooth(0.4f, 0.7f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.35f, 0.5f); onRefreshUI() }
         }
         val btnSmoothNorm = Button(context).apply {
             text = "Norm"
-            setOnClickListener { prefsManager.saveSmooth(0.2f, 0.4f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.12f, 0.25f); onRefreshUI() }
         }
         val btnSmoothSoft = Button(context).apply {
             text = "Soft"
-            setOnClickListener { prefsManager.saveSmooth(0.08f, 0.18f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.04f, 0.1f); onRefreshUI() }
         }
 
         val btnX1 = Button(context).apply { text = "/1" }

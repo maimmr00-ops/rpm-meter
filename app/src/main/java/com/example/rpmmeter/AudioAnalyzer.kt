@@ -15,10 +15,11 @@ class AudioAnalyzer(
     private var isRunning = false
     private var analysisThread: Thread? = null
 
-    private var smoothedRpm = 0f
     private var smoothedVolume = 0f
-    private var decayCounter = 0
-    private var lastValidLag = -1 // Память последнего успешного лага для стабильности 2T
+    
+    // Внутренние переменные памяти для алгоритмов (живут прямо в сердце расчетов)
+    private var smoothedLag = -1f       // Для автокорреляции (2T / Others)
+    private var smoothedCrossingFreq = -1f // Для Zero-Crossing (4T)
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -86,29 +87,31 @@ class AudioAnalyzer(
 
                 val minThreshold = prefsManager.minVolumeThreshold
                 if (currentVolInt < minThreshold) {
-                    smoothedRpm *= 0.3f
-                    if (smoothedRpm < 100f) smoothedRpm = 0f
-                    lastValidLag = -1 // Сбрасываем память лага при тишине
-                    onUpdate(smoothedRpm.toInt(), 0f, smoothedRpm, currentVolInt, "Тишина / Ниже порога")
+                    smoothedLag = -1f
+                    smoothedCrossingFreq = -1f
+                    onUpdate(0, 0f, 0f, currentVolInt, "Тишина / Ниже порога")
                     continue
                 }
 
-                // 2. Выбор метода анализа в зависимости от типа двигателя
+                // Передаем текущий пресет плавности (Sharp=0, Norm=1, Soft=2) прямо в алгоритмы!
+                val smoothPreset = prefsManager.smoothPreset
                 val engineType = prefsManager.engineType
+
+                // 2 & 3. Расчет частоты С УЧЕТОМ ПЛАВНОСТИ ВНУТРИ АЛГОРИТМА
                 val rawFreq = if (engineType == 4) {
-                    findFrequencyZeroCrossing(buffer, readCount, sampleRate)
+                    findFrequencyZeroCrossing(buffer, readCount, sampleRate, smoothPreset)
                 } else {
-                    findFrequencyAutocorrelation(buffer, readCount, sampleRate)
+                    findFrequencyAutocorrelation(buffer, readCount, sampleRate, smoothPreset)
                 }
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
-                    smoothedRpm *= 0.3f
-                    lastValidLag = -1
-                    onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Поиск сигнала...")
+                    smoothedLag = -1f
+                    smoothedCrossingFreq = -1f
+                    onUpdate(0, rawFreq, 0f, currentVolInt, "Поиск сигнала...")
                     continue
                 }
 
-                // 3. Расчет RPM
+                // Финальный расчет RPM из уже сглаженной алгоритмом частоты
                 val calculatedRpm = when (engineType) {
                     2 -> rawFreq * 60.0f
                     4 -> rawFreq * 30.0f
@@ -120,50 +123,17 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. ИНДИВИДУАЛЬНЫЙ АЛГОРИТМ ПЛАВНОСТИ (Sharp = 1, Norm = 2, Soft = 3)
-                val smoothPreset = prefsManager.smoothPreset
-
-                when (smoothPreset) {
-                    0 -> {
-                        // --- SHARP: 1 кадр (мгновенный отклик) ---
-                        smoothedRpm = calculatedRpm
-                        decayCounter = 0
-                    }
-                    1 -> {
-                        // --- NORM: Ровно 2 кадра на спад ---
-                        if (calculatedRpm >= smoothedRpm) {
-                            smoothedRpm = calculatedRpm
-                            decayCounter = 0
-                        } else {
-                            val diff = smoothedRpm - calculatedRpm
-                            smoothedRpm -= (diff / 2.0f).coerceAtLeast(1.0f)
-                            if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
-                        }
-                    }
-                    else -> {
-                        // --- SOFT: Ровно 3 кадра с микро-удержанием ---
-                        if (calculatedRpm >= smoothedRpm) {
-                            smoothedRpm = smoothedRpm + 0.6f * (calculatedRpm - smoothedRpm)
-                            decayCounter = 1 
-                        } else {
-                            if (decayCounter > 0) {
-                                decayCounter-- 
-                            } else {
-                                val diff = smoothedRpm - calculatedRpm
-                                smoothedRpm -= (diff / 3.0f).coerceAtLeast(1.0f)
-                                if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
-                            }
-                        }
-                    }
-                }
-
-                onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Работа мотора")
+                // Больше не нужны костыли на выходе — алгоритмы сами выдают чистый результат нужной степени плавности!
+                onUpdate(calculatedRpm.toInt(), rawFreq, calculatedRpm, currentVolInt, "Работа мотора")
             }
         }
         analysisThread?.start()
     }
 
-    private fun findFrequencyZeroCrossing(buffer: ShortArray, size: Int, sampleRate: Int): Float {
+    /**
+     * Алгоритм Zero-Crossing для 4T с внедренной плавностью прямо в расчет
+     */
+    private fun findFrequencyZeroCrossing(buffer: ShortArray, size: Int, sampleRate: Int, preset: Int): Float {
         var crossings = 0
         var sum = 0L
         for (i in 0 until size) sum += buffer[i]
@@ -176,23 +146,47 @@ class AudioAnalyzer(
                 crossings++
             }
         }
-        return (crossings.toFloat() / 2.0f) * (sampleRate.toFloat() / size.toFloat())
+        val instantFreq = (crossings.toFloat() / 2.0f) * (sampleRate.toFloat() / size.toFloat())
+
+        // Плавность влияет на инерцию внутри 4T
+        val alpha = when (preset) {
+            0 -> 1.0f  // Sharp: мгновенно
+            1 -> 0.5f  // Norm: сбалансированно
+            else -> 0.25f // Soft: максимальная стабильность
+        }
+
+        if (smoothedCrossingFreq < 0f) {
+            smoothedCrossingFreq = instantFreq
+        } else {
+            smoothedCrossingFreq = smoothedCrossingFreq + alpha * (instantFreq - smoothedCrossingFreq)
+        }
+
+        return smoothedCrossingFreq
     }
 
-    private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val absoluteMinLag = sampleRate / 300 // Максимум 300 Гц (~18000 RPM)
-        val absoluteMaxLag = sampleRate / 20  // Минимум 20 Гц (~1200 RPM)
+    /**
+     * Алгоритм Autocorrelation для 2T/Others с внедренным коридором и плавностью периода
+     */
+    private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int, preset: Int): Float {
+        val absoluteMinLag = sampleRate / 300 
+        val absoluteMaxLag = sampleRate / 20  
 
         if (size <= absoluteMaxLag) return 0f
 
-        // Узкий скользящий коридор вокруг предыдущего успешного значения (±35%)
-        // Это полностью блокирует скачки автокорреляции по ложным гармоникам при сбросе газа
+        // Узкий защитный коридор зависит от пресета: на Soft коридор жестче, чтобы не было качелей
         val minLag: Int
         val maxLag: Int
 
-        if (lastValidLag > 0) {
-            minLag = (lastValidLag * 0.65f).toInt().coerceAtLeast(absoluteMinLag)
-            maxLag = (lastValidLag * 1.35f).toInt().coerceAtMost(absoluteMaxLag)
+        val corridorFactor = when (preset) {
+            0 -> 0.5f  // Sharp: шире коридор, быстрее реакция на газ
+            1 -> 0.35f // Norm
+            else -> 0.2f // Soft: очень узкий коридор, давит любые качели
+        }
+
+        val currentLagInt = smoothedLag.toInt()
+        if (currentLagInt > 0) {
+            minLag = (currentLagInt * (1.0f - corridorFactor)).toInt().coerceAtLeast(absoluteMinLag)
+            maxLag = (currentLagInt * (1.0f + corridorFactor)).toInt().coerceAtMost(absoluteMaxLag)
         } else {
             minLag = absoluteMinLag
             maxLag = absoluteMaxLag
@@ -201,7 +195,6 @@ class AudioAnalyzer(
         var bestLag = -1
         var maxCorrelation = -1.0
 
-        // Первый проход: ищем внутри узкого защитного коридора
         for (lag in minLag..maxLag step 1) {
             var correlation = 0.0
             val limit = size - lag
@@ -214,8 +207,8 @@ class AudioAnalyzer(
             }
         }
 
-        // Если в узком коридоре сигнал потерялся, делаем один полный поиск для подстраховки
-        if (bestLag <= 0 && lastValidLag > 0) {
+        // Подстраховка широким поиском, если в коридоре пусто
+        if (bestLag <= 0 && currentLagInt > 0) {
             bestLag = -1
             maxCorrelation = -1.0
             for (lag in absoluteMinLag..absoluteMaxLag step 2) {
@@ -231,13 +224,22 @@ class AudioAnalyzer(
             }
         }
 
-        if (bestLag <= 0) {
-            lastValidLag = -1
-            return 0f
+        if (bestLag <= 0) return 0f
+
+        // Плавность изменения самого периода (лага) внутри алгоритма
+        val lagAlpha = when (preset) {
+            0 -> 1.0f  // Sharp: моментальный переход на новый лаг
+            1 -> 0.6f  // Norm
+            else -> 0.3f // Soft: плавное изменение периода
         }
 
-        lastValidLag = bestLag
-        return sampleRate.toFloat() / bestLag.toFloat()
+        if (smoothedLag < 0f) {
+            smoothedLag = bestLag.toFloat()
+        } else {
+            smoothedLag = smoothedLag + lagAlpha * (bestLag.toFloat() - smoothedLag)
+        }
+
+        return sampleRate.toFloat() / smoothedLag
     }
 
     fun stop() {

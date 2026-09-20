@@ -432,78 +432,101 @@ class MainActivity : Activity() {
                         continue
                     }
 
-                    val actualBuffer = ShortArray(currentBufferSz)
                     audioRecord.startRecording()
-                    var smoothedRpm = 0f
+                    processAudioStream(audioRecord, sampleRate, currentBufferSz)
+                }
+            } catch (e: Exception) {
+                runOnUiThread { statusText.text = "Ошибка: ${e.message}" }
+            } finally {
+                safeStopAndRelease(audioRecord)
+            }
+        }
+    }
 
-                    val dt = currentBufferSz.toFloat() / sampleRate.toFloat()
+    private fun processAudioStream(audioRecord: AudioRecord, sampleRate: Int, currentBufferSz: Int) {
+        val actualBuffer = ShortArray(currentBufferSz)
+        var smoothedRpm = 0f
+        val dt = currentBufferSz.toFloat() / sampleRate.toFloat()
 
-                    while (isRecording && audioBufferSize == currentBufferSz) {
-                        val readSize = audioRecord.read(actualBuffer, 0, currentBufferSz)
-                        if (readSize > 0) {
-                            var volume = 0L
-                            for (i in 0 until readSize) {
-                                volume += abs(actualBuffer[i].toLong())
-                            }
-                            val avgVolume = (volume / readSize).toInt()
+        while (isRecording && audioBufferSize == currentBufferSz) {
+            val readSize = audioRecord.read(actualBuffer, 0, currentBufferSz)
+            if (readSize <= 0) continue
 
-                            var rawRpm = 0
-                            var dominantFreq = 0f
+            var volume = 0L
+            for (i in 0 until readSize) {
+                volume += abs(actualBuffer[i].toLong())
+            }
+            val avgVolume = (volume / readSize).toInt()
 
-                            if (avgVolume > volumeThreshold) {
-                                val logMinLag = sampleRate / 200
-                                val logMaxLag = sampleRate / 15
-                                
-                                var bestLag = -1
-                                var maxCorrelation = 0L
+            var rawRpm = 0
+            var dominantFreq = 0f
 
-                                for (lag in logMinLag..logMaxLag) {
-                                    var correlation = 0L
-                                    val limit = readSize - lag
-                                    for (i in 0 until limit) {
-                                        correlation += (actualBuffer[i].toLong() * actualBuffer[i + lag].toLong())
-                                    }
-                                    if (correlation > maxCorrelation) {
-                                       maxCorrelation = correlation
-                                       bestLag = lag
-                                    }
-                                }
+            if (avgVolume > volumeThreshold) {
+                val logMinLag = sampleRate / 200
+                val logMaxLag = sampleRate / 15
+                
+                var bestLag = -1
+                var maxCorrelation = 0L
 
-                                if (bestLag > 0) {
-                                    dominantFreq = sampleRate.toFloat() / bestLag
-                                    val calculatedRpm = if (engineType == 2) {
-                                        (dominantFreq * 60).toInt()
-                                    } else {
-                                        (dominantFreq * 120).toInt()
-                                    }
+                for (lag in logMinLag..logMaxLag) {
+                    var correlation = 0L
+                    val limit = readSize - lag
+                    for (i in 0 until limit) {
+                        correlation += (actualBuffer[i].toLong() * actualBuffer[i + lag].toLong())
+                    }
+                    if (correlation > maxCorrelation) {
+                       maxCorrelation = correlation
+                       bestLag = lag
+                    }
+                }
 
-                                    if (calculatedRpm in 500..maxAllowedRpm) {
-                                        rawRpm = calculatedRpm
-                                    }
-                                }
-                            }
+                if (bestLag > 0) {
+                    dominantFreq = sampleRate.toFloat() / bestLag
+                    val calculatedRpm = if (engineType == 2) {
+                        (dominantFreq * 60).toInt()
+                    } else {
+                        (dominantFreq * 120).toInt()
+                    }
 
-                            if (rawRpm > 0) {
-                                if (smoothedRpm == 0f) {
-                                    smoothedRpm = rawRpm.toFloat()
-                                } else {
-                                    val expArg = (-dt / riseTimeConstant).toDouble()
-                                    val alpha = (1.0 - exp(expArg)).toFloat()
-                                    smoothedRpm = smoothedRpm + alpha * (rawRpm - smoothedRpm)
-                                }
-                            } else {
-                                val dropExpArg = (-dt / dropTimeConstant).toDouble()
-                                val dropAlpha = (1.0 - exp(dropExpArg)).toFloat()
-                                smoothedRpm = smoothedRpm * (1f - dropAlpha)
-                                if (smoothedRpm < 300) smoothedRpm = 0f
-                            }
+                    if (calculatedRpm in 500..maxAllowedRpm) {
+                        rawRpm = calculatedRpm
+                    }
+                }
+            }
 
-                            val finalRpm = smoothedRpm.toInt()
-                            currentRealRpm = finalRpm
+            if (rawRpm > 0) {
+                if (smoothedRpm == 0f) {
+                    smoothedRpm = rawRpm.toFloat()
+                } else {
+                    val expArg = (-dt / riseTimeConstant).toDouble()
+                    val alpha = (1.0 - exp(expArg)).toFloat()
+                    smoothedRpm = smoothedRpm + alpha * (rawRpm - smoothedRpm)
+                }
+            } else {
+                val dropExpArg = (-dt / dropTimeConstant).toDouble()
+                val dropAlpha = (1.0 - exp(dropExpArg)).toFloat()
+                smoothedRpm = smoothedRpm * (1f - dropAlpha)
+                if (smoothedRpm < 300) smoothedRpm = 0f
+            }
 
-                            runOnUiThread {
-                                debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
-                                
-                                if (isHoldActive) {
-                                    val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-    
+            val finalRpm = smoothedRpm.toInt()
+            currentRealRpm = finalRpm
+
+            runOnUiThread {
+                debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
+                
+                if (isHoldActive) {
+                    val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
+                    rpmText.text = displayHoldVal.toString()
+                    statusText.text = "Удержание (HOLD)"
+                } else {
+                    if (finalRpm > 0) {
+                        rpmText.text = finalRpm.toString()
+                        statusText.text = "Работает (${engineType}T)"
+                    } else {
+                        rpmText.text = "0"
+                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
+                    }
+                }
+            }
+            

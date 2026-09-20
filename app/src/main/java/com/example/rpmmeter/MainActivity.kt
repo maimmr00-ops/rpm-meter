@@ -28,17 +28,15 @@ class MainActivity : Activity() {
     private lateinit var btnLimit1: Button
     private lateinit var btnLimit2: Button
     private lateinit var btnLimit3: Button
-    private lateinit var btnSpeedLow: Button
-    private lateinit var btnSpeedMed: Button
-    private lateinit var btnSpeedHard: Button
+    private lateinit var btnSpeedSlow: Button
+    private lateinit var btnSpeedNorm: Button
+    private lateinit var btnSpeedFast: Button
 
     private var isRecording = false
     private var engineType = 2
     private var maxAllowedRpm = 12000
-    private var volumeThreshold = 100
+    private var volumeThreshold = 30 // Фиксированный низкий порог, мотор всё перекроет
 
-    // Коэффициенты сглаживания (скорость обновления / инерция)
-    // Low (медленно/плавно), Medium (средне), Hard (мгновенно/резко)
     private var smoothingFactor = 0.6f 
     private var dropFactor = 0.3f
 
@@ -51,7 +49,7 @@ class MainActivity : Activity() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#121212"))
-            setPadding(30, 30, 30, 30)
+            setPadding(20, 20, 20, 20)
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
@@ -59,79 +57,44 @@ class MainActivity : Activity() {
         val engineBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, 5, 0, 10)
+            setPadding(0, 5, 0, 8)
         }
-
-        btn2T = Button(this).apply {
-            text = "Режим 2T"
-            setOnClickListener { engineType = 2; updateEngineButtons() }
-        }
-        btn4T = Button(this).apply {
-            text = "Режим 4T"
-            setOnClickListener { engineType = 4; updateEngineButtons() }
-        }
-        engineBar.addView(btn2T)
-        engineBar.addView(btn4T)
+        btn2T = Button(this).apply { text = "2T"; setOnClickListener { engineType = 2; updateEngineButtons() } }
+        btn4T = Button(this).apply { text = "4T"; setOnClickListener { engineType = 4; updateEngineButtons() } }
+        engineBar.addView(btn2T); engineBar.addView(btn4T)
         layout.addView(engineBar)
 
         // 2. Лимит оборотов
         val limitBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 10)
+            setPadding(0, 0, 0, 8)
         }
-
-        btnLimit1 = Button(this).apply {
-            text = "До 6k"
-            setOnClickListener { maxAllowedRpm = 6000; updateLimitButtons() }
-        }
-        btnLimit2 = Button(this).apply {
-            text = "До 12k"
-            setOnClickListener { maxAllowedRpm = 12000; updateLimitButtons() }
-        }
-        btnLimit3 = Button(this).apply {
-            text = "До 20k"
-            setOnClickListener { maxAllowedRpm = 20000; updateLimitButtons() }
-        }
-        limitBar.addView(btnLimit1)
-        limitBar.addView(btnLimit2)
-        limitBar.addView(btnLimit3)
+        btnLimit1 = Button(this).apply { text = "6k"; setOnClickListener { maxAllowedRpm = 6000; updateLimitButtons() } }
+        btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { maxAllowedRpm = 12000; updateLimitButtons() } }
+        btnLimit3 = Button(this).apply { text = "20k"; setOnClickListener { maxAllowedRpm = 20000; updateLimitButtons() } }
+        limitBar.addView(btnLimit1); limitBar.addView(btnLimit2); limitBar.addView(btnLimit3)
         layout.addView(limitBar)
 
-        // 3. Скорость обновления (Лов / Медиум / Хард)
+        // 3. Скорость отклика (Slow / Normal / Fast)
         val speedBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 15)
         }
-
-        btnSpeedLow = Button(this).apply {
-            text = "Low (Плавный)"
-            setOnClickListener { 
-                smoothingFactor = 0.2f
-                dropFactor = 0.8f
-                updateSpeedButtons() 
-            }
+        btnSpeedSlow = Button(this).apply { 
+            text = "Slow"
+            setOnClickListener { smoothingFactor = 0.2f; dropFactor = 0.8f; updateSpeedButtons() }
         }
-        btnSpeedMed = Button(this).apply {
-            text = "Med"
-            setOnClickListener { 
-                smoothingFactor = 0.6f
-                dropFactor = 0.3f
-                updateSpeedButtons() 
-            }
+        btnSpeedNorm = Button(this).apply { 
+            text = "Normal"
+            setOnClickListener { smoothingFactor = 0.6f; dropFactor = 0.3f; updateSpeedButtons() }
         }
-        btnSpeedHard = Button(this).apply {
-            text = "Hard (Резкий)"
-            setOnClickListener { 
-                smoothingFactor = 0.95f
-                dropFactor = 0.05f
-                updateSpeedButtons() 
-            }
+        btnSpeedFast = Button(this).apply { 
+            text = "Fast"
+            setOnClickListener { smoothingFactor = 0.95f; dropFactor = 0.05f; updateSpeedButtons() }
         }
-        speedBar.addView(btnSpeedLow)
-        speedBar.addView(btnSpeedMed)
-        speedBar.addView(btnSpeedHard)
+        speedBar.addView(btnSpeedSlow); speedBar.addView(btnSpeedNorm); speedBar.addView(btnSpeedFast)
         layout.addView(speedBar)
 
         // Крупные цифры оборотов
@@ -140,7 +103,6 @@ class MainActivity : Activity() {
             textSize = 68f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
-            setPadding(0, 10, 0, 0)
         }
         layout.addView(rpmText)
 
@@ -149,7 +111,7 @@ class MainActivity : Activity() {
             textSize = 18f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 20)
+            setPadding(0, 0, 0, 15)
         }
         layout.addView(labelRpmText)
 
@@ -168,7 +130,7 @@ class MainActivity : Activity() {
             textSize = 13f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
-            setPadding(0, 15, 0, 0)
+            setPadding(0, 10, 0, 0)
         }
         layout.addView(debugText)
 
@@ -190,31 +152,24 @@ class MainActivity : Activity() {
     }
 
     private fun updateEngineButtons() {
-        if (engineType == 2) {
-            btn2T.setBackgroundColor(Color.parseColor("#00E676")); btn2T.setTextColor(Color.BLACK)
-            btn4T.setBackgroundColor(Color.parseColor("#424242")); btn4T.setTextColor(Color.WHITE)
-        } else {
-            btn4T.setBackgroundColor(Color.parseColor("#00E676")); btn4T.setTextColor(Color.BLACK)
-            btn2T.setBackgroundColor(Color.parseColor("#424242")); btn2T.setTextColor(Color.WHITE)
-        }
+        btn2T.setBackgroundColor(if (engineType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        btn2T.setTextColor(if (engineType == 2) Color.BLACK else Color.WHITE)
+        btn4T.setBackgroundColor(if (engineType == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        btn4T.setTextColor(if (engineType == 4) Color.BLACK else Color.WHITE)
     }
 
     private fun updateLimitButtons() {
         btnLimit1.setBackgroundColor(if (maxAllowedRpm == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         btnLimit2.setBackgroundColor(if (maxAllowedRpm == 12000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         btnLimit3.setBackgroundColor(if (maxAllowedRpm == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-        btnLimit1.setTextColor(Color.WHITE)
-        btnLimit2.setTextColor(Color.WHITE)
-        btnLimit3.setTextColor(Color.WHITE)
+        btnLimit1.setTextColor(Color.WHITE); btnLimit2.setTextColor(Color.WHITE); btnLimit3.setTextColor(Color.WHITE)
     }
 
     private fun updateSpeedButtons() {
-        btnSpeedLow.setBackgroundColor(if (smoothingFactor == 0.2f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSpeedMed.setBackgroundColor(if (smoothingFactor == 0.6f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSpeedHard.setBackgroundColor(if (smoothingFactor == 0.95f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSpeedLow.setTextColor(Color.WHITE)
-        btnSpeedMed.setTextColor(Color.WHITE)
-        btnSpeedHard.setTextColor(Color.WHITE)
+        btnSpeedSlow.setBackgroundColor(if (smoothingFactor == 0.2f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        btnSpeedNorm.setBackgroundColor(if (smoothingFactor == 0.6f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        btnSpeedFast.setBackgroundColor(if (smoothingFactor == 0.95f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        btnSpeedSlow.setTextColor(Color.WHITE); btnSpeedNorm.setTextColor(Color.WHITE); btnSpeedFast.setTextColor(Color.WHITE)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -233,11 +188,8 @@ class MainActivity : Activity() {
             val bufferSize = 2048
 
             try {
-                // Используем VOICE_COMMUNICATION или UNPROCESSED (если поддерживается), 
-                // чтобы отключить встроенное АРУ (автоматическую регулировку усиления телефона), 
-                // из-за которой микрофон «запирает» и плавает по громкости.
                 val audioRecord = AudioRecord(
-                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                    MediaRecorder.AudioSource.MIC,
                     sampleRate,
                     channelConfig,
                     audioFormat,
@@ -301,7 +253,7 @@ class MainActivity : Activity() {
                             if (smoothedRpm < 300) smoothedRpm = 0f
                         }
 
-                    val finalRpm = smoothedRpm.toInt()
+                        val finalRpm = smoothedRpm.toInt()
 
                         runOnUiThread {
                             debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"

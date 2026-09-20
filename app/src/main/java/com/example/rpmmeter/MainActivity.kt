@@ -11,6 +11,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
@@ -77,27 +78,88 @@ class MainActivity : Activity() {
             isFillViewport = true
         }
 
-        val layout = LinearLayout(this).apply {
+        val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 16, 16, 16)
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // --- ВЕРХНЯЯ СТРОКА: ТРИ КОЛОНКИ (20% | 60% | 20%) ---
-        val topContainer = LinearLayout(this).apply {
+        // 1. Добавляем верхнюю панель (RPM + HOLD)
+        mainLayout.addView(createTopPanel())
+
+        // 2. Статус и отладка
+        statusText = TextView(this).apply {
+            text = "Ожидание запуска мотора..."
+            textSize = 13f
+            setTextColor(Color.LTGRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 0)
+        }
+        mainLayout.addView(statusText)
+
+        debugText = TextView(this).apply {
+            text = "Громкость: 0 | Частота: 0 Гц"
+            textSize = 11f
+            setTextColor(Color.YELLOW)
+            gravity = Gravity.CENTER
+            setPadding(0, 2, 0, 12)
+        }
+        mainLayout.addView(debugText)
+
+        // 3. Таблица настроек
+        mainLayout.addView(createSettingsTable())
+
+        // 4. Копирайт
+        val copyrightView = TextView(this).apply {
+            text = copyrightNotice
+            textSize = 12f
+            setTextColor(Color.parseColor("#9E9E9E"))
+            gravity = Gravity.CENTER
+            setPadding(16, 20, 16, 12)
+        }
+        mainLayout.addView(copyrightView)
+
+        scrollView.addView(mainLayout)
+        setContentView(scrollView)
+
+        // Инициализация состояний кнопок
+        updateEngineButtons()
+        updateLimitButtons()
+        updateRateButtons()
+        updateSmoothButtons()
+
+        // Проверка разрешений микрофона
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                REQUEST_RECORD_AUDIO_PERMISSION
+            )
+        } else {
+            startAudioThread()
+        }
+    }
+
+    // Отдельная функция для верхней панели (нет риска запутаться в скобках)
+    private fun createTopPanel(): View {
+        val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 8, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
 
-        // 1. Левая колонка (20%): пустая для симметрии и баланса
-        val leftSpacerLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.2f)
+        // Левый пустой отступ (20%)
+        val leftSpacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 1, 0.2f)
         }
 
-        // 2. Центральная колонка (60%): обороты RPM
-        val centerRpmLayout = LinearLayout(this).apply {
+        // Центральный блок с RPM (60%)
+        val centerLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.6f)
@@ -109,8 +171,8 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
         }
-        
-        val labelRpmText = TextView(this).apply {
+
+        val labelRpm = TextView(this).apply {
             text = "RPM"
             textSize = 15f
             setTextColor(Color.parseColor("#80CBC4"))
@@ -118,11 +180,11 @@ class MainActivity : Activity() {
             setPadding(0, 0, 0, 2)
         }
 
-        centerRpmLayout.addView(rpmText)
-        centerRpmLayout.addView(labelRpmText)
+        centerLayout.addView(rpmText)
+        centerLayout.addView(labelRpm)
 
-        // 3. Правая колонка (20%): Кнопка HOLD на всю высоту блока
-        val rightActionLayout = LinearLayout(this).apply {
+        // Правый блок с кнопкой HOLD (20%)
+        val rightLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(0, 110, 0.2f)
@@ -138,46 +200,31 @@ class MainActivity : Activity() {
                 }
                 updateHoldButtonState()
             }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                setMargins(4, 0, 0, 0)
+            }
         }
-        val holdParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 
-            LinearLayout.LayoutParams.MATCH_PARENT
-        ).apply {
-            setMargins(4, 0, 0, 0)
-        }
-        btnHold.layoutParams = holdParams
         updateHoldButtonState()
+        rightLayout.addView(btnHold)
 
-        rightActionLayout.addView(btnHold)
+        container.addView(leftSpacer)
+        container.addView(centerLayout)
+        container.addView(rightLayout)
 
-        // Собираем верхнюю панель воедино
-        topContainer.addView(leftSpacerLayout)
-        topContainer.addView(centerRpmLayout)
-        topContainer.addView(rightActionLayout)
-        layout.addView(topContainer)
+        return container
+    }
 
-        // Статус и отладка
-        statusText = TextView(this).apply {
-            text = "Ожидание запуска мотора..."
-            textSize = 13f
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 8, 0, 0)
-        }
-        layout.addView(statusText)
-
-        debugText = TextView(this).apply {
-            text = "Громкость: 0 | Частота: 0 Гц"
-            textSize = 11f
-            setTextColor(Color.YELLOW)
-            gravity = Gravity.CENTER
-            setPadding(0, 2, 0, 12)
-        }
-        layout.addView(debugText)
-
-        // Таблица настроек
+    // Отдельная функция для таблицы настроек
+    private fun createSettingsTable(): View {
         val tableLayout = TableLayout(this).apply {
             setPadding(0, 4, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
 
         btn2T = Button(this).apply { text = "2T"; setOnClickListener { setEngine(2) } }
@@ -192,19 +239,11 @@ class MainActivity : Activity() {
         btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { setRate(2560) } }
         btnRateSlow = Button(this).apply { text = "Slow"; setOnClickListener { setRate(4096) } }
 
-        btnSmoothSharp = Button(this).apply { 
-            text = "Sharp"
-            setOnClickListener { setSmooth(0.02f, 0.05f) }
-        }
-        btnSmoothNorm = Button(this).apply { 
-            text = "Norm"
-            setOnClickListener { setSmooth(0.06f, 0.18f) }
-        }
-        btnSmoothSoft = Button(this).apply { 
-            text = "Soft"
-            setOnClickListener { setSmooth(0.15f, 0.40f) }
-        }
+        btnSmoothSharp = Button(this).apply { text = "Sharp"; setOnClickListener { setSmooth(0.02f, 0.05f) } }
+        btnSmoothNorm = Button(this).apply { text = "Norm"; setOnClickListener { setSmooth(0.06f, 0.18f) } }
+        btnSmoothSoft = Button(this).apply { text = "Soft"; setOnClickListener { setSmooth(0.15f, 0.40f) } }
 
+        // Строка выбора мотора
         val engineRow = TableRow(this).apply { setPadding(0, 3, 0, 3) }
         val engineLabel = TextView(this).apply {
             text = "мотор:"
@@ -236,35 +275,7 @@ class MainActivity : Activity() {
         addSettingRowToTable(tableLayout, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
         addSettingRowToTable(tableLayout, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
 
-        layout.addView(tableLayout)
-
-        val copyrightView = TextView(this).apply {
-            text = copyrightNotice
-            textSize = 12f
-            setTextColor(Color.parseColor("#9E9E9E"))
-            gravity = Gravity.CENTER
-            setPadding(16, 20, 16, 12)
-        }
-        layout.addView(copyrightView)
-
-        scrollView.addView(layout)
-        setContentView(scrollView)
-
-        updateEngineButtons()
-        updateLimitButtons()
-        updateRateButtons()
-        updateSmoothButtons()
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                REQUEST_RECORD_AUDIO_PERMISSION
-            )
-        } else {
-            startAudioThread()
-        }
+        return tableLayout
     }
 
     private fun addSettingRowToTable(table: TableLayout, labelTxt: String, b1: Button, b2: Button, b3: Button) {
@@ -510,13 +521,4 @@ class MainActivity : Activity() {
             }
 
             if (rawRpm > 0) {
-                if (smoothedRpm == 0f) {
-                    smoothedRpm = rawRpm.toFloat()
-                } else {
-                    val expArg = (-dt / riseTimeConstant).toDouble()
-                    val alpha = (1.0 - exp(expArg)).toFloat()
-                    smoothedRpm = smoothedRpm + alpha * (rawRpm - smoothedRpm)
-                }
-            } else {
-                val dropExpArg = (-dt / dropTimeConstant).toDouble()
-                val drop
+                

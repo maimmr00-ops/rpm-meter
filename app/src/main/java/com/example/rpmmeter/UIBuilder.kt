@@ -99,11 +99,11 @@ object UIBuilder {
             setOnClickListener { prefsManager.saveSmooth(0.15f, 0.40f); onRefreshUI() }
         }
 
-        // Заглушки-кнопки (сохранены для обратной совместимости структуры SettingsButtons)
-        val btnX1 = Button(context).apply { setOnClickListener {} }
-        val btnX2 = Button(context).apply { setOnClickListener {} }
-        val btnX3 = Button(context).apply { setOnClickListener {} }
-        val btnX4 = Button(context).apply { setOnClickListener {} }
+        // Кнопки-множители для главного экрана (/1, /2, /3, /4)
+        val btnX1 = Button(context).apply { text = "/1" }
+        val btnX2 = Button(context).apply { text = "/2" }
+        val btnX3 = Button(context).apply { text = "/3" }
+        val btnX4 = Button(context).apply { text = "/4" }
 
         // Добавляем строки настроек в таблицу
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)

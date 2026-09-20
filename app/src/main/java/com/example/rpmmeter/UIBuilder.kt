@@ -86,7 +86,7 @@ object UIBuilder {
             setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
 
-        // Рабочие коэффициенты плавности (теперь реально реагируют на нажатия)
+        // Рабочие коэффициенты плавности
         val btnSmoothSharp = Button(context).apply {
             text = "Sharp"
             setOnClickListener { prefsManager.saveSmooth(0.35f, 0.5f); onRefreshUI() }

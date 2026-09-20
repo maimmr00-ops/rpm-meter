@@ -20,6 +20,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.concurrent.thread
 import kotlin.math.abs
+import kotlin.math.pow
 
 class MainActivity : Activity() {
 
@@ -32,12 +33,10 @@ class MainActivity : Activity() {
     private lateinit var btnLimit2: Button
     private lateinit var btnLimit3: Button
     
-    // Кнопки обновления (размер буфера)
     private lateinit var btnRateFast: Button
     private lateinit var btnRateNorm: Button
     private lateinit var btnRateSlow: Button
 
-    // Кнопки плавности / затухания
     private lateinit var btnSmoothSharp: Button
     private lateinit var btnSmoothNorm: Button
     private lateinit var btnSmoothSoft: Button
@@ -48,8 +47,11 @@ class MainActivity : Activity() {
     private var volumeThreshold = 30
 
     private var audioBufferSize = 1024 
-    private var smoothingFactor = 0.8f 
-    private var dropFactor = 0.2f
+    
+    // Базовые константы времени полураспада (в секундах) для независимой плавности
+    // Чем больше значение, тем инерционнее и плавнее меняются цифры независимо от Rate
+    private var riseTimeConstant = 0.05f // Время реакции на рост (в секундах)
+    private var dropTimeConstant = 0.15f // Время затухания при сбросе газа (в секундах)
 
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
@@ -68,12 +70,11 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты и статус ---
+        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты (сделали еще крупнее!) ---
 
-        // Крупные цифры оборотов
         rpmText = TextView(this).apply {
             text = "0 000"
-            textSize = 68f
+            textSize = 82f // Увеличенный размер цифр
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
         }
@@ -88,7 +89,6 @@ class MainActivity : Activity() {
         }
         layout.addView(labelRpmText)
 
-        // Статус
         statusText = TextView(this).apply {
             text = "Ожидание запуска мотора..."
             textSize = 14f
@@ -97,7 +97,6 @@ class MainActivity : Activity() {
         }
         layout.addView(statusText)
 
-        // Отладка
         debugText = TextView(this).apply {
             text = "Громкость: 0 | Частота: 0 Гц"
             textSize = 12f
@@ -114,7 +113,6 @@ class MainActivity : Activity() {
             setPadding(0, 8, 0, 0)
         }
 
-        // Вспомогательная функция для создания строк таблицы
         fun addSettingRow(labelTxt: String, b1: Button, b2: Button, b3: Button) {
             val row = TableRow(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
@@ -153,7 +151,6 @@ class MainActivity : Activity() {
             tableLayout.addView(row)
         }
 
-        // Инициализация кнопок
         btn2T = Button(this).apply { text = "2T"; setOnClickListener { engineType = 2; updateEngineButtons() } }
         btn4T = Button(this).apply { text = "4T"; setOnClickListener { engineType = 4; updateEngineButtons() } }
         
@@ -165,11 +162,21 @@ class MainActivity : Activity() {
         btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { audioBufferSize = 2048; updateRateButtons() } }
         btnRateSlow = Button(this).apply { text = "Slow"; setOnClickListener { audioBufferSize = 4096; updateRateButtons() } }
 
-        btnSmoothSharp = Button(this).apply { text = "Sharp"; setOnClickListener { smoothingFactor = 1.0f; dropFactor = 0.0f; updateSmoothButtons() } }
-        btnSmoothNorm = Button(this).apply { text = "Norm"; setOnClickListener { smoothingFactor = 0.8f; dropFactor = 0.2f; updateSmoothButtons() } }
-        btnSmoothSoft = Button(this).apply { text = "Soft"; setOnClickListener { smoothingFactor = 0.4f; dropFactor = 0.5f; updateSmoothButtons() } }
+        // Настройки независимой плавности (задаем время реакции в секундах)
+        btnSmoothSharp = Button(this).apply { 
+            text = "Sharp"
+            setOnClickListener { riseTimeConstant = 0.02f; dropTimeConstant = 0.05f; updateSmoothButtons() }
+        }
+        btnSmoothNorm = Button(this).apply { 
+            text = "Norm"
+            setOnClickListener { riseTimeConstant = 0.06f; dropTimeConstant = 0.18f; updateSmoothButtons() }
+        }
+        btnSmoothSoft = Button(this).apply { 
+            text = "Soft"
+            setOnClickListener { riseTimeConstant = 0.15f; dropTimeConstant = 0.40f; updateSmoothButtons() }
+        }
 
-        // 1. Строка двигателя (2T / 4T)
+        // 1. Строка двигателя
         val engineRow = TableRow(this).apply { setPadding(0, 4, 0, 4) }
         val engineLabel = TextView(this).apply {
             text = "двигатель:"
@@ -246,9 +253,11 @@ class MainActivity : Activity() {
     }
 
     private fun updateSmoothButtons() {
-        btnSmoothSharp.setBackgroundColor(if (smoothingFactor == 1.0f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSmoothNorm.setBackgroundColor(if (smoothingFactor == 0.8f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSmoothSoft.setBackgroundColor(if (smoothingFactor == 0.4f) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        val isSharp = (riseTimeConstant == 0.02f)
+        val isNorm = (riseTimeConstant == 0.06f)
+        btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         btnSmoothSharp.setTextColor(Color.WHITE); btnSmoothNorm.setTextColor(Color.WHITE); btnSmoothSoft.setTextColor(Color.WHITE)
     }
 
@@ -282,6 +291,9 @@ class MainActivity : Activity() {
                     val actualBuffer = ShortArray(currentBufferSz)
                     audioRecord.startRecording()
                     var smoothedRpm = 0f
+
+                    // Время одного звукового блока в секундах (dt)
+                    val dt = currentBufferSz.toFloat() / sampleRate.toFloat()
 
                     while (isRecording && audioBufferSize == currentBufferSz) {
                         val readSize = audioRecord.read(actualBuffer, 0, currentBufferSz)
@@ -328,11 +340,18 @@ class MainActivity : Activity() {
                                 }
                             }
 
+                            // Независимое от частоты обновления сглаживание по времени (dt)
                             if (rawRpm > 0) {
-                                if (smoothedRpm == 0f) smoothedRpm = rawRpm.toFloat()
-                                else smoothedRpm = smoothedRpm * (1f - smoothingFactor) + rawRpm * smoothingFactor
+                                if (smoothedRpm == 0f) {
+                                    smoothedRpm = rawRpm.toFloat()
+                                } else {
+                                    // Альфа-коэффициент рассчитывается через экспоненциальное затухание по времени
+                                    val alpha = 1f - (-dt / riseTimeConstant).toDouble().let { kotlin.math.exp(it) }.toFloat()
+                                    smoothedRpm = smoothedRpm + alpha * (rawRpm - smoothedRpm)
+                                }
                             } else {
-                                smoothedRpm = smoothedRpm * dropFactor
+                                val dropAlpha = 1f - (-dt / dropTimeConstant).toDouble().let { kotlin.math.exp(it) }.toFloat()
+                                smoothedRpm = smoothedRpm * (1f - dropAlpha)
                                 if (smoothedRpm < 300) smoothedRpm = 0f
                             }
 

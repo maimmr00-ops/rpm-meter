@@ -83,7 +83,6 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // Шапка с фиксированным правым углом для крестика
         val topContainer = RelativeLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -521,4 +520,4 @@ class MainActivity : Activity() {
                         statusText.text = "Работает (${engineType}T)"
                     } else {
                         rpmText.text = "0000"
-                        statusText.text = i
+                        statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожид

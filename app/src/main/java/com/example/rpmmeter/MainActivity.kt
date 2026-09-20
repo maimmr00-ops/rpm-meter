@@ -47,7 +47,7 @@ class MainActivity : Activity() {
     private var isRecording = false
     private var isHoldActive = false
     private var heldRpmValue = 0
-    private var currentRealRpm = 0 // Переменная для хранения актуальных оборотов в реальном времени
+    private var currentRealRpm = 0
 
     private var engineType = 2
     private var maxAllowedRpm = 12000
@@ -102,7 +102,6 @@ class MainActivity : Activity() {
             setOnClickListener {
                 isHoldActive = !isHoldActive
                 if (isHoldActive) {
-                    // Фиксируем текущие реальные обороты мотора
                     heldRpmValue = currentRealRpm
                 }
                 updateHoldButtonState()
@@ -460,13 +459,12 @@ class MainActivity : Activity() {
                             }
 
                             val finalRpm = smoothedRpm.toInt()
-                            currentRealRpm = finalRpm // Сохраняем текущие обороты для точной фиксации кнопкой HOLD
+                            currentRealRpm = finalRpm
 
                             runOnUiThread {
                                 debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
                                 
                                 if (isHoldActive) {
-                                    // Выводим зафиксированное значение (если оно 0, то показываем "0 000", либо красивое число)
                                     val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
                                     rpmText.text = String.format("%,d", displayHoldVal).replace(',', ' ')
                                     statusText.text = "Удержание (HOLD)"
@@ -486,4 +484,13 @@ class MainActivity : Activity() {
                     audioRecord.release()
                 }
             } catch (e: Exception) {
-                runOnUiThread { statusText.text = "Ошибка: ${e.messag
+                runOnUiThread { statusText.text = "Ошибка: ${e.message}" }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        isRecording = false
+    }
+}

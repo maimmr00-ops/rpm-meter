@@ -56,7 +56,7 @@ object UIBuilder {
             setOnClickListener { prefsManager.engineType = 4; onRefreshUI() }
         }
         val btnOthers = Button(context).apply {
-            text = "Озеро"
+            text = "Others"
             setOnClickListener { prefsManager.engineType = 3; onRefreshUI() }
         }
 

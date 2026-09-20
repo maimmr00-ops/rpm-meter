@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
@@ -22,10 +21,16 @@ class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var rpmTextView: TextView
-    private lateinit var debugText: TextView
     private lateinit var btnHold: Button
     private lateinit var btnExit: Button
     
+    // Кнопки коэффициентов цилиндров (x1, x2, x3, x4)
+    private lateinit var btnX1: Button
+    private lateinit var btnX2: Button
+    private lateinit var btnX3: Button
+    private lateinit var btnX4: Button
+    private var currentMultiplier = 1
+
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
     private lateinit var btnOthers: Button
@@ -71,24 +76,16 @@ class MainActivity : Activity() {
 
         statusText = TextView(this)
         statusText.text = "Ожидание запуска двигателя (тихо)"
-        statusText.textSize = 13f
-        statusText.setTextColor(Color.LTGRAY)
+        statusText.textSize = 12f
+        statusText.setTextColor(Color.YELLOW)
         statusText.gravity = Gravity.CENTER
-        statusText.setPadding(0, 4, 0, 0)
+        statusText.setPadding(0, 4, 0, 8)
         rootLayout.addView(statusText)
-
-        debugText = TextView(this)
-        debugText.text = "Громк: 0 (Пор: 20) | Pre-Freq: 0 Гц | 2T: 0 Гц"
-        debugText.textSize = 11f
-        debugText.setTextColor(Color.YELLOW)
-        debugText.gravity = Gravity.CENTER
-        debugText.setPadding(0, 2, 0, 8)
-        rootLayout.addView(debugText)
 
         rootLayout.addView(buildSettingsTable())
 
         val copyright = TextView(this)
-        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 1.6"
+        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.0"
         copyright.textSize = 12f
         copyright.setTextColor(Color.parseColor("#9E9E9E"))
         copyright.gravity = Gravity.CENTER
@@ -103,7 +100,8 @@ class MainActivity : Activity() {
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
-                currentRealRpm = rpm
+                currentRealRpm = (rpm * currentMultiplier)
+                
                 runOnUiThread {
                     val modeLabel = when (prefsManager.engineType) {
                         2 -> "2T"
@@ -112,22 +110,16 @@ class MainActivity : Activity() {
                     }
                     val currentThreshold = prefsManager.minVolumeThreshold
                     
-                    debugText.text = "Громк: $vol (Пор: $currentThreshold) | Pre-Freq: ${rawFreq.roundToInt()} Гц | $modeLabel: ${filteredFreq.roundToInt()} Гц"
-                    
                     val displayVal = if (isHoldActive) {
                         if (heldRpmValue > 0) heldRpmValue else 0
                     } else {
-                        rpm
+                        currentRealRpm
                     }
                     
                     if (isHoldActive) {
-                        statusText.text = "Удержание (HOLD)"
+                        statusText.text = "Удержание (HOLD) | Громкость: $vol (Порог: $currentThreshold) | Pre-Freq: ${rawFreq.roundToInt()} Гц | Живые: $currentRealRpm об/мин ($modeLabel x$currentMultiplier)"
                     } else {
-                        statusText.text = if (status.contains("Тишина") || status.contains("порог") || status.contains("Ожидание") || status.isEmpty()) {
-                            "Ожидание запуска двигателя (тихо)"
-                        } else {
-                            status
-                        }
+                        statusText.text = "Громкость: $vol (Порог: $currentThreshold) | Pre-Freq: ${rawFreq.roundToInt()} Гц | $modeLabel (x$currentMultiplier): ${filteredFreq.roundToInt()} Гц"
                     }
 
                     updateRpmDisplay(displayVal)
@@ -165,28 +157,54 @@ class MainActivity : Activity() {
         val leftCol = LinearLayout(this)
         leftCol.orientation = LinearLayout.VERTICAL
         leftCol.gravity = Gravity.CENTER
-        leftCol.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.20f)
+        leftCol.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
 
         btnExit = Button(this)
         btnExit.text = "EXIT"
-        btnExit.textSize = 12f
+        btnExit.textSize = 11f
         btnExit.setOnClickListener { finish() }
-        btnExit.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
+        val pBtn = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        pBtn.setMargins(0, 1, 0, 1)
+        btnExit.layoutParams = pBtn
         leftCol.addView(btnExit)
+
+        val subLeft = LinearLayout(this)
+        subLeft.orientation = LinearLayout.HORIZONTAL
+        subLeft.layoutParams = pBtn
+
+        btnX1 = Button(this)
+        btnX1.text = "x1"
+        btnX1.textSize = 10f
+        btnX1.setPadding(0,0,0,0)
+        btnX1.setOnClickListener { currentMultiplier = 1; refreshAllUI() }
+        val pSub = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        pSub.setMargins(1, 0, 1, 0)
+        btnX1.layoutParams = pSub
+        subLeft.addView(btnX1)
+
+        btnX2 = Button(this)
+        btnX2.text = "x2"
+        btnX2.textSize = 10f
+        btnX2.setPadding(0,0,0,0)
+        btnX2.setOnClickListener { currentMultiplier = 2; refreshAllUI() }
+        btnX2.layoutParams = pSub
+        subLeft.addView(btnX2)
+
+        leftCol.addView(subLeft)
         container.addView(leftCol)
 
         val leftSpacer = View(this)
-        leftSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
+        leftSpacer.layoutParams = LinearLayout.LayoutParams(6, 1)
         container.addView(leftSpacer)
 
         val rpmBlock = LinearLayout(this)
         rpmBlock.orientation = LinearLayout.VERTICAL
         rpmBlock.gravity = Gravity.CENTER
-        rpmBlock.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.60f)
+        rpmBlock.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
 
         rpmTextView = TextView(this)
         rpmTextView.text = "00000"
-        rpmTextView.textSize = 72f
+        rpmTextView.textSize = 68f
         rpmTextView.setTextColor(Color.parseColor("#00E676"))
         rpmTextView.gravity = Gravity.CENTER
         rpmTextView.includeFontPadding = false
@@ -203,24 +221,46 @@ class MainActivity : Activity() {
         container.addView(rpmBlock)
 
         val rightSpacer = View(this)
-        rightSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
+        rightSpacer.layoutParams = LinearLayout.LayoutParams(6, 1)
         container.addView(rightSpacer)
 
         val rightCol = LinearLayout(this)
         rightCol.orientation = LinearLayout.VERTICAL
         rightCol.gravity = Gravity.CENTER
-        rightCol.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.20f)
+        rightCol.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
 
         btnHold = Button(this)
         btnHold.text = "HOLD"
-        btnHold.textSize = 12f
+        btnHold.textSize = 11f
         btnHold.setOnClickListener {
             isHoldActive = !isHoldActive
             if (isHoldActive) heldRpmValue = currentRealRpm
             refreshAllUI()
         }
-        btnHold.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT)
+        btnHold.layoutParams = pBtn
         rightCol.addView(btnHold)
+
+        val subRight = LinearLayout(this)
+        subRight.orientation = LinearLayout.HORIZONTAL
+        subRight.layoutParams = pBtn
+
+        btnX3 = Button(this)
+        btnX3.text = "x3"
+        btnX3.textSize = 10f
+        btnX3.setPadding(0,0,0,0)
+        btnX3.setOnClickListener { currentMultiplier = 3; refreshAllUI() }
+        btnX3.layoutParams = pSub
+        subRight.addView(btnX3)
+
+        btnX4 = Button(this)
+        btnX4.text = "x4"
+        btnX4.textSize = 10f
+        btnX4.setPadding(0,0,0,0)
+        btnX4.setOnClickListener { currentMultiplier = 4; refreshAllUI() }
+        btnX4.layoutParams = pSub
+        subRight.addView(btnX4)
+
+        rightCol.addView(subRight)
         container.addView(rightCol)
 
         return container
@@ -240,7 +280,7 @@ class MainActivity : Activity() {
         btn4T.setOnClickListener { prefsManager.engineType = 4; refreshAllUI() }
 
         btnOthers = Button(this)
-        btnOthers.text = "Others"
+        btnOthers.text = "Озеро"
         btnOthers.setOnClickListener { prefsManager.engineType = 3; refreshAllUI() }
 
         btnLimit1 = Button(this)
@@ -389,6 +429,15 @@ class MainActivity : Activity() {
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 
+        btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
+        btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        btnX2.setTextColor(if (currentMultiplier == 2) Color.BLACK else Color.WHITE)
+        btnX3.setBackgroundColor(if (currentMultiplier == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        btnX3.setTextColor(if (currentMultiplier == 3) Color.BLACK else Color.WHITE)
+        btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
+
         val eType = prefsManager.engineType
         btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         btn2T.setTextColor(if (eType == 2) Color.BLACK else Color.WHITE)
@@ -423,7 +472,6 @@ class MainActivity : Activity() {
     private fun updateVolumeSquaresUI(currentVol: Int) {
         val currentSensitivityThreshold = prefsManager.minVolumeThreshold
         
-        // Определяем индекс квадрата плашки порога (если в памяти пусто, по умолчанию 1-й квадрат)
         var thresholdIndex = 0
         if (prefsManager.hasStoredThreshold()) {
             for (i in 0 until 10) {
@@ -434,7 +482,6 @@ class MainActivity : Activity() {
             }
         }
         
-        // Определяем, до какого квадрата дошла текущая громкость
         var volumeIndex = -1
         if (currentVol > 0) {
             for (i in 9 downTo 0) {
@@ -449,39 +496,21 @@ class MainActivity : Activity() {
             val btn = volumeStepButtons[i] ?: continue
             
             when {
-                // 1. Квадрат совпадает с плашкой, и громкость ДОШЛА до него -> Ярко-зеленый
                 i == thresholdIndex && volumeIndex >= i -> {
                     btn.setBackgroundColor(Color.parseColor("#00E676"))
                 }
-                // 2. Это квадрат плашки, но громкость до него ЕЩЕ НЕ ДОШЛА -> Оранжевый
                 i == thresholdIndex -> {
                     btn.setBackgroundColor(Color.parseColor("#FF9800"))
                 }
-                // 3. Квадрат ниже плашки и громкость до него дошла -> Светло-голубой
                 i < thresholdIndex && volumeIndex >= i -> {
                     btn.setBackgroundColor(Color.parseColor("#00BCD4"))
                 }
-                // 4. Квадрат ВЫШЕ плашки, и громкость до него дошла (пересекла порог) -> Белый с легким зелёным отливом
                 i > thresholdIndex && volumeIndex >= i -> {
                     btn.setBackgroundColor(Color.parseColor("#D0F8E8"))
                 }
-                // 5. Тихо / выше текущей громкости -> Тёмный фоновый квадрат
                 else -> {
                     btn.setBackgroundColor(Color.parseColor("#37474F"))
                 }
             }
         }
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            audioAnalyzer.start()
-        }
-    }
-
-    override fun onDestroy() {
-        audioAnalyzer.stop()
-        super.onDestroy()
-    }
-}
+    

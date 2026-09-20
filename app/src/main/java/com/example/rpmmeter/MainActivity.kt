@@ -1,23 +1,11 @@
-
 package com.example.rpmmeter
 
-import android.app.Activity
 import android.os.Bundle
-import android.graphics.Color
-import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        val textView = TextView(this).apply {
-            text = "RPM Meter работает!"
-            textSize = 28f
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.DARK_GRAY)
-            setPadding(50, 50, 50, 50)
-        }
-        
-        setContentView(textView)
+        setContentView(R.layout.activity_main)
     }
 }

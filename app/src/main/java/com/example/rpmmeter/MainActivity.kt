@@ -26,7 +26,7 @@ class MainActivity : Activity() {
     
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
-    private lateinit var btnElectro: Button
+    private lateinit var btnOthers: Button
     
     private lateinit var btnLimit1: Button
     private lateinit var btnLimit2: Button
@@ -84,7 +84,7 @@ class MainActivity : Activity() {
         rootLayout.addView(buildSettingsTable())
 
         val copyright = TextView(this)
-        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.4"
+        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.6"
         copyright.textSize = 12f
         copyright.setTextColor(Color.parseColor("#9E9E9E"))
         copyright.gravity = Gravity.CENTER
@@ -133,21 +133,20 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
 
-        // Левый пустой отступ для центрирования
-        val leftSpacer = View(this)
-        leftSpacer.layoutParams = LinearLayout.LayoutParams(0, 1, 0.03f)
-        container.addView(leftSpacer)
-
-        // Центральный блок для цифр и метки RPM (выравнивание по правому краю)
+        // Центральный блок для цифр и метки RPM — по центру строки
         val rpmContainer = LinearLayout(this)
         rpmContainer.orientation = LinearLayout.HORIZONTAL
-        rpmContainer.gravity = Gravity.END or Gravity.CENTER_VERTICAL
-        rpmContainer.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.72f)
+        rpmContainer.gravity = Gravity.CENTER
+        rpmContainer.layoutParams = LinearLayout.LayoutParams(
+            0, 
+            LinearLayout.LayoutParams.WRAP_CONTENT, 
+            0.72f
+        )
 
-        // Огромные цифры оборотов (выровнены по правому краю, не скачут при смене разряда)
+        // Огромные цифры оборотов (растут влево, правый край зафиксирован)
         rpmText = TextView(this)
         rpmText.text = "0"
-        rpmText.textSize = 86f
+        rpmText.textSize = 96f
         rpmText.setTextColor(Color.parseColor("#00E676"))
         rpmText.gravity = Gravity.END or Gravity.CENTER_VERTICAL
         rpmText.includeFontPadding = false
@@ -162,38 +161,43 @@ class MainActivity : Activity() {
         textWrapper.addView(rpmText)
         rpmContainer.addView(textWrapper)
 
-        // Аккуратная и уменьшенная подпись RPM сразу за цифрами
+        // Метка RPM уменьшена в два раза (до 36f), аккуратно пристроена справа
         val rpmLabel = TextView(this)
         rpmLabel.text = " RPM"
-        rpmLabel.textSize = 16f
+        rpmLabel.textSize = 36f
         rpmLabel.setTextColor(Color.parseColor("#80CBC4"))
         rpmLabel.gravity = Gravity.BOTTOM or Gravity.START
-        rpmLabel.setPadding(4, 0, 0, 18)
+        rpmLabel.setPadding(4, 0, 0, 10)
         rpmLabel.includeFontPadding = false
         rpmContainer.addView(rpmLabel)
 
         container.addView(rpmContainer)
 
-        // Добавляем отступ (распорку) между блоком RPM и кнопкой HOLD
+        // Небольшой отступ перед кнопкой HOLD
         val middleSpacer = View(this)
-        middleSpacer.layoutParams = LinearLayout.LayoutParams(0, 1, 0.05f)
+        middleSpacer.layoutParams = LinearLayout.LayoutParams(16, 1)
         container.addView(middleSpacer)
 
-        // Правая колонка для кнопки HOLD (на всю высоту контейнера)
+        // Правая колонка для кнопки HOLD — растягивается на всю высоту строки
         val rightCol = LinearLayout(this)
         rightCol.orientation = LinearLayout.VERTICAL
         rightCol.gravity = Gravity.CENTER
-        rightCol.layoutParams = LinearLayout.LayoutParams(0, 140, 0.2f)
+        rightCol.layoutParams = LinearLayout.LayoutParams(
+            0, 
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            0.28f
+        )
 
         btnHold = Button(this)
         btnHold.text = "HOLD"
-        btnHold.textSize = 13f
+        btnHold.textSize = 14f
         btnHold.setOnClickListener {
             isHoldActive = !isHoldActive
             if (isHoldActive) heldRpmValue = currentRealRpm
             refreshAllUI()
         }
 
+        // Кнопка заполняет всю высоту контейнера
         val holdParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
             LinearLayout.LayoutParams.MATCH_PARENT
@@ -222,9 +226,9 @@ class MainActivity : Activity() {
         btn4T.text = "4T"
         btn4T.setOnClickListener { prefsManager.engineType = 4; refreshAllUI() }
 
-        btnElectro = Button(this)
-        btnElectro.text = "Others"
-        btnElectro.setOnClickListener { prefsManager.engineType = 3; refreshAllUI() }
+        btnOthers = Button(this)
+        btnOthers.text = "Others"
+        btnOthers.setOnClickListener { prefsManager.engineType = 3; refreshAllUI() }
 
         btnLimit1 = Button(this)
         btnLimit1.text = "6k"
@@ -262,7 +266,7 @@ class MainActivity : Activity() {
         btnSmoothSoft.text = "Soft"
         btnSmoothSoft.setOnClickListener { prefsManager.saveSmooth(0.15f, 0.40f); refreshAllUI() }
 
-        addRow(table, "мотор:", btn2T, btn4T, btnElectro)
+        addRow(table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
         addRow(table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
@@ -312,8 +316,8 @@ class MainActivity : Activity() {
         btn2T.setTextColor(if (eType == 2) Color.BLACK else Color.WHITE)
         btn4T.setBackgroundColor(if (eType == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         btn4T.setTextColor(if (eType == 4) Color.BLACK else Color.WHITE)
-        btnElectro.setBackgroundColor(if (eType == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        btnElectro.setTextColor(if (eType == 3) Color.BLACK else Color.WHITE)
+        btnOthers.setBackgroundColor(if (eType == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        btnOthers.setTextColor(if (eType == 3) Color.BLACK else Color.WHITE)
 
         val limit = prefsManager.maxAllowedRpm
         btnLimit1.setBackgroundColor(if (limit == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))

@@ -17,6 +17,7 @@ class AudioAnalyzer(
 
     private var smoothedRpm = 0f
     private var smoothedVolume = 0f
+    private var decayCounter = 0 // Счетчик для удержания оборотов в режиме Soft
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -59,7 +60,7 @@ class AudioAnalyzer(
                 val readCount = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                 if (readCount <= 0) continue
 
-                // 1. Расчет громкости по ВСЕМУ прочитанному буферу, чтобы микрофон не забивался
+                // 1. Расчет громкости по ВСЕМУ прочитанному буферу
                 var sum = 0.0
                 for (i in 0 until readCount) {
                     val v = buffer[i].toDouble()
@@ -72,7 +73,10 @@ class AudioAnalyzer(
 
                 val minThreshold = prefsManager.minVolumeThreshold
                 if (currentVolInt < minThreshold) {
-                    onUpdate(0, 0f, 0f, currentVolInt, "Тишина / Ниже порога")
+                    // Плавное затухание при тишине
+                    smoothedRpm *= 0.7f
+                    if (smoothedRpm < 100f) smoothedRpm = 0f
+                    onUpdate(smoothedRpm.toInt(), 0f, smoothedRpm, currentVolInt, "Тишина / Ниже порога")
                     continue
                 }
 
@@ -85,7 +89,8 @@ class AudioAnalyzer(
                 }
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
-                    onUpdate(0, rawFreq, 0f, currentVolInt, "Поиск сигнала...")
+                    smoothedRpm *= 0.8f
+                    onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Поиск сигнала...")
                     continue
                 }
 
@@ -101,20 +106,37 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. Плавность управляется кнопками Sharp (1 фрейм), Norm (3 фрейма), Soft (5 фреймов)
-                val targetFrames = when (prefsManager.smoothPreset) {
-                    0 -> 1   // Sharp -> 1 фрейм (мгновенно)
-                    1 -> 3   // Norm  -> 3 фрейма
-                    else -> 5 // Soft  -> 5 фреймов
-                }
+                // 4. Логика кнопок плавности (Sharp, Norm, Soft)
+                val smoothPreset = prefsManager.smoothPreset
 
-                val alpha = if (calculatedRpm >= smoothedRpm) {
-                    0.7f // Быстрый набор оборотов
-                } else {
-                    1.0f / targetFrames.toFloat() // Сброс строго за 1, 3 или 5 кадров
+                when (smoothPreset) {
+                    0 -> {
+                        // SHARP: Мгновенное обновление (без задержек)
+                        smoothedRpm = calculatedRpm
+                        decayCounter = 0
+                    }
+                    1 -> {
+                        // NORM: Сбалансированный фильтр
+                        val alpha = if (calculatedRpm >= smoothedRpm) 0.6f else 0.3f
+                        smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
+                        decayCounter = 0
+                    }
+                    else -> {
+                        // SOFT: Удержание на спаде (8 кадров перед плавным падением)
+                        if (calculatedRpm >= smoothedRpm) {
+                            decayCounter = 8 
+                            smoothedRpm = smoothedRpm + 0.5f * (calculatedRpm - smoothedRpm)
+                        } else {
+                            if (decayCounter > 0) {
+                                decayCounter--
+                                smoothedRpm = smoothedRpm * 0.94f // Удерживаем значение
+                            } else {
+                                val alpha = 0.15f
+                                smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
+                            }
+                        }
+                    }
                 }
-                
-                smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
 
                 onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Работа мотора")
             }

@@ -117,38 +117,45 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. ЖЕСТКОЕ УПРАВЛЕНИЕ КАДРАМИ ПЛАВНОСТИ
+                // 4. ИНДИВИДУАЛЬНЫЙ АЛГОРИТМ ДЛЯ КАЖДОЙ КНОПКИ ПЛАВНОСТИ
                 val smoothPreset = prefsManager.smoothPreset
 
                 when (smoothPreset) {
                     0 -> {
-                        // SHARP: Ровно 1 кадр (абсолютный ноль задержек, сырое значение)
+                        // --- SHARP: Чистый «сырой» сигнал (1 кадр) ---
+                        // Никакого сглаживания, максимальная отзывчивость
                         smoothedRpm = calculatedRpm
                         decayCounter = 0
                     }
                     1 -> {
-                        // NORM: Строго 2 кадра
+                        // --- NORM: Сбалансированный режим (строго 2 кадра на спад) ---
                         if (calculatedRpm >= smoothedRpm) {
-                            smoothedRpm = calculatedRpm // Рост моментальный
-                            decayCounter = 0
-                        } else {
-                            // Падение ровно за 2 шага
-                            smoothedRpm -= (smoothedRpm - calculatedRpm) / 2.0f
-                            if (smoothedRpm < calculatedRpm + 10f) smoothedRpm = calculatedRpm
-                        }
-                    }
-                    else -> {
-                        // SOFT: Строго 3 кадра
-                        if (calculatedRpm >= smoothedRpm) {
+                            // Вверх идем сразу
                             smoothedRpm = calculatedRpm
                             decayCounter = 0
                         } else {
-                            // Падение ровно за 3 шага
-                            smoothedRpm -= (smoothedRpm - calculatedRpm) / 3.0f
-                            if (smoothedRpm < calculatedRpm + 10f) smoothedRpm = calculatedRpm
+                            // Вниз — делим оставшуюся дистанцию ровно пополам за 2 кадра
+                            smoothedRpm -= (smoothedRpm - calculatedRpm) / 2.0f
+                            if (smoothedRpm < calculatedRpm + 5f) smoothedRpm = calculatedRpm
+                        }
+                    }
+                    else -> {
+                        // --- SOFT: Мягкий режим с микро-удержанием (строго 3 кадра) ---
+                        if (calculatedRpm >= smoothedRpm) {
+                            smoothedRpm = smoothedRpm + 0.8f * (calculatedRpm - smoothedRpm)
+                            decayCounter = 1 // Небольшое удержание на 1 такт при смене тренда
+                        } else {
+                            if (decayCounter > 0) {
+                                decayCounter-- // Стоим на месте 1 кадр, чтобы сгладить пик
+                            } else {
+                                // Падаем ровно за 3 шага
+                                smoothedRpm -= (smoothedRpm - calculatedRpm) / 3.0f
+                                if (smoothedRpm < calculatedRpm + 5f) smoothedRpm = calculatedRpm
+                            }
                         }
                     }
                 }
+
 
 
                 onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Работа мотора")

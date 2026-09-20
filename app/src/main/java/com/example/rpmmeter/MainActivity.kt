@@ -26,10 +26,6 @@ class MainActivity : Activity() {
     private lateinit var btnHold: Button
     private lateinit var btnExit: Button
     
-    private lateinit var btnX1: Button
-    private lateinit var btnX2: Button
-    private lateinit var btnX3: Button
-    private lateinit var btnX4: Button
     private var currentMultiplier = 1
 
     private lateinit var settings: UIBuilder.SettingsButtons
@@ -56,7 +52,7 @@ class MainActivity : Activity() {
 
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
+            setPadding(16, 12, 16, 12)
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
@@ -67,7 +63,7 @@ class MainActivity : Activity() {
             textSize = 12f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
-            setPadding(0, 4, 0, 1)
+            setPadding(0, 2, 0, 1)
         }
         rootLayout.addView(statusLine1)
 
@@ -89,15 +85,16 @@ class MainActivity : Activity() {
         }
         rootLayout.addView(statusLine3)
 
-        // Блок кнопок x1-x4 под строкой частот
-        rootLayout.addView(buildMultiplierBar())
-
-        // Таблица настроек через UIBuilder
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
             onRefreshUI = { refreshAllUI() },
-            volumeStepButtons = volumeStepButtons
+            volumeStepButtons = volumeStepButtons,
+            onMultiplierChange = { mult ->
+                currentMultiplier = mult
+                refreshAllUI()
+            },
+            currentMultiplierGetter = { currentMultiplier }
         )
         rootLayout.addView(settings.table)
 
@@ -106,7 +103,7 @@ class MainActivity : Activity() {
             textSize = 12f
             setTextColor(Color.parseColor("#9E9E9E"))
             gravity = Gravity.CENTER
-            setPadding(16, 16, 16, 8)
+            setPadding(16, 12, 16, 8)
         }
         rootLayout.addView(copyright)
 
@@ -179,18 +176,19 @@ class MainActivity : Activity() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 4, 0, 4)
+            setPadding(0, 0, 0, 2)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        // Кнопка EXIT слева (компактная колонка)
+        // Левая колонка (EXIT) на всю высоту блока
         val leftCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.22f)
+            // Фиксируем высоту под крупный размер цифр
+            layoutParams = LinearLayout.LayoutParams(0, 88, 0.22f)
         }
 
         btnExit = Button(this).apply {
@@ -199,7 +197,7 @@ class MainActivity : Activity() {
             setOnClickListener { finish() }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
-                100
+                LinearLayout.LayoutParams.MATCH_PARENT
             )
         }
         leftCol.addView(btnExit)
@@ -207,7 +205,7 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок с крупными цифрами RPM (шире, чтобы шрифт не мельчал)
+        // Центральный блок с RPM (увеличили размер шрифта до 76sp)
         val rpmBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -216,7 +214,7 @@ class MainActivity : Activity() {
 
         rpmTextView = TextView(this).apply {
             text = "00000"
-            textSize = 68f // Вернули крупный размер
+            textSize = 76f // Увеличенный размер цифр
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -236,11 +234,11 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Кнопка HOLD справа
+        // Правая колонка (HOLD) на всю высоту блока
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.22f)
+            layoutParams = LinearLayout.LayoutParams(0, 88, 0.22f)
         }
 
         btnHold = Button(this).apply {
@@ -253,57 +251,13 @@ class MainActivity : Activity() {
             }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
-                100
+                LinearLayout.LayoutParams.MATCH_PARENT
             )
         }
         rightCol.addView(btnHold)
         container.addView(rightCol)
 
         return container
-    }
-
-    private fun buildMultiplierBar(): View {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, 2, 0, 6)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val btnParams = LinearLayout.LayoutParams(0, 48, 1f).apply {
-            setMargins(3, 0, 3, 0)
-        }
-
-        btnX1 = Button(this).apply {
-            text = "x1"; textSize = 12f; setPadding(0,0,0,0)
-            setOnClickListener { currentMultiplier = 1; refreshAllUI() }
-            layoutParams = btnParams
-        }
-        btnX2 = Button(this).apply {
-            text = "x2"; textSize = 12f; setPadding(0,0,0,0)
-            setOnClickListener { currentMultiplier = 2; refreshAllUI() }
-            layoutParams = btnParams
-        }
-        btnX3 = Button(this).apply {
-            text = "x3"; textSize = 12f; setPadding(0,0,0,0)
-            setOnClickListener { currentMultiplier = 3; refreshAllUI() }
-            layoutParams = btnParams
-        }
-        btnX4 = Button(this).apply {
-            text = "x4"; textSize = 12f; setPadding(0,0,0,0)
-            setOnClickListener { currentMultiplier = 4; refreshAllUI() }
-            layoutParams = btnParams
-        }
-
-        layout.addView(btnX1)
-        layout.addView(btnX2)
-        layout.addView(btnX3)
-        layout.addView(btnX4)
-
-        return layout
     }
 
     private fun updateVolumeSquaresUI(currentVol: Int) {
@@ -361,14 +315,14 @@ class MainActivity : Activity() {
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 
-        btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
-        btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        btnX2.setTextColor(if (currentMultiplier == 2) Color.BLACK else Color.WHITE)
-        btnX3.setBackgroundColor(if (currentMultiplier == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        btnX3.setTextColor(if (currentMultiplier == 3) Color.BLACK else Color.WHITE)
-        btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
+        settings.btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        settings.btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
+        settings.btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        settings.btnX2.setTextColor(if (currentMultiplier == 2) Color.BLACK else Color.WHITE)
+        settings.btnX3.setBackgroundColor(if (currentMultiplier == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        settings.btnX3.setTextColor(if (currentMultiplier == 3) Color.BLACK else Color.WHITE)
+        settings.btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        settings.btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
 
         val eType = prefsManager.engineType
         settings.btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))

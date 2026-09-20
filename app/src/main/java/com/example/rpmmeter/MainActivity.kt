@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
@@ -70,7 +69,7 @@ class MainActivity : Activity() {
         rootLayout.addView(buildTopPanel())
 
         statusText = TextView(this)
-        statusText.text = "Ожидание запуска мотора..."
+        statusText.text = "Ожидание запуска двигателя (тихо)"
         statusText.textSize = 13f
         statusText.setTextColor(Color.LTGRAY)
         statusText.gravity = Gravity.CENTER
@@ -78,7 +77,7 @@ class MainActivity : Activity() {
         rootLayout.addView(statusText)
 
         debugText = TextView(this)
-        debugText.text = "Громк: 0 (Пор: 20) | Сырая: 0 Гц | Фильтр: 0 Гц"
+        debugText.text = "Громк: 0 (Пор: 20) | Pre-Freq: 0 Гц | 2T: 0 Гц"
         debugText.textSize = 11f
         debugText.setTextColor(Color.YELLOW)
         debugText.gravity = Gravity.CENTER
@@ -112,8 +111,7 @@ class MainActivity : Activity() {
                     }
                     val currentThreshold = prefsManager.minVolumeThreshold
                     
-                    // Вывод в отладку: текущая громкость, текущий порог, сырая частота и фильтр
-                    debugText.text = "Громк: $vol (Пор: $currentThreshold) | Сырая: ${rawFreq.roundToInt()} Гц | $modeLabel: ${filteredFreq.roundToInt()} Гц"
+                    debugText.text = "Громк: $vol (Пор: $currentThreshold) | Pre-Freq: ${rawFreq.roundToInt()} Гц | $modeLabel: ${filteredFreq.roundToInt()} Гц"
                     
                     val displayVal = if (isHoldActive) {
                         if (heldRpmValue > 0) heldRpmValue else 0
@@ -124,7 +122,12 @@ class MainActivity : Activity() {
                     if (isHoldActive) {
                         statusText.text = "Удержание (HOLD)"
                     } else {
-                        statusText.text = status
+                        // Если анализатор присылает сообщение о тишине или ожидании, подменяем на требуемый текст
+                        statusText.text = if (status.contains("Тишина") || status.contains("порог") || status.contains("Ожидание") || status.isEmpty()) {
+                            "Ожидание запуска двигателя (тихо)"
+                        } else {
+                            status
+                        }
                     }
 
                     updateRpmDisplay(displayVal)
@@ -424,21 +427,27 @@ class MainActivity : Activity() {
             val btn = volumeStepButtons[i] ?: continue
             val tVal = getThresholdForSquare(i)
             
-            val isSelectedThreshold = (currentSensitivityThreshold == tVal)
+            // Гарантированно ставим плашку на 1-й квадрат (индекс 0), если в памяти еще ничего нет
+            val isSelectedThreshold = if (!prefsManager.hasStoredThreshold()) {
+                i == 0
+            } else {
+                (currentSensitivityThreshold == tVal)
+            }
+            
             val isReachedByVolume = (currentVol > 0 && currentVol >= tVal)
 
             when {
                 isSelectedThreshold && isReachedByVolume -> {
-                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (и порог, и громкость дошла)
+                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (плашка совпала с дошедшей громкостью)
                 }
                 isSelectedThreshold -> {
-                    btn.setBackgroundColor(Color.parseColor("#FF9800")) // Оранжевый (выбранный порог отсечки)
+                    btn.setBackgroundColor(Color.parseColor("#FF9800")) // Оранжевый (плашка порога, громкость еще не дошла)
                 }
                 isReachedByVolume -> {
-                    btn.setBackgroundColor(Color.parseColor("#1B5E20")) // Темно-зеленый (уровень громкости дошел)
+                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (громкость дошла до этого квадрата)
                 }
                 else -> {
-                    btn.setBackgroundColor(Color.parseColor("#37474F")) // Серый (ниже уровня)
+                    btn.setBackgroundColor(Color.parseColor("#00BCD4")) // Светло-голубой (неактивный фон шкалы)
                 }
             }
         }

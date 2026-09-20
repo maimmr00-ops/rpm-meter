@@ -3,132 +3,123 @@ package com.example.rpmmeter
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import kotlin.concurrent.thread
-import kotlin.math.abs
-import kotlin.math.exp
+import kotlin.math.sqrt
 
 class AudioAnalyzer(
     private val prefsManager: PreferencesManager,
     private val onUpdate: (rpm: Int, freq: Float, volume: Int, status: String) -> Unit,
     private val onError: (String) -> Unit
 ) {
-    private var isRecording = false
+    private var audioRecord: AudioRecord? = null
+    private var isRunning = false
+    private var thread: Thread? = null
+
+    private var smoothedRpm = 0f
 
     fun start() {
-        isRecording = true
-        thread {
-            val sampleRate = 8000
-            val channel = AudioFormat.CHANNEL_IN_MONO
-            val format = AudioFormat.ENCODING_PCM_16BIT
-            var recorder: AudioRecord? = null
+        if (isRunning) return
+        isRunning = true
+
+        thread = Thread {
+            val sampleRate = 44100
+            val channelConfig = AudioFormat.CHANNEL_IN_MONO
+            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+            
+            val bufferSize = prefsManager.audioBufferSize * 2
 
             try {
-                val minBuf = AudioRecord.getMinBufferSize(sampleRate, channel, format)
-                if (minBuf <= 0) {
-                    onError("Ошибка: Микрофон не поддерживается")
-                    return@thread
+                audioRecord = AudioRecord(
+                    MediaRecorder.AudioSource.MIC,
+                    sampleRate,
+                    channelConfig,
+                    audioFormat,
+                    bufferSize.coerceAtLeast(AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat))
+                )
+
+                if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+                    onError("Ошибка инициализации микрофона")
+                    return@Thread
                 }
 
-                val volumeThreshold = 30
-                var smoothedRpm = 0f
+                audioRecord?.startRecording()
+                val buffer = ShortArray(bufferSize)
 
-                while (isRecording) {
-                    val currentBufSize = maxOf(minBuf, prefsManager.audioBufferSize)
-                    try {
-                        recorder?.stop()
-                        recorder?.release()
-                    } catch (_: Exception) {}
+                while (isRunning) {
+                    val readSize = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                    if (readSize > 0) {
+                        // 1. Расчет громкости (RMS)
+                        var sum = 0.0
+                        for (i in 0 until readSize) {
+                            val v = buffer[i].toDouble()
+                            sum += v * v
+                        }
+                        val rms = sqrt(sum / readSize)
+                        val volume = rms.toInt()
 
-                    recorder = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channel, format, currentBufSize)
-                    if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-                        onError("Ошибка инициализации микрофона")
-                        Thread.sleep(1000)
-                        continue
-                    }
+                        // Проверяем порог громкости (шумовой фильтр)
+                        val threshold = prefsManager.minVolumeThreshold
+                        if (volume < threshold) {
+                            smoothedRpm = 0f
+                            onUpdate(0, 0f, volume, "Ожидание (тихо)...")
+                            continue
+                        }
 
-                    recorder.startRecording()
-                    val buffer = ShortArray(currentBufSize)
-                    val dt = currentBufSize.toFloat() / sampleRate.toFloat()
-
-                    while (isRecording && prefsManager.audioBufferSize == currentBufSize) {
-                        val readSize = recorder.read(buffer, 0, currentBufSize)
-                        if (readSize <= 0) continue
-
-                        var volume: Long = 0
-                        for (i in 0 until readSize) volume += abs(buffer[i].toLong())
-                        val avgVol = (volume / readSize).toInt()
-
-                        var rawRpm = 0
-                        var dominantFreq = 0f
-
-                        if (avgVol > volumeThreshold) {
-                            val minLag = sampleRate / 200
-                            val maxLag = sampleRate / 15
-                            var bestLag = -1
-                            var maxCorr: Long = 0
-
-                            var lag = minLag
-                            while (lag <= maxLag) {
-                                var corr: Long = 0
-                                val limit = readSize - lag
-                                var i = 0
-                                while (i < limit) {
-                                    corr += buffer[i].toLong() * buffer[i + lag].toLong()
-                                    i++
-                                }
-                                if (corr > maxCorr) {
-                                    maxCorr = corr
-                                    bestLag = lag
-                                }
-                                lag++
-                            }
-
-                            if (bestLag > 0) {
-                                dominantFreq = sampleRate.toFloat() / bestLag
-                                val calcRpm = when (prefsManager.engineType) {
-                                    4 -> (dominantFreq * 120).toInt()
-                                    else -> (dominantFreq * 60).toInt()
-                                }
-                                if (calcRpm in 500..prefsManager.maxAllowedRpm) rawRpm = calcRpm
+                        // 2. Подсчет частоты методом пересечения нуля (Zero-Crossing)
+                        var zeroCrossings = 0
+                        for (i in 1 until readSize) {
+                            if ((buffer[i - 1] < 0 && buffer[i] >= 0) || (buffer[i - 1] >= 0 && buffer[i] < 0)) {
+                                zeroCrossings++
                             }
                         }
 
-                        if (rawRpm > 0) {
-                            if (smoothedRpm == 0f) {
-                                smoothedRpm = rawRpm.toFloat()
-                            } else {
-                                val alpha = (1.0 - exp((-dt / prefsManager.riseTimeConstant).toDouble())).toFloat()
-                                smoothedRpm += alpha * (rawRpm - smoothedRpm)
-                            }
+                        val durationSeconds = readSize.toFloat() / sampleRate
+                        val frequency = (zeroCrossings.toFloat() / 2.0f) / durationSeconds
+
+                        val engineType = prefsManager.engineType
+                        val rawRpm = when (engineType) {
+                            2 -> (frequency * 60).toInt()
+                            4 -> (frequency * 120).toInt()
+                            else -> (frequency * 60).toInt()
+                        }
+
+                        val clampedRpm = rawRpm.coerceIn(0, prefsManager.maxAllowedRpm)
+
+                        // Динамическая фильтрация с использованием riseTimeConstant и fallTimeConstant
+                        val rise = prefsManager.riseTimeConstant
+                        val fall = prefsManager.fallTimeConstant
+
+                        smoothedRpm = if (clampedRpm > smoothedRpm) {
+                            smoothedRpm + (clampedRpm - smoothedRpm) * rise
                         } else {
-                            val dropAlpha = (1.0 - exp((-dt / prefsManager.dropTimeConstant).toDouble())).toFloat()
-                            smoothedRpm *= (1f - dropAlpha)
-                            if (smoothedRpm < 300) smoothedRpm = 0f
+                            smoothedRpm + (clampedRpm - smoothedRpm) * fall
                         }
 
                         val finalRpm = smoothedRpm.toInt()
-                        val status = if (finalRpm > 0) {
-                            val modeName = if (prefsManager.engineType == 4) "4T" else if (prefsManager.engineType == 3) "Электро" else "2T"
-                            "Работает ($modeName)"
-                        } else {
-                            if (avgVol > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
+                        val statusMsg = when (engineType) {
+                            2 -> "Работает (2T)"
+                            4 -> "Работает (4T)"
+                            else -> "Работает (Others)"
                         }
 
-                        onUpdate(finalRpm, dominantFreq, avgVol, status)
+                        onUpdate(finalRpm, frequency, volume, statusMsg)
                     }
                 }
+            } catch (e: SecurityException) {
+                onError("Нет доступа к микрофону")
             } catch (e: Exception) {
-                onError("Ошибка: ${e.message}")
-            } finally {
-                try {
-                    recorder?.stop()
-                    recorder?.release()
-                } catch (_: Exception) {}
+                onError("Ошибка: ${e.localizedMessage}")
             }
         }
+        thread?.start()
     }
 
     fun stop() {
-        isRecording = false
+        isRunning = false
+        try {
+            audioRecord?.stop()
+            audioRecord?.release()
+        } catch (_: Exception) {}
+        audioRecord = null
+        thread?.join(500)
     }
 }

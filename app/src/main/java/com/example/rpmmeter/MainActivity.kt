@@ -72,7 +72,7 @@ class MainActivity : Activity() {
         // 1. Верхняя панель (EXIT, Крупные цифры RPM, HOLD)
         rootLayout.addView(buildTopPanel())
 
-        // 2. Информационный блок: [x1, x2] слева, текст по центру, [x3, x4] справа
+        // 2. Информационный блок: [/1, /2] слева, текст по центру, [/3, /4] справа
         rootLayout.addView(buildInfoPanelWithSides())
 
         // 3. Таблица настроек
@@ -95,7 +95,8 @@ class MainActivity : Activity() {
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
-                currentRealRpm = (rpm / currentMultiplier)
+                // Делим частоту на коэффициент (цилиндры / тактность)
+                currentRealRpm = if (currentMultiplier > 0) (rpm / currentMultiplier) else rpm
                 
                 runOnUiThread {
                     val modeLabel = when (prefsManager.engineType) {
@@ -255,15 +256,15 @@ class MainActivity : Activity() {
             setMargins(1, 0, 1, 0)
         }
 
-        // --- ЛЕВАЯ ПАРА КНОПОК: x1, x2 ---
+        // --- ЛЕВАЯ ПАРА КНОПОК: /1, /2 ---
         val leftMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
         }
 
-        settings.btnX1.apply { text = "x1"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 1; refreshAllUI() } }
-        settings.btnX2.apply { text = "x2"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 2; refreshAllUI() } }
+        settings.btnX1.apply { text = "/1"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 1; refreshAllUI() } }
+        settings.btnX2.apply { text = "/2"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 2; refreshAllUI() } }
 
         (settings.btnX1.parent as? LinearLayout)?.removeView(settings.btnX1)
         (settings.btnX2.parent as? LinearLayout)?.removeView(settings.btnX2)
@@ -312,15 +313,15 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // --- ПРАВАЯ ПАРА КНОПОК: x3, x4 ---
+        // --- ПРАВАЯ ПАРА КНОПОК: /3, /4 ---
         val rightMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
         }
 
-        settings.btnX3.apply { text = "x3"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 3; refreshAllUI() } }
-        settings.btnX4.apply { text = "x4"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 4; refreshAllUI() } }
+        settings.btnX3.apply { text = "/3"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 3; refreshAllUI() } }
+        settings.btnX4.apply { text = "/4"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 4; refreshAllUI() } }
 
         (settings.btnX3.parent as? LinearLayout)?.removeView(settings.btnX3)
         (settings.btnX4.parent as? LinearLayout)?.removeView(settings.btnX4)
@@ -387,7 +388,7 @@ class MainActivity : Activity() {
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 
-        // Подсветка кнопок множителей x1-x4
+        // Подсветка кнопок-делителей /1-/4
         settings.btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
         settings.btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))

@@ -73,6 +73,7 @@ object UIBuilder {
             setOnClickListener { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
         }
 
+        // Исправлено: возвращены клики для кнопок обновления (размера буфера)
         val btnRateFast = Button(context).apply {
             text = "Fast"
             setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI() }
@@ -86,6 +87,7 @@ object UIBuilder {
             setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI() }
         }
 
+        // Исправлено: возвращены клики для кнопок плавности
         val btnSmoothSharp = Button(context).apply {
             text = "Sharp"
             setOnClickListener { prefsManager.saveSmooth(0.02f, 0.05f); onRefreshUI() }
@@ -211,18 +213,9 @@ object UIBuilder {
         table.addView(row)
     }
 
+    val thresholdValues = intArrayOf(20, 150, 400, 800, 1400, 2200, 3200, 4800, 6800, 9000)
+
     fun getThresholdForSquare(index: Int): Int {
-        return when (index) {
-            0 -> 20
-            1 -> 150
-            2 -> 400
-            3 -> 800
-            4 -> 1400
-            5 -> 2200
-            6 -> 3200
-            7 -> 4800
-            8 -> 6800
-            else -> 9000
-        }
+        return if (index in thresholdValues.indices) thresholdValues[index] else 20
     }
 }

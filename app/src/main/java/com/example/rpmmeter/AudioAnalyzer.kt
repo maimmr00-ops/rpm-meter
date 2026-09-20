@@ -59,7 +59,6 @@ class AudioAnalyzer(
             }
 
             while (isRunning) {
-                // Защита от зависания потока при пересоздании буфера или остановке
                 if (!isRunning) break
 
                 val readCount = try {
@@ -86,7 +85,7 @@ class AudioAnalyzer(
 
                 val minThreshold = prefsManager.minVolumeThreshold
                 if (currentVolInt < minThreshold) {
-                    smoothedRpm *= 0.5f
+                    smoothedRpm *= 0.3f
                     if (smoothedRpm < 100f) smoothedRpm = 0f
                     onUpdate(smoothedRpm.toInt(), 0f, smoothedRpm, currentVolInt, "Тишина / Ниже порога")
                     continue
@@ -101,7 +100,7 @@ class AudioAnalyzer(
                 }
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
-                    smoothedRpm *= 0.5f
+                    smoothedRpm *= 0.3f
                     onUpdate(smoothedRpm.toInt(), rawFreq, smoothedRpm, currentVolInt, "Поиск сигнала...")
                     continue
                 }
@@ -118,7 +117,7 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. СТРОГИЕ КАДРЫ ПЛАВНОСТИ (Sharp = 1, Norm = 3, Soft = 5)
+                // 4. ЖЕСТКИЕ КАДРЫ ПЛАВНОСТИ (Sharp = 1, Norm = 2, Soft = 3)
                 val smoothPreset = prefsManager.smoothPreset
 
                 when (smoothPreset) {
@@ -128,30 +127,25 @@ class AudioAnalyzer(
                         decayCounter = 0
                     }
                     1 -> {
-                        // NORM: Ровно 3 кадра на сброс / изменение
+                        // NORM: Ровно 2 кадра на сброс / изменение
                         if (calculatedRpm >= smoothedRpm) {
-                            smoothedRpm = smoothedRpm + 0.7f * (calculatedRpm - smoothedRpm)
+                            smoothedRpm = smoothedRpm + 0.8f * (calculatedRpm - smoothedRpm)
+                            decayCounter = 0
+                        } else {
+                            val diff = smoothedRpm - calculatedRpm
+                            smoothedRpm -= (diff / 2.0f).coerceAtLeast(1.0f)
+                            if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
+                        }
+                    }
+                    else -> {
+                        // SOFT: Ровно 3 кадра на сброс / изменение
+                        if (calculatedRpm >= smoothedRpm) {
+                            smoothedRpm = smoothedRpm + 0.6f * (calculatedRpm - smoothedRpm)
                             decayCounter = 0
                         } else {
                             val diff = smoothedRpm - calculatedRpm
                             smoothedRpm -= (diff / 3.0f).coerceAtLeast(1.0f)
                             if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
-                        }
-                    }
-                    else -> {
-                        // SOFT: Ровно 5 кадров на сброс / изменение
-                        if (calculatedRpm >= smoothedRpm) {
-                            decayCounter = 5
-                            smoothedRpm = smoothedRpm + 0.4f * (calculatedRpm - smoothedRpm)
-                        } else {
-                            if (decayCounter > 0) {
-                                decayCounter--
-                                smoothedRpm = smoothedRpm * 0.8f 
-                            } else {
-                                val diff = smoothedRpm - calculatedRpm
-                                smoothedRpm -= (diff / 5.0f).coerceAtLeast(1.0f)
-                                if (smoothedRpm < calculatedRpm) smoothedRpm = calculatedRpm
-                            }
                         }
                     }
                 }

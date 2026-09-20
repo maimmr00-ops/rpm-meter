@@ -29,7 +29,7 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var rpmText: TextView
     private lateinit var debugText: TextView
-    private lateinit var btnExit: Button
+    private lateinit var btnHold: Button
     
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
@@ -48,6 +48,8 @@ class MainActivity : Activity() {
     private lateinit var btnSmoothSoft: Button
 
     private var isRecording = false
+    private var isHoldActive = false
+    private var heldRpmValue = 0
     private var currentRealRpm = 0
 
     private var engineType = 2
@@ -119,31 +121,34 @@ class MainActivity : Activity() {
         centerRpmLayout.addView(rpmText)
         centerRpmLayout.addView(labelRpmText)
 
-        // 3. Правая колонка (20%): Кнопка выхода на всю высоту блока
+        // 3. Правая колонка (20%): Кнопка HOLD на всю высоту блока
         val rightActionLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(0, 110, 0.2f)
         }
 
-        btnExit = Button(this).apply {
-            text = "✕"
-            textSize = 18f
-            setTextColor(Color.parseColor("#FF5252"))
-            setBackgroundColor(Color.parseColor("#424242"))
+        btnHold = Button(this).apply {
+            text = "HOLD"
+            textSize = 11f
             setOnClickListener {
-                finishAffinity()
+                isHoldActive = !isHoldActive
+                if (isHoldActive) {
+                    heldRpmValue = currentRealRpm
+                }
+                updateHoldButtonState()
             }
         }
-        val exitParams = LinearLayout.LayoutParams(
+        val holdParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
             LinearLayout.LayoutParams.MATCH_PARENT
         ).apply {
             setMargins(4, 0, 0, 0)
         }
-        btnExit.layoutParams = exitParams
+        btnHold.layoutParams = holdParams
+        updateHoldButtonState()
 
-        rightActionLayout.addView(btnExit)
+        rightActionLayout.addView(btnHold)
 
         // Собираем верхнюю панель воедино
         topContainer.addView(leftSpacerLayout)
@@ -298,6 +303,18 @@ class MainActivity : Activity() {
         row.addView(label)
         row.addView(buttonsLayout)
         table.addView(row)
+    }
+
+    private fun updateHoldButtonState() {
+        if (::btnHold.isInitialized) {
+            if (isHoldActive) {
+                btnHold.setBackgroundColor(Color.parseColor("#FF9800"))
+                btnHold.setTextColor(Color.BLACK)
+            } else {
+                btnHold.setBackgroundColor(Color.parseColor("#424242"))
+                btnHold.setTextColor(Color.WHITE)
+            }
+        }
     }
 
     private fun loadSettings() {
@@ -502,21 +519,4 @@ class MainActivity : Activity() {
                 }
             } else {
                 val dropExpArg = (-dt / dropTimeConstant).toDouble()
-                val dropAlpha = (1.0 - exp(dropExpArg)).toFloat()
-                smoothedRpm = smoothedRpm * (1f - dropAlpha)
-                if (smoothedRpm < 300) smoothedRpm = 0f
-            }
-
-            val finalRpm = smoothedRpm.toInt()
-            currentRealRpm = finalRpm
-
-            val modeName = when (engineType) {
-                4 -> "4T"
-                3 -> "Электро"
-                else -> "2T"
-            }
-
-            runOnUiThread {
-                debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
-                
-      
+                val drop

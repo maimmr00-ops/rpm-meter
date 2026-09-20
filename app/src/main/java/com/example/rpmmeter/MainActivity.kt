@@ -84,8 +84,6 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты, HOLD и кнопка Выхода ---
-
         val topRpmLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -162,9 +160,6 @@ class MainActivity : Activity() {
             setPadding(0, 2, 0, 12)
         }
         layout.addView(debugText)
-
-
-        // --- НИЖНЯЯ ЧАСТЬ: Кнопки и настройки (Сетка) ---
 
         val tableLayout = TableLayout(this).apply {
             setPadding(0, 4, 0, 0)
@@ -446,7 +441,7 @@ class MainActivity : Activity() {
             val readSize = audioRecord.read(actualBuffer, 0, currentBufferSz)
             if (readSize <= 0) continue
 
-            var volume = 0L
+            var volume: Long = 0
             for (i in 0 until readSize) {
                 volume += abs(actualBuffer[i].toLong())
             }
@@ -460,18 +455,22 @@ class MainActivity : Activity() {
                 val logMaxLag = sampleRate / 15
                 
                 var bestLag = -1
-                var maxCorrelation = 0L
+                var maxCorrelation: Long = 0
 
-                for (lag in logMinLag..logMaxLag) {
-                    var correlation = 0L
+                var lag = logMinLag
+                while (lag <= logMaxLag) {
+                    var correlation: Long = 0
                     val limit = readSize - lag
-                    for (i in 0 until limit) {
-                        correlation += (actualBuffer[i].toLong() * actualBuffer[i + lag].toLong())
+                    var i = 0
+                    while (i < limit) {
+                        correlation += actualBuffer[i].toLong() * actualBuffer[i + lag].toLong()
+                        i++
                     }
                     if (correlation > maxCorrelation) {
                         maxCorrelation = correlation
                         bestLag = lag
                     }
+                    lag++
                 }
 
                 if (bestLag > 0) {
@@ -529,4 +528,5 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         isRecording = false
         super.onDestroy()
-  
+    }
+}

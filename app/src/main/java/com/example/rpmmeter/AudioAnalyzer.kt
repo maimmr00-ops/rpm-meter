@@ -1,12 +1,8 @@
 package com.example.rpmmeter
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.media.AudioRecord
 import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaRecorder
-import androidx.core.content.ContextCompat
 import kotlin.math.sqrt
 
 class AudioAnalyzer(
@@ -93,19 +89,19 @@ class AudioAnalyzer(
             val rawVolume = sqrt(sum / readCount).toInt()
 
             // Сглаживание громкости
-            smoothedVolume = smoothedVolume * 0.8f + rawVolume * 0.2f
+            smoothedVolume = smoothedVolume * 0.7f + rawVolume * 0.3f
             val currentVolume = smoothedVolume.toInt()
 
-            // 2. ЖЕСТКАЯ ПРОВЕРКА ПОРОГА (ГЛУШИМ ВСЁ, ЧТО ТИШЕ ПОРОГА)
+            // 2. ЖЕСТКАЯ ОТСЕЧКА ПО ПОРОГУ (Самый первый шаг!)
+            // Если текущая громкость меньше установленного порога — глушим всё в 0
             val threshold = prefsManager.minVolumeThreshold
             if (currentVolume < threshold) {
                 smoothedRpm = 0f
-                // Сбрасываем обороты в 0 и сразу отдаем в UI
                 onUpdate(0, 0f, currentVolume, "Ожидание (тихо)...")
                 continue
             }
 
-            // 3. Анализ частоты и расчет оборотов
+            // 3. Анализ частоты (только если громкость выше порога)
             var zeroCrossings = 0
             for (i in 1 until readCount) {
                 if ((shortBuffer[i - 1] < 0 && shortBuffer[i] >= 0) || 

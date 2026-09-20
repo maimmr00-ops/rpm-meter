@@ -15,21 +15,25 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putInt("maxAllowedRpm", value).apply()
 
     var audioBufferSize: Int
-        get() = prefs.getInt("audioBufferSize", 1536)
+        get() = prefs.getInt("audioBufferSize", 2560)
         set(value) = prefs.edit().putInt("audioBufferSize", value).apply()
 
     var riseTimeConstant: Float
-        get() = prefs.getFloat("riseTimeConstant", 0.06f)
-        set(value) = prefs.edit().putFloat("riseTimeConstant", value).apply()
+        get() = prefs.getFloat("riseTime", 0.06f)
+        set(value) = prefs.edit().putFloat("riseTime", value).apply()
 
-    var dropTimeConstant: Float
-        get() = prefs.getFloat("dropTimeConstant", 0.18f)
-        set(value) = prefs.edit().putFloat("dropTimeConstant", value).apply()
+    var fallTimeConstant: Float
+        get() = prefs.getFloat("fallTime", 0.18f)
+        set(value) = prefs.edit().putFloat("fallTime", value).apply()
 
-    fun saveSmooth(rise: Float, drop: Float) {
-        prefs.edit()
-            .putFloat("riseTimeConstant", rise)
-            .putFloat("dropTimeConstant", drop)
-            .apply()
+    var minVolumeThreshold: Int
+        get() = prefs.getInt("minVolumeThreshold", 60)
+        set(value) = prefs.edit().putInt("minVolumeThreshold", value).apply()
+
+    fun saveSmooth(rise: Float, fall: Float) {
+        val editor = prefs.edit()
+        editor.putFloat("riseTime", rise)
+        editor.putFloat("fallTime", fall)
+        editor.apply()
     }
 }

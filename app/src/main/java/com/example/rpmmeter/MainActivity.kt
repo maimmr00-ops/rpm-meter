@@ -411,9 +411,9 @@ class MainActivity : Activity() {
         listOf(settings.btnRateFast, settings.btnRateNorm, settings.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
         val rise = prefsManager.riseTimeConstant
-        val isSharp = (rise >= 0.4f)
-        val isNorm = (rise >= 0.08f && rise < 0.4f)
-        val isSoft = (rise < 0.08f)
+        val isSharp = (rise >= 0.5f)
+        val isNorm = (rise >= 0.1f && rise < 0.5f)
+        val isSoft = (rise < 0.1f)
 
         settings.btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         settings.btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))

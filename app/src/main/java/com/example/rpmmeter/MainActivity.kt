@@ -78,7 +78,7 @@ class MainActivity : Activity() {
         rootLayout.addView(statusText)
 
         debugText = TextView(this)
-        debugText.text = "Громкость: 0 | Частота: 0 Гц"
+        debugText.text = "Громк: 0 (Пор: 20) | Сырая: 0 Гц | Фильтр: 0 Гц"
         debugText.textSize = 11f
         debugText.setTextColor(Color.YELLOW)
         debugText.gravity = Gravity.CENTER
@@ -102,10 +102,19 @@ class MainActivity : Activity() {
 
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
-            onUpdate = { rpm, freq, vol, status ->
+            onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
                 currentRealRpm = rpm
                 runOnUiThread {
-                    debugText.text = "Громкость: $vol | Частота: ${freq.roundToInt()} Гц"
+                    val modeLabel = when (prefsManager.engineType) {
+                        2 -> "2T"
+                        4 -> "4T"
+                        else -> "Озеро"
+                    }
+                    val currentThreshold = prefsManager.minVolumeThreshold
+                    
+                    // Вывод в отладку: текущая громкость, текущий порог, сырая частота и фильтр
+                    debugText.text = "Громк: $vol (Пор: $currentThreshold) | Сырая: ${rawFreq.roundToInt()} Гц | $modeLabel: ${filteredFreq.roundToInt()} Гц"
+                    
                     val displayVal = if (isHoldActive) {
                         if (heldRpmValue > 0) heldRpmValue else 0
                     } else {
@@ -309,15 +318,15 @@ class MainActivity : Activity() {
 
     private fun getThresholdForSquare(index: Int): Int {
         return when (index) {
-            0 -> 50
-            1 -> 300
-            2 -> 700
-            3 -> 1200
-            4 -> 1800
-            5 -> 2500
-            6 -> 3500
-            7 -> 5000
-            8 -> 7000
+            0 -> 20
+            1 -> 150
+            2 -> 400
+            3 -> 800
+            4 -> 1400
+            5 -> 2200
+            6 -> 3200
+            7 -> 4800
+            8 -> 6800
             else -> 9000
         }
     }
@@ -352,7 +361,7 @@ class MainActivity : Activity() {
                 refreshAllUI()
             }
 
-            val p = LinearLayout.LayoutParams(0, 36, 1f)
+            val p = LinearLayout.LayoutParams(0, 42, 1f)
             p.setMargins(1, 0, 1, 0)
             squareBtn.layoutParams = p
 
@@ -415,12 +424,22 @@ class MainActivity : Activity() {
             val btn = volumeStepButtons[i] ?: continue
             val tVal = getThresholdForSquare(i)
             
-            if (currentSensitivityThreshold == tVal) {
-                btn.setBackgroundColor(Color.parseColor("#FF9800"))
-            } else if (currentVol >= tVal) {
-                btn.setBackgroundColor(Color.parseColor("#00E676"))
-            } else {
-                btn.setBackgroundColor(Color.parseColor("#37474F"))
+            val isSelectedThreshold = (currentSensitivityThreshold == tVal)
+            val isReachedByVolume = (currentVol > 0 && currentVol >= tVal)
+
+            when {
+                isSelectedThreshold && isReachedByVolume -> {
+                    btn.setBackgroundColor(Color.parseColor("#00E676")) // Ярко-зеленый (и порог, и громкость дошла)
+                }
+                isSelectedThreshold -> {
+                    btn.setBackgroundColor(Color.parseColor("#FF9800")) // Оранжевый (выбранный порог отсечки)
+                }
+                isReachedByVolume -> {
+                    btn.setBackgroundColor(Color.parseColor("#1B5E20")) // Темно-зеленый (уровень громкости дошел)
+                }
+                else -> {
+                    btn.setBackgroundColor(Color.parseColor("#37474F")) // Серый (ниже уровня)
+                }
             }
         }
     }

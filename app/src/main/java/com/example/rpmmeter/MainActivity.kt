@@ -503,4 +503,5 @@ class MainActivity : Activity() {
                                 
                                 if (isHoldActive) {
                                     val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-                                    rpmText.text = String.format("%,d", displayHoldVal).replace(','
+                                    rpmText.text = displayHoldVal.toString()
+                      

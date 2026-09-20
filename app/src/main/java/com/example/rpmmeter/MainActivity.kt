@@ -19,6 +19,7 @@ import kotlin.math.roundToInt
 class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
+    private lateinit var statusTextHold: TextView
     private lateinit var rpmTextView: TextView
     private lateinit var btnHold: Button
     private lateinit var btnExit: Button
@@ -58,16 +59,28 @@ class MainActivity : Activity() {
 
         rootLayout.addView(buildTopPanel())
 
+        // Первая строка статуса
         statusText = TextView(this).apply {
             text = "Ожидание запуска двигателя (тихо)"
             textSize = 12f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
-            setPadding(0, 4, 0, 8)
+            setPadding(0, 4, 0, 2)
         }
         rootLayout.addView(statusText)
 
-        // Подключаем таблицу настроек через UIBuilder
+        // Вторая строка статуса (для режима HOLD)
+        statusTextHold = TextView(this).apply {
+            text = ""
+            textSize = 12f
+            setTextColor(Color.parseColor("#FF9800"))
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 6)
+            visibility = View.GONE
+        }
+        rootLayout.addView(statusTextHold)
+
+        // Таблица настроек
         rootLayout.addView(
             UIBuilder.buildSettingsTable(this, prefsManager, { refreshAllUI() }, volumeStepButtons)
         )
@@ -105,10 +118,15 @@ class MainActivity : Activity() {
                         currentRealRpm
                     }
                     
+                    // Обновляем сокращенный текст первой строки
+                    statusText.text = "Громк: $vol (Пор: $currentThreshold) | Pre-Freq: ${rawFreq.roundToInt()} Гц | $modeLabel: ${filteredFreq.roundToInt()} Гц"
+                    
                     if (isHoldActive) {
-                        statusText.text = "Удержание (HOLD) | Громкость: $vol (Порог: $currentThreshold) | Pre-Freq: ${rawFreq.roundToInt()} Гц | Живые: $currentRealRpm об/мин ($modeLabel x$currentMultiplier)"
+                        statusTextHold.text = "Удержание (HOLD) | Живые: $currentRealRpm об/мин"
+                        statusTextHold.visibility = View.VISIBLE
                     } else {
-                        statusText.text = "Громкость: $vol (Порог: $currentThreshold) | Pre-Freq: ${rawFreq.roundToInt()} Гц | $modeLabel (x$currentMultiplier): ${filteredFreq.roundToInt()} Гц"
+                        statusTextHold.text = ""
+                        statusTextHold.visibility = View.GONE
                     }
 
                     updateRpmDisplay(displayVal)
@@ -144,41 +162,46 @@ class MainActivity : Activity() {
             )
         }
 
+        // Левая колонка: большая кнопка EXIT сверху, а под ней ряд с x1 и x2
         val leftCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.24f)
         }
 
         btnExit = Button(this).apply {
             text = "EXIT"
-            textSize = 11f
+            textSize = 12f
             setOnClickListener { finish() }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                110 // Фиксированная высота большой кнопки, как в дизайне 1.6
+            ).apply { setMargins(0, 0, 0, 4) }
         }
-        val pBtn = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f).apply {
-            setMargins(0, 1, 0, 1)
-        }
-        btnExit.layoutParams = pBtn
         leftCol.addView(btnExit)
 
+        // Контейнер под x1 и x2
         val subLeft = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = pBtn
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
 
-        val pSub = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+        val pSub = LinearLayout.LayoutParams(0, 48, 1f).apply {
             setMargins(1, 0, 1, 0)
         }
 
         btnX1 = Button(this).apply {
-            text = "x1"; textSize = 10f; setPadding(0,0,0,0)
+            text = "x1"; textSize = 11f; setPadding(0,0,0,0)
             setOnClickListener { currentMultiplier = 1; refreshAllUI() }
             layoutParams = pSub
         }
         subLeft.addView(btnX1)
 
         btnX2 = Button(this).apply {
-            text = "x2"; textSize = 10f; setPadding(0,0,0,0)
+            text = "x2"; textSize = 11f; setPadding(0,0,0,0)
             setOnClickListener { currentMultiplier = 2; refreshAllUI() }
             layoutParams = pSub
         }
@@ -187,17 +210,18 @@ class MainActivity : Activity() {
         leftCol.addView(subLeft)
         container.addView(leftCol)
 
-        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(6, 1) })
+        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
+        // Центральный блок с RPM
         val rpmBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.52f)
         }
 
         rpmTextView = TextView(this).apply {
             text = "00000"
-            textSize = 68f
+            textSize = 62f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -215,40 +239,48 @@ class MainActivity : Activity() {
 
         container.addView(rpmBlock)
 
-        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(6, 1) })
+        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
+        // Правая колонка: большая кнопка HOLD сверху, а под ней ряд с x3 и x4
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.24f)
         }
 
         btnHold = Button(this).apply {
             text = "HOLD"
-            textSize = 11f
+            textSize = 12f
             setOnClickListener {
                 isHoldActive = !isHoldActive
                 if (isHoldActive) heldRpmValue = currentRealRpm
                 refreshAllUI()
             }
-            layoutParams = pBtn
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                110
+            ).apply { setMargins(0, 0, 0, 4) }
         }
         rightCol.addView(btnHold)
 
+        // Контейнер под x3 и x4
         val subRight = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = pBtn
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
         }
 
         btnX3 = Button(this).apply {
-            text = "x3"; textSize = 10f; setPadding(0,0,0,0)
+            text = "x3"; textSize = 11f; setPadding(0,0,0,0)
             setOnClickListener { currentMultiplier = 3; refreshAllUI() }
             layoutParams = pSub
         }
         subRight.addView(btnX3)
 
         btnX4 = Button(this).apply {
-            text = "x4"; textSize = 10f; setPadding(0,0,0,0)
+            text = "x4"; textSize = 11f; setPadding(0,0,0,0)
             setOnClickListener { currentMultiplier = 4; refreshAllUI() }
             layoutParams = pSub
         }
@@ -336,4 +368,3 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 }
-

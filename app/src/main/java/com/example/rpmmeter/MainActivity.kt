@@ -83,7 +83,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты, HOLD и кнопка Выхода (исправленная структура) ---
+        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты, HOLD и кнопка Выхода ---
 
         val topRpmLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -501,4 +501,4 @@ class MainActivity : Activity() {
                                 
                                 if (isHoldActive) {
                                     val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-                                    rpmText.text = String.format("%,d", display
+                                    rpmText.text = String.format("%,d", displayHoldVal).replace(',', ' '

@@ -47,26 +47,25 @@ class MainActivity : Activity() {
     private var isRecording = false
     private var isHoldActive = false
     private var heldRpmValue = 0
+    private var currentRealRpm = 0 // Переменная для хранения актуальных оборотов в реальном времени
 
     private var engineType = 2
     private var maxAllowedRpm = 12000
     private val volumeThreshold = 30
 
-    private var audioBufferSize = 1024 
+    private var audioBufferSize = 1536 
     private var riseTimeConstant = 0.06f 
     private var dropTimeConstant = 0.18f
 
     private lateinit var sharedPreferences: SharedPreferences
     private val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
-    // Защищенная строка авторства с версией
     private val copyrightNotice = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.1"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        // Проверка лицензии и целостности строки
         verifyLicenseOrCrash()
 
         sharedPreferences = getSharedPreferences("RpmMeterPrefs", Context.MODE_PRIVATE)
@@ -83,7 +82,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты и кнопка HOLD ---
+        // --- ВЕРХНЯЯ ЧАСТЬ: Обороты и фиксированная кнопка HOLD ---
 
         val topRpmLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -92,28 +91,29 @@ class MainActivity : Activity() {
 
         rpmText = TextView(this).apply {
             text = "0 000"
-            textSize = 82f
+            textSize = 72f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
         }
         
         btnHold = Button(this).apply {
             text = "HOLD"
-            textSize = 12f
+            textSize = 13f
             setOnClickListener {
                 isHoldActive = !isHoldActive
                 if (isHoldActive) {
-                    val cleanText = rpmText.text.toString().replace(" ", "")
-                    heldRpmValue = cleanText.toIntOrNull() ?: 0
+                    // Фиксируем текущие реальные обороты мотора
+                    heldRpmValue = currentRealRpm
                 }
                 updateHoldButtonState()
             }
         }
+        
         val holdParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+            160, 
+            110  
         ).apply {
-            setMargins(16, 24, 0, 0)
+            setMargins(24, 0, 0, 0)
             gravity = Gravity.CENTER_VERTICAL
         }
         btnHold.layoutParams = holdParams
@@ -125,16 +125,16 @@ class MainActivity : Activity() {
 
         val labelRpmText = TextView(this).apply {
             text = "RPM"
-            textSize = 16f
+            textSize = 15f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 4)
+            setPadding(0, 0, 0, 2)
         }
         layout.addView(labelRpmText)
 
         statusText = TextView(this).apply {
             text = "Ожидание запуска мотора..."
-            textSize = 14f
+            textSize = 13f
             setTextColor(Color.LTGRAY)
             gravity = Gravity.CENTER
         }
@@ -142,10 +142,10 @@ class MainActivity : Activity() {
 
         debugText = TextView(this).apply {
             text = "Громкость: 0 | Частота: 0 Гц"
-            textSize = 12f
+            textSize = 11f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
-            setPadding(0, 4, 0, 16)
+            setPadding(0, 2, 0, 12)
         }
         layout.addView(debugText)
 
@@ -153,18 +153,18 @@ class MainActivity : Activity() {
         // --- НИЖНЯЯ ЧАСТЬ: Кнопки и настройки (Сетка) ---
 
         val tableLayout = TableLayout(this).apply {
-            setPadding(0, 8, 0, 0)
+            setPadding(0, 4, 0, 0)
         }
 
         fun addSettingRow(labelTxt: String, b1: Button, b2: Button, b3: Button) {
             val row = TableRow(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 4, 0, 4)
+                setPadding(0, 3, 0, 3)
             }
 
             val label = TextView(this).apply {
                 text = labelTxt
-                textSize = 13f
+                textSize = 12f
                 setTextColor(Color.parseColor("#B0BEC5"))
                 setPadding(0, 0, 8, 0)
             }
@@ -201,8 +201,8 @@ class MainActivity : Activity() {
         btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { setLimit(12000) } }
         btnLimit3 = Button(this).apply { text = "20k"; setOnClickListener { setLimit(20000) } }
 
-        btnRateFast = Button(this).apply { text = "Fast"; setOnClickListener { setRate(1024) } }
-        btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { setRate(2048) } }
+        btnRateFast = Button(this).apply { text = "Fast"; setOnClickListener { setRate(1536) } }
+        btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { setRate(2560) } }
         btnRateSlow = Button(this).apply { text = "Slow"; setOnClickListener { setRate(4096) } }
 
         btnSmoothSharp = Button(this).apply { 
@@ -219,10 +219,10 @@ class MainActivity : Activity() {
         }
 
         // 1. Строка двигателя
-        val engineRow = TableRow(this).apply { setPadding(0, 4, 0, 4) }
+        val engineRow = TableRow(this).apply { setPadding(0, 3, 0, 3) }
         val engineLabel = TextView(this).apply {
             text = "двигатель:"
-            textSize = 13f
+            textSize = 12f
             setTextColor(Color.parseColor("#B0BEC5"))
             setPadding(0, 0, 8, 0)
         }
@@ -253,13 +253,12 @@ class MainActivity : Activity() {
 
         layout.addView(tableLayout)
 
-        // --- КОПИРАЙТ И ВЕРСИЯ В САМОМ НИЗУ ---
         val copyrightView = TextView(this).apply {
             text = copyrightNotice
-            textSize = 11f
-            setTextColor(Color.parseColor("#616161"))
+            textSize = 12f
+            setTextColor(Color.parseColor("#9E9E9E"))
             gravity = Gravity.CENTER
-            setPadding(0, 24, 0, 0)
+            setPadding(16, 20, 16, 12)
         }
         layout.addView(copyrightView)
 
@@ -283,11 +282,16 @@ class MainActivity : Activity() {
         }
     }
 
-    // Проверка лицензии по эталонной строке с версией
     private fun verifyLicenseOrCrash() {
-        val expected = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 0.1"
-        if (copyrightNotice != expected) {
-            throw RuntimeException("License Error: Copyright notice integrity violation!")
+        if (copyrightNotice.length != 43) {
+            throw RuntimeException("License Error: Length mismatch!")
+        }
+        if (copyrightNotice[0] != '2' || 
+            copyrightNotice[8] != 'Y' || 
+            copyrightNotice[18] != 'V' || 
+            copyrightNotice[26] != 'Р' || 
+            copyrightNotice[42] != '1') {
+            throw RuntimeException("License Error: Integrity violation!")
         }
     }
 
@@ -304,7 +308,7 @@ class MainActivity : Activity() {
     private fun loadSettings() {
         engineType = sharedPreferences.getInt("engineType", 2)
         maxAllowedRpm = sharedPreferences.getInt("maxAllowedRpm", 12000)
-        audioBufferSize = sharedPreferences.getInt("audioBufferSize", 1024)
+        audioBufferSize = sharedPreferences.getInt("audioBufferSize", 1536)
         riseTimeConstant = sharedPreferences.getFloat("riseTimeConstant", 0.06f)
         dropTimeConstant = sharedPreferences.getFloat("dropTimeConstant", 0.18f)
     }
@@ -349,8 +353,8 @@ class MainActivity : Activity() {
     }
 
     private fun updateRateButtons() {
-        btnRateFast.setBackgroundColor(if (audioBufferSize == 1024) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateNorm.setBackgroundColor(if (audioBufferSize == 2048) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+        btnRateFast.setBackgroundColor(if (audioBufferSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+        btnRateNorm.setBackgroundColor(if (audioBufferSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         btnRateSlow.setBackgroundColor(if (audioBufferSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         btnRateFast.setTextColor(Color.WHITE); btnRateNorm.setTextColor(Color.WHITE); btnRateSlow.setTextColor(Color.WHITE)
     }
@@ -456,12 +460,15 @@ class MainActivity : Activity() {
                             }
 
                             val finalRpm = smoothedRpm.toInt()
+                            currentRealRpm = finalRpm // Сохраняем текущие обороты для точной фиксации кнопкой HOLD
 
                             runOnUiThread {
                                 debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
                                 
                                 if (isHoldActive) {
-                                    rpmText.text = String.format("%,d", heldRpmValue).replace(',', ' ')
+                                    // Выводим зафиксированное значение (если оно 0, то показываем "0 000", либо красивое число)
+                                    val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
+                                    rpmText.text = String.format("%,d", displayHoldVal).replace(',', ' ')
                                     statusText.text = "Удержание (HOLD)"
                                 } else {
                                     if (finalRpm > 0) {
@@ -479,13 +486,4 @@ class MainActivity : Activity() {
                     audioRecord.release()
                 }
             } catch (e: Exception) {
-                runOnUiThread { statusText.text = "Ошибка: ${e.message}" }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        isRecording = false
-    }
-}
+                runOnUiThread { statusText.text = "Ошибка: ${e.messag

@@ -56,7 +56,6 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // Сначала создаем настройки через UIBuilder, чтобы получить ссылки на кнопки /1-/4
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -95,7 +94,6 @@ class MainActivity : Activity() {
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
-                // Расчет оборотов с делением на множитель (цилиндры)
                 currentRealRpm = if (currentMultiplier > 0) (rpm / currentMultiplier) else rpm
                 
                 runOnUiThread {
@@ -120,8 +118,10 @@ class MainActivity : Activity() {
                         }
                     }
 
-                    statusLine2.text = "Громк: $vol | Пор: $currentThreshold"
-                    statusLine3.text = "Pre: ${rawFreq.roundToInt()}Гц | All: ${filteredFreq.roundToInt()}Гц"
+                    // Полные названия: Громкость и Порог
+                    statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
+                    // Метки Pre-Freq и All
+                    statusLine3.text = "Pre-Freq: ${rawFreq.roundToInt()}Гц | All: ${filteredFreq.roundToInt()}Гц"
 
                     updateRpmDisplay(displayVal)
                     updateVolumeSquaresUI(vol)
@@ -159,7 +159,6 @@ class MainActivity : Activity() {
             )
         }
 
-        // Левая кнопка EXIT
         val leftCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -180,7 +179,6 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок с крупными цифрами RPM
         val rpmBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -209,7 +207,6 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правая кнопка HOLD
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -251,7 +248,7 @@ class MainActivity : Activity() {
             setMargins(1, 0, 1, 0)
         }
 
-        // --- ЛЕВАЯ ПАРА КНОПОК: /1, /2 ---
+        // Левая пара кнопок: /1, /2
         val leftMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -270,7 +267,7 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // --- ЦЕНТРАЛЬНЫЙ БЛОК: Текстовые строки состояния ---
+        // Центральный блок с текстом состояния
         val centerTextCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -287,7 +284,7 @@ class MainActivity : Activity() {
         centerTextCol.addView(statusLine1)
 
         statusLine2 = TextView(this).apply {
-            text = "Громк: 0 | Пор: 20"
+            text = "Громкость: 0 | Порог: 20"
             textSize = 10f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
@@ -296,7 +293,7 @@ class MainActivity : Activity() {
         centerTextCol.addView(statusLine2)
 
         statusLine3 = TextView(this).apply {
-            text = "Pre: 0 Гц | All: 0 Гц"
+            text = "Pre-Freq: 0 Гц | All: 0 Гц"
             textSize = 10f
             setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER
@@ -308,7 +305,7 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // --- ПРАВАЯ ПАРА КНОПОК: /3, /4 ---
+        // Правая пара кнопок: /3, /4
         val rightMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -383,7 +380,6 @@ class MainActivity : Activity() {
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 
-        // Подсветка кнопок-делителей /1-/4
         settings.btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
         settings.btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
@@ -393,7 +389,6 @@ class MainActivity : Activity() {
         settings.btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
 
-        // Синхронизация кнопок мотора в таблице
         val eType = prefsManager.engineType
         settings.btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btn2T.setTextColor(if (eType == 2) Color.BLACK else Color.WHITE)

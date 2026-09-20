@@ -73,62 +73,51 @@ class MainActivity : Activity() {
         sharedPreferences = getSharedPreferences("RpmMeterPrefs", Context.MODE_PRIVATE)
         loadSettings()
 
-        val scrollView = ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor("#121212"))
-            isFillViewport = true
-        }
+        val scrollView = ScrollView(this)
+        scrollView.setBackgroundColor(Color.parseColor("#121212"))
+        scrollView.isFillViewport = true
 
-        val mainLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
+        val mainLayout = LinearLayout(this)
+        mainLayout.orientation = LinearLayout.VERTICAL
+        mainLayout.setPadding(16, 16, 16, 16)
+        mainLayout.gravity = Gravity.CENTER_HORIZONTAL
 
-        // 1. Добавляем верхнюю панель (RPM + HOLD)
         mainLayout.addView(createTopPanel())
 
-        // 2. Статус и отладка
-        statusText = TextView(this).apply {
-            text = "Ожидание запуска мотора..."
-            textSize = 13f
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 8, 0, 0)
-        }
+        statusText = TextView(this)
+        statusText.text = "Ожидание запуска мотора..."
+        statusText.textSize = 13f
+        statusText.setTextColor(Color.LTGRAY)
+        statusText.gravity = Gravity.CENTER
+        statusText.setPadding(0, 8, 0, 0)
         mainLayout.addView(statusText)
 
-        debugText = TextView(this).apply {
-            text = "Громкость: 0 | Частота: 0 Гц"
-            textSize = 11f
-            setTextColor(Color.YELLOW)
-            gravity = Gravity.CENTER
-            setPadding(0, 2, 0, 12)
-        }
+        debugText = TextView(this)
+        debugText.text = "Громкость: 0 | Частота: 0 Гц"
+        debugText.textSize = 11f
+        debugText.setTextColor(Color.YELLOW)
+        debugText.gravity = Gravity.CENTER
+        debugText.setPadding(0, 2, 0, 12)
         mainLayout.addView(debugText)
 
-        // 3. Таблица настроек
         mainLayout.addView(createSettingsTable())
 
-        // 4. Копирайт
-        val copyrightView = TextView(this).apply {
-            text = copyrightNotice
-            textSize = 12f
-            setTextColor(Color.parseColor("#9E9E9E"))
-            gravity = Gravity.CENTER
-            setPadding(16, 20, 16, 12)
-        }
+        val copyrightView = TextView(this)
+        copyrightView.text = copyrightNotice
+        copyrightView.textSize = 12f
+        copyrightView.setTextColor(Color.parseColor("#9E9E9E"))
+        copyrightView.gravity = Gravity.CENTER
+        copyrightView.setPadding(16, 20, 16, 12)
         mainLayout.addView(copyrightView)
 
         scrollView.addView(mainLayout)
         setContentView(scrollView)
 
-        // Инициализация состояний кнопок
         updateEngineButtons()
         updateLimitButtons()
         updateRateButtons()
         updateSmoothButtons()
 
-        // Проверка разрешений микрофона
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
@@ -141,73 +130,64 @@ class MainActivity : Activity() {
         }
     }
 
-    // Отдельная функция для верхней панели (нет риска запутаться в скобках)
     private fun createTopPanel(): View {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 8, 0, 0)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
+        val container = LinearLayout(this)
+        container.orientation = LinearLayout.HORIZONTAL
+        container.gravity = Gravity.CENTER_VERTICAL
+        container.setPadding(0, 8, 0, 0)
+        container.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
 
-        // Левый пустой отступ (20%)
-        val leftSpacer = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, 1, 0.2f)
-        }
+        val leftSpacer = View(this)
+        leftSpacer.layoutParams = LinearLayout.LayoutParams(0, 1, 0.2f)
 
-        // Центральный блок с RPM (60%)
-        val centerLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.6f)
-        }
+        val centerLayout = LinearLayout(this)
+        centerLayout.orientation = LinearLayout.VERTICAL
+        centerLayout.gravity = Gravity.CENTER_HORIZONTAL
+        centerLayout.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.6f)
 
-        rpmText = TextView(this).apply {
-            text = "0"
-            textSize = 64f
-            setTextColor(Color.parseColor("#00E676"))
-            gravity = Gravity.CENTER
-        }
+        rpmText = TextView(this)
+        rpmText.text = "0"
+        rpmText.textSize = 64f
+        rpmText.setTextColor(Color.parseColor("#00E676"))
+        rpmText.gravity = Gravity.CENTER
 
-        val labelRpm = TextView(this).apply {
-            text = "RPM"
-            textSize = 15f
-            setTextColor(Color.parseColor("#80CBC4"))
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 2)
-        }
+        val labelRpm = TextView(this)
+        labelRpm.text = "RPM"
+        labelRpm.textSize = 15f
+        labelRpm.setTextColor(Color.parseColor("#80CBC4"))
+        labelRpm.gravity = Gravity.CENTER
+        labelRpm.setPadding(0, 0, 0, 2)
 
         centerLayout.addView(rpmText)
         centerLayout.addView(labelRpm)
 
-        // Правый блок с кнопкой HOLD (20%)
-        val rightLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(0, 110, 0.2f)
-        }
+        val rightLayout = LinearLayout(this)
+        rightLayout.orientation = LinearLayout.VERTICAL
+        rightLayout.gravity = Gravity.CENTER_HORIZONTAL
+        rightLayout.layoutParams = LinearLayout.LayoutParams(0, 110, 0.2f)
 
-        btnHold = Button(this).apply {
-            text = "HOLD"
-            textSize = 11f
-            setOnClickListener {
-                isHoldActive = !isHoldActive
-                if (isHoldActive) {
-                    heldRpmValue = currentRealRpm
-                }
-                updateHoldButtonState()
+        btnHold = Button(this)
+        btnHold.text = "HOLD"
+        btnHold.textSize = 11f
+        btnHold.setOnClickListener {
+            isHoldActive = !isHoldActive
+            if (isHoldActive) {
+                heldRpmValue = currentRealRpm
             }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            ).apply {
-                setMargins(4, 0, 0, 0)
-            }
+            updateHoldButtonState()
         }
+        
+        val holdParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.MATCH_PARENT
+        )
+        holdParams.setMargins(4, 0, 0, 0)
+        btnHold.layoutParams = holdParams
         updateHoldButtonState()
+        
         rightLayout.addView(btnHold)
 
         container.addView(leftSpacer)
@@ -217,47 +197,78 @@ class MainActivity : Activity() {
         return container
     }
 
-    // Отдельная функция для таблицы настроек
     private fun createSettingsTable(): View {
-        val tableLayout = TableLayout(this).apply {
-            setPadding(0, 4, 0, 0)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
+        val tableLayout = TableLayout(this)
+        tableLayout.setPadding(0, 4, 0, 0)
+        tableLayout.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
 
-        btn2T = Button(this).apply { text = "2T"; setOnClickListener { setEngine(2) } }
-        btn4T = Button(this).apply { text = "4T"; setOnClickListener { setEngine(4) } }
-        btnElectro = Button(this).apply { text = "Электро"; setOnClickListener { setEngine(3) } }
+        btn2T = Button(this)
+        btn2T.text = "2T"
+        btn2T.setOnClickListener { setEngine(2) }
+
+        btn4T = Button(this)
+        btn4T.text = "4T"
+        btn4T.setOnClickListener { setEngine(4) }
+
+        btnElectro = Button(this)
+        btnElectro.text = "Электро"
+        btnElectro.setOnClickListener { setEngine(3) }
         
-        btnLimit1 = Button(this).apply { text = "6k"; setOnClickListener { setLimit(6000) } }
-        btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { setLimit(12000) } }
-        btnLimit3 = Button(this).apply { text = "20k"; setOnClickListener { setLimit(20000) } }
+        btnLimit1 = Button(this)
+        btnLimit1.text = "6k"
+        btnLimit1.setOnClickListener { setLimit(6000) }
 
-        btnRateFast = Button(this).apply { text = "Fast"; setOnClickListener { setRate(1536) } }
-        btnRateNorm = Button(this).apply { text = "Norm"; setOnClickListener { setRate(2560) } }
-        btnRateSlow = Button(this).apply { text = "Slow"; setOnClickListener { setRate(4096) } }
+        btnLimit2 = Button(this)
+        btnLimit2.text = "12k"
+        btnLimit2.setOnClickListener { setLimit(12000) }
 
-        btnSmoothSharp = Button(this).apply { text = "Sharp"; setOnClickListener { setSmooth(0.02f, 0.05f) } }
-        btnSmoothNorm = Button(this).apply { text = "Norm"; setOnClickListener { setSmooth(0.06f, 0.18f) } }
-        btnSmoothSoft = Button(this).apply { text = "Soft"; setOnClickListener { setSmooth(0.15f, 0.40f) } }
+        btnLimit3 = Button(this)
+        btnLimit3.text = "20k"
+        btnLimit3.setOnClickListener { setLimit(20000) }
 
-        // Строка выбора мотора
-        val engineRow = TableRow(this).apply { setPadding(0, 3, 0, 3) }
-        val engineLabel = TextView(this).apply {
-            text = "мотор:"
-            textSize = 12f
-            setTextColor(Color.parseColor("#B0BEC5"))
-            setPadding(0, 0, 8, 0)
-        }
-        val engineButtonsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        val thirdParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
-            setMargins(2, 0, 2, 0)
-        }
+        btnRateFast = Button(this)
+        btnRateFast.text = "Fast"
+        btnRateFast.setOnClickListener { setRate(1536) }
+
+        btnRateNorm = Button(this)
+        btnRateNorm.text = "Norm"
+        btnRateNorm.setOnClickListener { setRate(2560) }
+
+        btnRateSlow = Button(this)
+        btnRateSlow.text = "Slow"
+        btnRateSlow.setOnClickListener { setRate(4096) }
+
+        btnSmoothSharp = Button(this)
+        btnSmoothSharp.text = "Sharp"
+        btnSmoothSharp.setOnClickListener { setSmooth(0.02f, 0.05f) }
+
+        btnSmoothNorm = Button(this)
+        btnSmoothNorm.text = "Norm"
+        btnSmoothNorm.setOnClickListener { setSmooth(0.06f, 0.18f) }
+
+        btnSmoothSoft = Button(this)
+        btnSmoothSoft.text = "Soft"
+        btnSmoothSoft.setOnClickListener { setSmooth(0.15f, 0.40f) }
+
+        val engineRow = TableRow(this)
+        engineRow.setPadding(0, 3, 0, 3)
+
+        val engineLabel = TextView(this)
+        engineLabel.text = "мотор:"
+        engineLabel.textSize = 12f
+        engineLabel.setTextColor(Color.parseColor("#B0BEC5"))
+        engineLabel.setPadding(0, 0, 8, 0)
+
+        val engineButtonsLayout = LinearLayout(this)
+        engineButtonsLayout.orientation = LinearLayout.HORIZONTAL
+        engineButtonsLayout.gravity = Gravity.CENTER
+
+        val thirdParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f)
+        thirdParams.setMargins(2, 0, 2, 0)
+
         btn2T.layoutParams = thirdParams
         btn4T.layoutParams = thirdParams
         btnElectro.layoutParams = thirdParams
@@ -279,26 +290,22 @@ class MainActivity : Activity() {
     }
 
     private fun addSettingRowToTable(table: TableLayout, labelTxt: String, b1: Button, b2: Button, b3: Button) {
-        val row = TableRow(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 3, 0, 3)
-        }
+        val row = TableRow(this)
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(0, 3, 0, 3)
 
-        val label = TextView(this).apply {
-            text = labelTxt
-            textSize = 12f
-            setTextColor(Color.parseColor("#B0BEC5"))
-            setPadding(0, 0, 8, 0)
-        }
+        val label = TextView(this)
+        label.text = labelTxt
+        label.textSize = 12f
+        label.setTextColor(Color.parseColor("#B0BEC5"))
+        label.setPadding(0, 0, 8, 0)
 
-        val buttonsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
+        val buttonsLayout = LinearLayout(this)
+        buttonsLayout.orientation = LinearLayout.HORIZONTAL
+        buttonsLayout.gravity = Gravity.CENTER
         
-        val params = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
-            setMargins(2, 0, 2, 0)
-        }
+        val params = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f)
+        params.setMargins(2, 0, 2, 0)
 
         b1.layoutParams = params
         b2.layoutParams = params
@@ -379,7 +386,9 @@ class MainActivity : Activity() {
             btnLimit1.setBackgroundColor(if (maxAllowedRpm == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
             btnLimit2.setBackgroundColor(if (maxAllowedRpm == 12000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
             btnLimit3.setBackgroundColor(if (maxAllowedRpm == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-            btnLimit1.setTextColor(Color.WHITE); btnLimit2.setTextColor(Color.WHITE); btnLimit3.setTextColor(Color.WHITE)
+            btnLimit1.setTextColor(Color.WHITE)
+            btnLimit2.setTextColor(Color.WHITE)
+            btnLimit3.setTextColor(Color.WHITE)
         }
     }
 
@@ -388,7 +397,9 @@ class MainActivity : Activity() {
             btnRateFast.setBackgroundColor(if (audioBufferSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
             btnRateNorm.setBackgroundColor(if (audioBufferSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
             btnRateSlow.setBackgroundColor(if (audioBufferSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-            btnRateFast.setTextColor(Color.WHITE); btnRateNorm.setTextColor(Color.WHITE); btnRateSlow.setTextColor(Color.WHITE)
+            btnRateFast.setTextColor(Color.WHITE)
+            btnRateNorm.setTextColor(Color.WHITE)
+            btnRateSlow.setTextColor(Color.WHITE)
         }
     }
 
@@ -399,7 +410,9 @@ class MainActivity : Activity() {
             btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
             btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
             btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-            btnSmoothSharp.setTextColor(Color.WHITE); btnSmoothNorm.setTextColor(Color.WHITE); btnSmoothSoft.setTextColor(Color.WHITE)
+            btnSmoothSharp.setTextColor(Color.WHITE)
+            btnSmoothNorm.setTextColor(Color.WHITE)
+            btnSmoothSoft.setTextColor(Color.WHITE)
         }
     }
 
@@ -510,8 +523,8 @@ class MainActivity : Activity() {
                     
                     val calculatedRpm = when (engineType) {
                         4 -> (dominantFreq * 120).toInt()
-                        3 -> (dominantFreq * 60).toInt() // Электро
-                        else -> (dominantFreq * 60).toInt() // 2T
+                        3 -> (dominantFreq * 60).toInt()
+                        else -> (dominantFreq * 60).toInt()
                     }
 
                     if (calculatedRpm in 500..maxAllowedRpm) {
@@ -521,4 +534,6 @@ class MainActivity : Activity() {
             }
 
             if (rawRpm > 0) {
-                
+                if (smoothedRpm == 0f) {
+                    smoothedRpm = rawRpm.toFloat()
+    

@@ -25,7 +25,6 @@ object UIBuilder {
         val btnSmoothSharp: Button,
         val btnSmoothNorm: Button,
         val btnSmoothSoft: Button,
-        // Оставляем ссылки на кнопки x1-x4 для обратной совместимости, если они где-то еще проверяются в MainActivity
         val btnX1: Button,
         val btnX2: Button,
         val btnX3: Button,
@@ -100,14 +99,13 @@ object UIBuilder {
             setOnClickListener { prefsManager.saveSmooth(0.15f, 0.40f); onRefreshUI() }
         }
 
-        // Заглушки-кнопки (сохранены, чтобы код UIBuilder.SettingsButtons не ломался при компиляции)
-        val dummyListener = View.OnClickListener { }
-        val btnX1 = Button(context).apply { setOnClickListener(dummyListener) }
-        val btnX2 = Button(context).apply { setOnClickListener(dummyListener) }
-        val btnX3 = Button(context).apply { setOnClickListener(dummyListener) }
-        val btnX4 = Button(context).apply { setOnClickListener(dummyListener) }
+        // Заглушки-кнопки (сохранены для обратной совместимости структуры SettingsButtons)
+        val btnX1 = Button(context).apply { setOnClickListener {} }
+        val btnX2 = Button(context).apply { setOnClickListener {} }
+        val btnX3 = Button(context).apply { setOnClickListener {} }
+        val btnX4 = Button(context).apply { setOnClickListener {} }
 
-        // Добавляем только нужные строки настроек в таблицу (без отдельной строки x1-x4)
+        // Добавляем строки настроек в таблицу
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(context, table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)

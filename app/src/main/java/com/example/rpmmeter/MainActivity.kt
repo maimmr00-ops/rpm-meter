@@ -22,6 +22,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.concurrent.thread
 import kotlin.math.abs
+import kotlin.math.exp
 
 class MainActivity : Activity() {
 
@@ -91,7 +92,7 @@ class MainActivity : Activity() {
         }
 
         rpmText = TextView(this).apply {
-            text = "0 000"
+            text = "0"
             textSize = 72f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
@@ -486,11 +487,13 @@ class MainActivity : Activity() {
                                 if (smoothedRpm == 0f) {
                                     smoothedRpm = rawRpm.toFloat()
                                 } else {
-                                    val alpha = 1f - (-dt / riseTimeConstant).toDouble().let { kotlin.math.exp(it) }.toFloat()
+                                    val expArg = (-dt / riseTimeConstant).toDouble()
+                                    val alpha = (1.0 - exp(expArg)).toFloat()
                                     smoothedRpm = smoothedRpm + alpha * (rawRpm - smoothedRpm)
                                 }
                             } else {
-                                val dropAlpha = 1f - (-dt / dropTimeConstant).toDouble().let { kotlin.math.exp(it) }.toFloat()
+                                val dropExpArg = (-dt / dropTimeConstant).toDouble()
+                                val dropAlpha = (1.0 - exp(dropExpArg)).toFloat()
                                 smoothedRpm = smoothedRpm * (1f - dropAlpha)
                                 if (smoothedRpm < 300) smoothedRpm = 0f
                             }
@@ -503,5 +506,4 @@ class MainActivity : Activity() {
                                 
                                 if (isHoldActive) {
                                     val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-                                    rpmText.text = displayHoldVal.toString()
-                      
+    

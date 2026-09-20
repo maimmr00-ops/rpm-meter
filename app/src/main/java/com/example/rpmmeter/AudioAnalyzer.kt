@@ -102,18 +102,21 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 4. РАБОТАЮЩАЯ ПЛАВНОСТЬ (Четкое применение настроек из PreferencesManager)
-                val riseAlpha = prefsManager.riseTimeConstant // Коэффициент при росте оборотов
-                val fallAlpha = prefsManager.fallTimeConstant // Коэффициент при падении оборотов
+                                // 4. Плавность с честной реакцией на выбранный пресет кнопок
+                val riseAlpha = prefsManager.riseTimeConstant 
+                val fallAlpha = prefsManager.fallTimeConstant // Теперь здесь правильные значения из Sharp/Norm/Soft
 
-                // Выбираем коэффициент: если обороты растут — используем rise, если падают — fall
-                val alpha = if (calculatedRpm >= smoothedRpm) riseAlpha else fallAlpha
+                // Если расчетные обороты ниже текущих сглаженных — используем коэффициент падения (fall)
+                // Если выше — коэффициент роста (rise)
+                val alpha = if (calculatedRpm >= smoothedRpm) {
+                    riseAlpha
+                } else {
+                    // Делаем падение чуть динамичнее для 4T, но строго подчиненным кнопке плавности
+                    fallAlpha * if (engineType == 4) 1.5f else 1.0f
+                }
                 
-                // Применяем формулу сглаживания
                 smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)
 
-                val finalRpm = smoothedRpm.toInt()
-                onUpdate(finalRpm, rawFreq, calculatedRpm, currentVolInt, if (engineType == 4) "Работа мотора (4T)" else "Работа мотора")
             }
         }
         analysisThread?.start()

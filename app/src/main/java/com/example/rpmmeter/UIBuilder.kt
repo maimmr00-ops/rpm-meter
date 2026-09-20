@@ -47,18 +47,18 @@ object UIBuilder {
             )
         }
 
-        // Возвращены обработчики для типа мотора
+        // Переключение мотора с явным перезапуском анализатора
         val btn2T = Button(context).apply {
             text = "2T"
-            setOnClickListener { prefsManager.engineType = 2; onRefreshUI() }
+            setOnClickListener { prefsManager.engineType = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
         val btn4T = Button(context).apply {
             text = "4T"
-            setOnClickListener { prefsManager.engineType = 4; onRefreshUI() }
+            setOnClickListener { prefsManager.engineType = 4; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
         val btnOthers = Button(context).apply {
             text = "Others"
-            setOnClickListener { prefsManager.engineType = 3; onRefreshUI() }
+            setOnClickListener { prefsManager.engineType = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
 
         val btnLimit1 = Button(context).apply {
@@ -74,39 +74,39 @@ object UIBuilder {
             setOnClickListener { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
         }
 
+        // Изменение буфера (обновления) с перезапуском анализатора
         val btnRateFast = Button(context).apply {
             text = "Fast"
-            setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI() }
+            setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
         val btnRateNorm = Button(context).apply {
             text = "Norm"
-            setOnClickListener { prefsManager.audioBufferSize = 2560; onRefreshUI() }
+            setOnClickListener { prefsManager.audioBufferSize = 2560; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
         val btnRateSlow = Button(context).apply {
             text = "Slow"
-            setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI() }
+            setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
 
+        // Плавность (перезапуск не нужен, меняется налету)
         val btnSmoothSharp = Button(context).apply {
             text = "Sharp"
-            setOnClickListener { prefsManager.saveSmooth(0.02f, 0.05f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.4f, 0.7f); onRefreshUI() }
         }
         val btnSmoothNorm = Button(context).apply {
             text = "Norm"
-            setOnClickListener { prefsManager.saveSmooth(0.06f, 0.18f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.2f, 0.4f); onRefreshUI() }
         }
         val btnSmoothSoft = Button(context).apply {
             text = "Soft"
-            setOnClickListener { prefsManager.saveSmooth(0.15f, 0.40f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.08f, 0.18f); onRefreshUI() }
         }
 
-        // Кнопки-множители для главного экрана (/1, /2, /3, /4)
         val btnX1 = Button(context).apply { text = "/1" }
         val btnX2 = Button(context).apply { text = "/2" }
         val btnX3 = Button(context).apply { text = "/3" }
         val btnX4 = Button(context).apply { text = "/4" }
 
-        // Добавляем строки настроек в таблицу
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(context, table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)

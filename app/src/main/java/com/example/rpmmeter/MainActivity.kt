@@ -321,8 +321,10 @@ class MainActivity : Activity() {
 
         for (i in 0 until 10) {
             val squareBtn = Button(this)
-            // Прямой порядок: 1-й квадрат = 500 (слышит всё), 10-й = 5000 (только сильный шум)
-            val thresholdValue = (i + 1) * 500
+            // ИНВЕРСИЯ: 
+            // i = 0 (1-й квадрат) -> порог 5000 (почти ничего не считает, жесткий фильтр)
+            // i = 9 (10-й квадрат) -> порог 500 (считает весь звук на полную)
+            val thresholdValue = (10 - i) * 500
             
             squareBtn.text = ""
             squareBtn.textSize = 10f
@@ -388,15 +390,17 @@ class MainActivity : Activity() {
         btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(btnSmoothSharp, btnSmoothNorm, btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // Подсветка шкалы громкости
+        // Инвертированная подсветка квадратиков (чтобы горело от левого до выбранного уровня)
         val currentThresh = prefsManager.minVolumeThreshold
-        val activeIndex = ((currentThresh / 500) - 1).coerceIn(0, 9)
+        // Вычисляем, сколько квадратиков должно гореть (от 1 до 10)
+        val activeCount = ((10 - (currentThresh / 500))).coerceIn(1, 10)
+        
         for (i in 0 until 10) {
             val btn = volumeStepButtons[i] ?: continue
-            if (i <= activeIndex) {
-                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Активные квадратики
+            if (i < activeCount) {
+                btn.setBackgroundColor(Color.parseColor("#00BFA5")) // Активные (бирюзовые)
             } else {
-                btn.setBackgroundColor(Color.parseColor("#37474F")) // Неактивные
+                btn.setBackgroundColor(Color.parseColor("#37474F")) // Неактивные (темные)
             }
         }
     }

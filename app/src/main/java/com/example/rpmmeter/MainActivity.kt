@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -20,7 +21,7 @@ import androidx.core.content.ContextCompat
 class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
-    private lateinit var rpmText: TextView
+    private val digitViews = arrayOfNulls<TextView>(5) // Массив для 5 жестких ячеек цифр
     private lateinit var btnHold: Button
     private lateinit var btnExit: Button
     
@@ -85,7 +86,7 @@ class MainActivity : Activity() {
         rootLayout.addView(buildSettingsTable())
 
         val copyright = TextView(this)
-        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 1.0"
+        copyright.text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 1.1"
         copyright.textSize = 12f
         copyright.setTextColor(Color.parseColor("#9E9E9E"))
         copyright.gravity = Gravity.CENTER
@@ -103,13 +104,19 @@ class MainActivity : Activity() {
                 currentRealRpm = rpm
                 runOnUiThread {
                     localDebugText.text = "Громкость: $vol | Частота: ${freq.toInt()} Гц"
+                    val displayVal = if (isHoldActive) {
+                        if (heldRpmValue > 0) heldRpmValue else 0
+                    } else {
+                        rpm
+                    }
+                    
                     if (isHoldActive) {
-                        rpmText.text = (if (heldRpmValue > 0) heldRpmValue else 0).toString()
                         statusText.text = "Удержание (HOLD)"
                     } else {
-                        rpmText.text = rpm.toString()
                         statusText.text = status
                     }
+
+                    updateRpmDisplay(displayVal)
                 }
             },
             onError = { errorMsg ->
@@ -124,6 +131,14 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun updateRpmDisplay(value: Int) {
+        // Форматируем число ровно в 5 символов, дополняя ведущими пробелами
+        val formatted = String.format("%5d", value.coerceIn(0, 99999))
+        for (i in 0 until 5) {
+            digitViews[i]?.text = formatted[i].toString()
+        }
+    }
+
     private fun buildTopPanel(): View {
         val container = LinearLayout(this)
         container.orientation = LinearLayout.HORIZONTAL
@@ -134,7 +149,7 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
 
-        // 1. Левая симметричная колонка (Кнопка выхода / Exit)
+        // 1. Левая симметричная колонка (Кнопка EXIT)
         val leftCol = LinearLayout(this)
         leftCol.orientation = LinearLayout.VERTICAL
         leftCol.gravity = Gravity.CENTER
@@ -148,7 +163,7 @@ class MainActivity : Activity() {
         btnExit.text = "EXIT"
         btnExit.textSize = 12f
         btnExit.setOnClickListener {
-            finish() // Закрытие приложения
+            finish()
         }
         val exitParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 
@@ -163,7 +178,7 @@ class MainActivity : Activity() {
         leftSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
         container.addView(leftSpacer)
 
-        // 2. Центральный блок (Обороты и подпись) — теперь идеально по центру экрана
+        // 2. Центральный блок (5 жестких сегментов для цифр + подпись RPM)
         val rpmBlock = LinearLayout(this)
         rpmBlock.orientation = LinearLayout.VERTICAL
         rpmBlock.gravity = Gravity.CENTER
@@ -173,14 +188,37 @@ class MainActivity : Activity() {
             0.60f
         )
 
-        rpmText = TextView(this)
-        rpmText.text = "0"
-        rpmText.textSize = 88f
-        rpmText.setTextColor(Color.parseColor("#00E676"))
-        rpmText.gravity = Gravity.CENTER
-        rpmText.includeFontPadding = false
-        rpmBlock.addView(rpmText)
+        // Горизонтальный контейнер для 5 отдельных ячеек цифр
+        val digitsRow = LinearLayout(this)
+        digitsRow.orientation = LinearLayout.HORIZONTAL
+        digitsRow.gravity = Gravity.CENTER
+        digitsRow.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
 
+        for (i in 0 until 5) {
+            val tv = TextView(this)
+            tv.text = if (i == 4) "0" else " " // Изначально пусто или нуль
+            tv.textSize = 76f // Немного уменьшенный размер для идеального умещения 5 знаков
+            tv.setTextColor(Color.parseColor("#00E676"))
+            tv.gravity = Gravity.CENTER
+            tv.setTypeface(Typeface.MONOSPACE, Typeface.BOLD) // Жёсткий моноширинный шрифт
+            tv.includeFontPadding = false
+            
+            // Задаем равный вес каждой ячейке цифры
+            val p = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            tv.layoutParams = p
+            
+            digitViews[i] = tv
+            digitsRow.addView(tv)
+        }
+        rpmBlock.addView(digitsRow)
+
+        // Подпись под цифрами
         val rpmLabel = TextView(this)
         rpmLabel.text = "RPM (об / мин)"
         rpmLabel.textSize = 11f
@@ -196,7 +234,7 @@ class MainActivity : Activity() {
         rightSpacer.layoutParams = LinearLayout.LayoutParams(8, 1)
         container.addView(rightSpacer)
 
-        // 3. Правая колонка (Кнопка HOLD) — симметрична левой
+        // 3. Правая колонка (Кнопка HOLD)
         val rightCol = LinearLayout(this)
         rightCol.orientation = LinearLayout.VERTICAL
         rightCol.gravity = Gravity.CENTER
@@ -328,7 +366,6 @@ class MainActivity : Activity() {
         btnHold.setBackgroundColor(if (isHoldActive) Color.parseColor("#FF9800") else Color.parseColor("#424242"))
         btnHold.setTextColor(if (isHoldActive) Color.BLACK else Color.WHITE)
 
-        // Цвет и стиль кнопки выхода (сделаем её нейтральной темно-серой, при нажатии можно сделать темнее)
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 

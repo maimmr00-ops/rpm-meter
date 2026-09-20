@@ -388,6 +388,15 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun safeStopAndRelease(recorder: AudioRecord?) {
+        try {
+            if (recorder != null && recorder.state == AudioRecord.STATE_INITIALIZED) {
+                recorder.stop()
+                recorder.release()
+            }
+        } catch (_: Exception) {}
+    }
+
     private fun startAudioThread() {
         isRecording = true
         thread {
@@ -406,14 +415,7 @@ class MainActivity : Activity() {
                 while (isRecording) {
                     val currentBufferSz = maxOf(minBuf, audioBufferSize)
 
-                    audioRecord?.let {
-                        try {
-                            if (it.state == AudioRecord.STATE_INITIALIZED) {
-                                it.stop()
-                            }
-                            it.release()
-                        } catch (_: Exception) {}
-                    }
+                    safeStopAndRelease(audioRecord)
 
                     audioRecord = AudioRecord(
                         MediaRecorder.AudioSource.MIC,
@@ -501,4 +503,4 @@ class MainActivity : Activity() {
                                 
                                 if (isHoldActive) {
                                     val displayHoldVal = if (heldRpmValue > 0) heldRpmValue else 0
-                                    rpmText.text = String.format("%,d", displayHoldVal).replace(',', ' '
+                                    rpmText.text = String.format("%,d", displayHoldVal).replace(','

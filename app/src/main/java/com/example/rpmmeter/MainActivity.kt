@@ -85,11 +85,14 @@ class MainActivity : Activity() {
             textSize = 12f
             setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER
-            setPadding(0, 1, 0, 6)
+            setPadding(0, 1, 0, 4)
         }
         rootLayout.addView(statusLine3)
 
-        // Строим таблицу настроек через UIBuilder
+        // Блок кнопок x1-x4 под строкой частот
+        rootLayout.addView(buildMultiplierBar())
+
+        // Таблица настроек через UIBuilder
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -132,11 +135,16 @@ class MainActivity : Activity() {
                     }
                     
                     if (isHoldActive) {
-                        statusLine1.text = "Удержание (HOLD) | Живые: $currentRealRpm об/мин ($modeLabel x$currentMultiplier)"
+                        statusLine1.text = "HOLD. Текущие: $currentRealRpm об/мин ($modeLabel x$currentMultiplier)"
                         statusLine1.setTextColor(Color.parseColor("#FF9800"))
                     } else {
-                        statusLine1.text = "Работа мотора"
-                        statusLine1.setTextColor(Color.YELLOW)
+                        if (vol < currentThreshold) {
+                            statusLine1.text = "Ожидание запуска двигателя (тихо)"
+                            statusLine1.setTextColor(Color.YELLOW)
+                        } else {
+                            statusLine1.text = "Работа мотора"
+                            statusLine1.setTextColor(Color.parseColor("#00E676"))
+                        }
                     }
 
                     statusLine2.text = "Громк: $vol | Пор: $currentThreshold"
@@ -178,10 +186,11 @@ class MainActivity : Activity() {
             )
         }
 
+        // Кнопка EXIT слева (компактная колонка)
         val leftCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.24f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.22f)
         }
 
         btnExit = Button(this).apply {
@@ -191,50 +200,23 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 100
-            ).apply { setMargins(0, 0, 0, 4) }
-        }
-        leftCol.addView(btnExit)
-
-        val subLeft = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-
-        val pSub = LinearLayout.LayoutParams(0, 44, 1f).apply {
-            setMargins(1, 0, 1, 0)
-        }
-
-        btnX1 = Button(this).apply {
-            text = "x1"; textSize = 11f; setPadding(0,0,0,0)
-            setOnClickListener { currentMultiplier = 1; refreshAllUI() }
-            layoutParams = pSub
-        }
-        subLeft.addView(btnX1)
-
-        btnX2 = Button(this).apply {
-            text = "x2"; textSize = 11f; setPadding(0,0,0,0)
-            setOnClickListener { currentMultiplier = 2; refreshAllUI() }
-            layoutParams = pSub
-        }
-        subLeft.addView(btnX2)
-
-        leftCol.addView(subLeft)
+        leftCol.addView(btnExit)
         container.addView(leftCol)
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
+        // Центральный блок с крупными цифрами RPM (шире, чтобы шрифт не мельчал)
         val rpmBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.52f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
         }
 
         rpmTextView = TextView(this).apply {
             text = "00000"
-            textSize = 62f
+            textSize = 68f // Вернули крупный размер
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -254,10 +236,11 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
+        // Кнопка HOLD справа
         val rightCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.24f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.22f)
         }
 
         btnHold = Button(this).apply {
@@ -271,36 +254,56 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 100
-            ).apply { setMargins(0, 0, 0, 4) }
+            )
         }
         rightCol.addView(btnHold)
+        container.addView(rightCol)
 
-        val subRight = LinearLayout(this).apply {
+        return container
+    }
+
+    private fun buildMultiplierBar(): View {
+        val layout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 2, 0, 6)
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
+        val btnParams = LinearLayout.LayoutParams(0, 48, 1f).apply {
+            setMargins(3, 0, 3, 0)
+        }
+
+        btnX1 = Button(this).apply {
+            text = "x1"; textSize = 12f; setPadding(0,0,0,0)
+            setOnClickListener { currentMultiplier = 1; refreshAllUI() }
+            layoutParams = btnParams
+        }
+        btnX2 = Button(this).apply {
+            text = "x2"; textSize = 12f; setPadding(0,0,0,0)
+            setOnClickListener { currentMultiplier = 2; refreshAllUI() }
+            layoutParams = btnParams
+        }
         btnX3 = Button(this).apply {
-            text = "x3"; textSize = 11f; setPadding(0,0,0,0)
+            text = "x3"; textSize = 12f; setPadding(0,0,0,0)
             setOnClickListener { currentMultiplier = 3; refreshAllUI() }
-            layoutParams = pSub
+            layoutParams = btnParams
         }
-        subRight.addView(btnX3)
-
         btnX4 = Button(this).apply {
-            text = "x4"; textSize = 11f; setPadding(0,0,0,0)
+            text = "x4"; textSize = 12f; setPadding(0,0,0,0)
             setOnClickListener { currentMultiplier = 4; refreshAllUI() }
-            layoutParams = pSub
+            layoutParams = btnParams
         }
-        subRight.addView(btnX4)
 
-        rightCol.addView(subRight)
-        container.addView(rightCol)
+        layout.addView(btnX1)
+        layout.addView(btnX2)
+        layout.addView(btnX3)
+        layout.addView(btnX4)
 
-        return container
+        return layout
     }
 
     private fun updateVolumeSquaresUI(currentVol: Int) {

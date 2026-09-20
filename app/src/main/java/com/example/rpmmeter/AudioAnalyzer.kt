@@ -92,19 +92,20 @@ class AudioAnalyzer(
             }
             val rawVolume = sqrt(sum / readCount).toInt()
 
-            // Сглаживание громкости для стабильности отображения
+            // Сглаживание громкости
             smoothedVolume = smoothedVolume * 0.8f + rawVolume * 0.2f
             val currentVolume = smoothedVolume.toInt()
 
-            // 2. ПРОВЕРКА ПОРОГА ГРОМКОСТИ (Инвертированная логика)
-            // Если реальная громкость меньше порога — глушим всё в 0
-            if (currentVolume < prefsManager.minVolumeThreshold) {
+            // 2. ЖЕСТКАЯ ПРОВЕРКА ПОРОГА (ГЛУШИМ ВСЁ, ЧТО ТИШЕ ПОРОГА)
+            val threshold = prefsManager.minVolumeThreshold
+            if (currentVolume < threshold) {
                 smoothedRpm = 0f
+                // Сбрасываем обороты в 0 и сразу отдаем в UI
                 onUpdate(0, 0f, currentVolume, "Ожидание (тихо)...")
                 continue
             }
 
-            // 3. Анализ частоты и расчет оборотов (детектор пересечений нуля)
+            // 3. Анализ частоты и расчет оборотов
             var zeroCrossings = 0
             for (i in 1 until readCount) {
                 if ((shortBuffer[i - 1] < 0 && shortBuffer[i] >= 0) || 
@@ -115,19 +116,16 @@ class AudioAnalyzer(
 
             val frequency = (zeroCrossings.toFloat() * sampleRate) / (2.0f * readCount)
             
-            // Расчет оборотов в зависимости от типа мотора (2T, 4T, Others)
             val engineType = prefsManager.engineType
             val rawRpm = when (engineType) {
-                2 -> (frequency * 60f).toInt()      // 2T: 1 вспышка на оборот
-                4 -> (frequency * 30f).toInt()      // 4T: 1 вспышка на 2 оборота
-                else -> (frequency * 60f).toInt()   // Others
+                2 -> (frequency * 60f).toInt()
+                4 -> (frequency * 30f).toInt()
+                else -> (frequency * 60f).toInt()
             }
 
-            // Ограничение максимальных оборотов
             val maxLimit = prefsManager.maxAllowedRpm
             val clampedRpm = rawRpm.coerceIn(0, maxLimit)
 
-            // Плавность изменения оборотов
             val rise = prefsManager.riseTimeConstant
             val fall = prefsManager.fallTimeConstant
             val alpha = if (clampedRpm > smoothedRpm) rise else fall

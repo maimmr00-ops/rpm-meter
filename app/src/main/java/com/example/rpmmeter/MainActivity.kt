@@ -29,9 +29,13 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var rpmText: TextView
     private lateinit var debugText: TextView
+    private lateinit var btnHold: Button
+    private lateinit var btnExit: Button
     
     private lateinit var btn2T: Button
     private lateinit var btn4T: Button
+    private lateinit var btnElectro: Button
+    
     private lateinit var btnLimit1: Button
     private lateinit var btnLimit2: Button
     private lateinit var btnLimit3: Button
@@ -45,6 +49,8 @@ class MainActivity : Activity() {
     private lateinit var btnSmoothSoft: Button
 
     private var isRecording = false
+    private var isHoldActive = false
+    private var heldRpmValue = 0
     private var currentRealRpm = 0
 
     private var engineType = 2
@@ -78,16 +84,33 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // Центрированный вывод RPM
+        // --- ВЕРХНЯЯ СТРОКА: ТРИ КОЛОНКИ (20% | 60% | 20%) ---
+        val topContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 8, 0, 0)
+        }
+
+        // 1. Левая колонка (20%): пустая для симметрии и баланса
+        val leftSpacerLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.2f)
+        }
+
+        // 2. Центральная колонка (60%): обороты RPM
+        val centerRpmLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.6f)
+        }
+
         rpmText = TextView(this).apply {
             text = "0"
-            textSize = 72f
+            textSize = 64f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
-            setPadding(0, 16, 0, 0)
         }
-        layout.addView(rpmText)
-
+        
         val labelRpmText = TextView(this).apply {
             text = "RPM"
             textSize = 15f
@@ -95,13 +118,72 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 2)
         }
-        layout.addView(labelRpmText)
 
+        centerRpmLayout.addView(rpmText)
+        centerRpmLayout.addView(labelRpmText)
+
+        // 3. Правая колонка (20%): Кнопка выхода вверху, HOLD под ней на всю высоту
+        val rightActionLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(0, 140, 0.2f) // фиксированная высота блока для идеального выравнивания
+        }
+
+        btnExit = Button(this).apply {
+            text = "✕"
+            textSize = 14f
+            setTextColor(Color.parseColor("#FF5252"))
+            setBackgroundColor(Color.parseColor("#424242"))
+            setOnClickListener {
+                finishAffinity()
+            }
+        }
+        val exitParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            0, 
+            0.35f
+        ).apply {
+            setMargins(4, 0, 0, 4)
+        }
+        btnExit.layoutParams = exitParams
+
+        btnHold = Button(this).apply {
+            text = "HOLD"
+            textSize = 11f
+            setOnClickListener {
+                isHoldActive = !isHoldActive
+                if (isHoldActive) {
+                    heldRpmValue = currentRealRpm
+                }
+                updateHoldButtonState()
+            }
+        }
+        val holdParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            0, 
+            0.65f
+        ).apply {
+            setMargins(4, 0, 0, 0)
+        }
+        btnHold.layoutParams = holdParams
+        updateHoldButtonState()
+
+        rightActionLayout.addView(btnExit)
+        rightActionLayout.addView(btnHold)
+
+        // Собираем верхнюю панель воедино
+        topContainer.addView(leftSpacerLayout)
+        topContainer.addView(centerRpmLayout)
+        topContainer.addView(rightActionLayout)
+        layout.addView(topContainer)
+
+        // Статус и отладка
         statusText = TextView(this).apply {
             text = "Ожидание запуска мотора..."
             textSize = 13f
             setTextColor(Color.LTGRAY)
             gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 0)
         }
         layout.addView(statusText)
 
@@ -114,12 +196,14 @@ class MainActivity : Activity() {
         }
         layout.addView(debugText)
 
+        // Таблица настроек
         val tableLayout = TableLayout(this).apply {
             setPadding(0, 4, 0, 0)
         }
 
         btn2T = Button(this).apply { text = "2T"; setOnClickListener { setEngine(2) } }
         btn4T = Button(this).apply { text = "4T"; setOnClickListener { setEngine(4) } }
+        btnElectro = Button(this).apply { text = "Электро"; setOnClickListener { setEngine(3) } }
         
         btnLimit1 = Button(this).apply { text = "6k"; setOnClickListener { setLimit(6000) } }
         btnLimit2 = Button(this).apply { text = "12k"; setOnClickListener { setLimit(12000) } }
@@ -144,7 +228,7 @@ class MainActivity : Activity() {
 
         val engineRow = TableRow(this).apply { setPadding(0, 3, 0, 3) }
         val engineLabel = TextView(this).apply {
-            text = "двигатель:"
+            text = "мотор:"
             textSize = 12f
             setTextColor(Color.parseColor("#B0BEC5"))
             setPadding(0, 0, 8, 0)
@@ -153,14 +237,18 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val halfParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
+        val thirdParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
             setMargins(2, 0, 2, 0)
         }
-        btn2T.layoutParams = halfParams
-        btn4T.layoutParams = halfParams
+        btn2T.layoutParams = thirdParams
+        btn4T.layoutParams = thirdParams
+        btnElectro.layoutParams = thirdParams
+        
         engineButtonsLayout.addView(btn2T)
         engineButtonsLayout.addView(btn4T)
+        engineButtonsLayout.addView(btnElectro)
         engineButtonsLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        
         engineRow.addView(engineLabel)
         engineRow.addView(engineButtonsLayout)
         tableLayout.addView(engineRow)
@@ -238,6 +326,18 @@ class MainActivity : Activity() {
         table.addView(row)
     }
 
+    private fun updateHoldButtonState() {
+        if (::btnHold.isInitialized) {
+            if (isHoldActive) {
+                btnHold.setBackgroundColor(Color.parseColor("#FF9800"))
+                btnHold.setTextColor(Color.BLACK)
+            } else {
+                btnHold.setBackgroundColor(Color.parseColor("#424242"))
+                btnHold.setTextColor(Color.WHITE)
+            }
+        }
+    }
+
     private fun loadSettings() {
         engineType = sharedPreferences.getInt("engineType", 2)
         maxAllowedRpm = sharedPreferences.getInt("maxAllowedRpm", 12000)
@@ -272,33 +372,45 @@ class MainActivity : Activity() {
     }
 
     private fun updateEngineButtons() {
-        btn2T.setBackgroundColor(if (engineType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        btn2T.setTextColor(if (engineType == 2) Color.BLACK else Color.WHITE)
-        btn4T.setBackgroundColor(if (engineType == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        btn4T.setTextColor(if (engineType == 4) Color.BLACK else Color.WHITE)
+        if (::btn2T.isInitialized) {
+            btn2T.setBackgroundColor(if (engineType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+            btn2T.setTextColor(if (engineType == 2) Color.BLACK else Color.WHITE)
+            
+            btn4T.setBackgroundColor(if (engineType == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+            btn4T.setTextColor(if (engineType == 4) Color.BLACK else Color.WHITE)
+
+            btnElectro.setBackgroundColor(if (engineType == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+            btnElectro.setTextColor(if (engineType == 3) Color.BLACK else Color.WHITE)
+        }
     }
 
     private fun updateLimitButtons() {
-        btnLimit1.setBackgroundColor(if (maxAllowedRpm == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-        btnLimit2.setBackgroundColor(if (maxAllowedRpm == 12000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-        btnLimit3.setBackgroundColor(if (maxAllowedRpm == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-        btnLimit1.setTextColor(Color.WHITE); btnLimit2.setTextColor(Color.WHITE); btnLimit3.setTextColor(Color.WHITE)
+        if (::btnLimit1.isInitialized) {
+            btnLimit1.setBackgroundColor(if (maxAllowedRpm == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+            btnLimit2.setBackgroundColor(if (maxAllowedRpm == 12000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+            btnLimit3.setBackgroundColor(if (maxAllowedRpm == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+            btnLimit1.setTextColor(Color.WHITE); btnLimit2.setTextColor(Color.WHITE); btnLimit3.setTextColor(Color.WHITE)
+        }
     }
 
     private fun updateRateButtons() {
-        btnRateFast.setBackgroundColor(if (audioBufferSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateNorm.setBackgroundColor(if (audioBufferSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateSlow.setBackgroundColor(if (audioBufferSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        btnRateFast.setTextColor(Color.WHITE); btnRateNorm.setTextColor(Color.WHITE); btnRateSlow.setTextColor(Color.WHITE)
+        if (::btnRateFast.isInitialized) {
+            btnRateFast.setBackgroundColor(if (audioBufferSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+            btnRateNorm.setBackgroundColor(if (audioBufferSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+            btnRateSlow.setBackgroundColor(if (audioBufferSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+            btnRateFast.setTextColor(Color.WHITE); btnRateNorm.setTextColor(Color.WHITE); btnRateSlow.setTextColor(Color.WHITE)
+        }
     }
 
     private fun updateSmoothButtons() {
-        val isSharp = (riseTimeConstant == 0.02f)
-        val isNorm = (riseTimeConstant == 0.06f)
-        btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        btnSmoothSharp.setTextColor(Color.WHITE); btnSmoothNorm.setTextColor(Color.WHITE); btnSmoothSoft.setTextColor(Color.WHITE)
+        if (::btnSmoothSharp.isInitialized) {
+            val isSharp = (riseTimeConstant == 0.02f)
+            val isNorm = (riseTimeConstant == 0.06f)
+            btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+            btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+            btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+            btnSmoothSharp.setTextColor(Color.WHITE); btnSmoothNorm.setTextColor(Color.WHITE); btnSmoothSoft.setTextColor(Color.WHITE)
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -405,52 +517,8 @@ class MainActivity : Activity() {
 
                 if (bestLag > 0) {
                     dominantFreq = sampleRate.toFloat() / bestLag
-                    val calculatedRpm = if (engineType == 2) {
-                        (dominantFreq * 60).toInt()
-                    } else {
-                        (dominantFreq * 120).toInt()
-                    }
-
-                    if (calculatedRpm in 500..maxAllowedRpm) {
-                        rawRpm = calculatedRpm
-                    }
-                }
-            }
-
-            if (rawRpm > 0) {
-                if (smoothedRpm == 0f) {
-                    smoothedRpm = rawRpm.toFloat()
-                } else {
-                    val expArg = (-dt / riseTimeConstant).toDouble()
-                    val alpha = (1.0 - exp(expArg)).toFloat()
-                    smoothedRpm = smoothedRpm + alpha * (rawRpm - smoothedRpm)
-                }
-            } else {
-                val dropExpArg = (-dt / dropTimeConstant).toDouble()
-                val dropAlpha = (1.0 - exp(dropExpArg)).toFloat()
-                smoothedRpm = smoothedRpm * (1f - dropAlpha)
-                if (smoothedRpm < 300) smoothedRpm = 0f
-            }
-
-            val finalRpm = smoothedRpm.toInt()
-            currentRealRpm = finalRpm
-
-            runOnUiThread {
-                debugText.text = "Громкость: $avgVolume | Частота: ${dominantFreq.toInt()} Гц"
-                
-                if (finalRpm > 0) {
-                    rpmText.text = finalRpm.toString()
-                    statusText.text = "Работает (${engineType}T)"
-                } else {
-                    rpmText.text = "0"
-                    statusText.text = if (avgVolume > volumeThreshold) "Анализ тона..." else "Ожидание запуска мотора..."
-                }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        isRecording = false
-        super.onDestroy()
-    }
-}
+                    
+                    val calculatedRpm = when (engineType) {
+                        4 -> (dominantFreq * 120).toInt()
+                        3 -> (dominantFreq * 60).toInt() // Электро
+                        else -> (dominantFreq * 60).toInt() // 

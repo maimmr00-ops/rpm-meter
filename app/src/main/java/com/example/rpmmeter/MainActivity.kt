@@ -59,7 +59,9 @@ class MainActivity : Activity() {
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
-            onRefreshUI = { refreshAllUI() },
+            onRefreshUI = { 
+                refreshAllUI() // Только обновление интерфейса без лишних перезапусков
+            },
             volumeStepButtons = volumeStepButtons,
             onMultiplierChange = { mult ->
                 currentMultiplier = mult
@@ -68,13 +70,8 @@ class MainActivity : Activity() {
             currentMultiplierGetter = { currentMultiplier }
         )
 
-        // 1. Верхняя панель (EXIT, Крупные цифры RPM, HOLD)
         rootLayout.addView(buildTopPanel())
-
-        // 2. Информационный блок: [/1, /2] слева, текст по центру, [/3, /4] справа
         rootLayout.addView(buildInfoPanelWithSides())
-
-        // 3. Таблица настроек
         rootLayout.addView(settings.table)
 
         val copyright = TextView(this).apply {
@@ -91,12 +88,15 @@ class MainActivity : Activity() {
 
         refreshAllUI()
 
-        // Проверяем разрешения и запускаем анализатор
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
         } else {
             initAndStartAudioAnalyzer()
         }
+    }
+
+    fun restartAnalyzer() {
+        initAndStartAudioAnalyzer()
     }
 
     private fun initAndStartAudioAnalyzer() {
@@ -129,9 +129,7 @@ class MainActivity : Activity() {
                         }
                     }
 
-                    // Полные названия: Громкость и Порог
                     statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
-                    // Метки Pre-Freq и All
                     statusLine3.text = "Pre-Freq: ${rawFreq.roundToInt()}Гц | All: ${filteredFreq.roundToInt()}Гц"
 
                     updateRpmDisplay(displayVal)
@@ -254,7 +252,6 @@ class MainActivity : Activity() {
             setMargins(1, 0, 1, 0)
         }
 
-        // Левая пара кнопок: /1, /2
         val leftMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -273,7 +270,6 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок с текстом состояния
         val centerTextCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -311,7 +307,6 @@ class MainActivity : Activity() {
 
         container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правая пара кнопок: /3, /4
         val rightMultipliers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -416,19 +411,14 @@ class MainActivity : Activity() {
         listOf(settings.btnRateFast, settings.btnRateNorm, settings.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
         val rise = prefsManager.riseTimeConstant
-        val isSharp = (rise == 0.02f)
-        val isNorm = (rise == 0.06f)
+        val isSharp = (rise >= 0.35f)
+        val isNorm = (rise >= 0.15f && rise < 0.35f)
         settings.btnSmoothSharp.setBackgroundColor(if (isSharp) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         settings.btnSmoothNorm.setBackgroundColor(if (isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         settings.btnSmoothSoft.setBackgroundColor(if (!isSharp && !isNorm) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(settings.btnSmoothSharp, settings.btnSmoothNorm, settings.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
         updateVolumeSquaresUI(0)
-
-        // Перезапускаем анализатор с новыми настройками при изменении параметров
-        if (::prefsManager.isInitialized) {
-            initAndStartAudioAnalyzer()
-        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

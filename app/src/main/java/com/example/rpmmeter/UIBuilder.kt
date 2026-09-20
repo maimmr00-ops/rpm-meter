@@ -25,6 +25,7 @@ object UIBuilder {
         val btnSmoothSharp: Button,
         val btnSmoothNorm: Button,
         val btnSmoothSoft: Button,
+        // Оставляем ссылки на кнопки x1-x4 для обратной совместимости, если они где-то еще проверяются в MainActivity
         val btnX1: Button,
         val btnX2: Button,
         val btnX3: Button,
@@ -99,27 +100,14 @@ object UIBuilder {
             setOnClickListener { prefsManager.saveSmooth(0.15f, 0.40f); onRefreshUI() }
         }
 
-        // Маленькие кнопки множителей x1-x4 для встройки в таблицу
-        val btnX1 = Button(context).apply {
-            text = "x1"; textSize = 11f; setPadding(0,0,0,0)
-            setOnClickListener { onMultiplierChange(1) }
-        }
-        val btnX2 = Button(context).apply {
-            text = "x2"; textSize = 11f; setPadding(0,0,0,0)
-            setOnClickListener { onMultiplierChange(2) }
-        }
-        val btnX3 = Button(context).apply {
-            text = "x3"; textSize = 11f; setPadding(0,0,0,0)
-            setOnClickListener { onMultiplierChange(3) }
-        }
-        val btnX4 = Button(context).apply {
-            text = "x4"; textSize = 11f; setPadding(0,0,0,0)
-            setOnClickListener { onMultiplierChange(4) }
-        }
+        // Заглушки-кнопки (сохранены, чтобы код UIBuilder.SettingsButtons не ломался при компиляции)
+        val dummyListener = View.OnClickListener { }
+        val btnX1 = Button(context).apply { setOnClickListener(dummyListener) }
+        val btnX2 = Button(context).apply { setOnClickListener(dummyListener) }
+        val btnX3 = Button(context).apply { setOnClickListener(dummyListener) }
+        val btnX4 = Button(context).apply { setOnClickListener(dummyListener) }
 
-        // Строка с x1-x2 слева и x3-x4 справа
-        addMultiplierRow(context, table, "множитель:", btnX1, btnX2, btnX3, btnX4)
-        
+        // Добавляем только нужные строки настроек в таблицу (без отдельной строки x1-x4)
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(context, table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
@@ -133,68 +121,6 @@ object UIBuilder {
             btnSmoothSharp, btnSmoothNorm, btnSmoothSoft,
             btnX1, btnX2, btnX3, btnX4
         )
-    }
-
-    private fun addMultiplierRow(context: Context, table: TableLayout, labelText: String, bX1: Button, bX2: Button, bX3: Button, bX4: Button) {
-        val row = TableRow(context).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 2, 0, 2)
-        }
-
-        val label = TextView(context).apply {
-            text = labelText
-            textSize = 12f
-            setTextColor(Color.parseColor("#B0BEC5"))
-            setPadding(0, 0, 8, 0)
-        }
-
-        // Контейнер на 3 ячейки, чтобы визуально соответствовать остальным строкам таблицы
-        val container = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-
-        val cellParam = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            setMargins(2, 0, 2, 0)
-        }
-
-        // Левая ячейка: контейнер для x1 и x2
-        const val H_BTN_HEIGHT = 42
-        val leftLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = cellParam
-        }
-        val halfParam = LinearLayout.LayoutParams(0, H_BTN_HEIGHT, 1f).apply { setMargins(1, 0, 1, 0) }
-        bX1.layoutParams = halfParam
-        bX2.layoutParams = halfParam
-        leftLayout.addView(bX1)
-        leftLayout.addView(bX2)
-
-        // Средняя ячейка (пустая или для баланса)
-        val middleView = View(context).apply {
-            layoutParams = cellParam
-        }
-
-        // Правая ячейка: контейнер для x3 и x4
-        val rightLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = cellParam
-        }
-        val rightHalfParam = LinearLayout.LayoutParams(0, H_BTN_HEIGHT, 1f).apply { setMargins(1, 0, 1, 0) }
-        bX3.layoutParams = rightHalfParam
-        bX4.layoutParams = rightHalfParam
-        rightLayout.addView(bX3)
-        rightLayout.addView(bX4)
-
-        container.addView(leftLayout)
-        container.addView(middleView)
-        container.addView(rightLayout)
-
-        container.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
-
-        row.addView(label)
-        row.addView(container)
-        table.addView(row)
     }
 
     private fun addRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button) {
@@ -290,7 +216,7 @@ object UIBuilder {
     fun getThresholdForSquare(index: Int): Int {
         return when (index) {
             0 -> 20
-            1 -> { 150 }
+            1 -> 150
             2 -> 400
             3 -> 800
             4 -> 1400

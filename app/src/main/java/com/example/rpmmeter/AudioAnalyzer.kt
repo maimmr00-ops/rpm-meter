@@ -96,19 +96,19 @@ class AudioAnalyzer(
             smoothedVolume = smoothedVolume * 0.8f + rawVolume * 0.2f
             val currentVolume = smoothedVolume.toInt()
 
-            // 2. ПРОВЕРКА ПОРОГА ГРОМКОСТИ (ИНВЕРТИРОВАННАЯ ЛОГИКА)
-            // Если текущая громкость МЕНЬШЕ установленного порога — глушим всё в 0
+            // 2. ПРОВЕРКА ПОРОГА ГРОМКОСТИ (Инвертированная логика)
+            // Если реальная громкость меньше порога — глушим всё в 0
             if (currentVolume < prefsManager.minVolumeThreshold) {
                 smoothedRpm = 0f
                 onUpdate(0, 0f, currentVolume, "Ожидание (тихо)...")
                 continue
             }
 
-            // 3. Анализ частоты и расчет оборотов (простейший детектор пиков / пересечений нуля)
+            // 3. Анализ частоты и расчет оборотов (детектор пересечений нуля)
             var zeroCrossings = 0
             for (i in 1 until readCount) {
-                if ((shortButton[i - 1] < 0 && shortButton[i] >= 0) || 
-                    (shortButton[i - 1] >= 0 && shortButton[i] < 0)) {
+                if ((shortBuffer[i - 1] < 0 && shortBuffer[i] >= 0) || 
+                    (shortBuffer[i - 1] >= 0 && shortBuffer[i] < 0)) {
                     zeroCrossings++
                 }
             }

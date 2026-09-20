@@ -93,7 +93,6 @@ class AudioAnalyzer(
             val currentVolume = smoothedVolume.toInt()
 
             // 2. ЖЕСТКАЯ ОТСЕЧКА ПО ПОРОГУ (Самый первый шаг!)
-            // Если текущая громкость меньше установленного порога — глушим всё в 0
             val threshold = prefsManager.minVolumeThreshold
             if (currentVolume < threshold) {
                 smoothedRpm = 0f

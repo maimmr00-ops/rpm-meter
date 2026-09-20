@@ -19,7 +19,7 @@ class AudioAnalyzer(
 
     private var smoothedVolume = 0f
     
-    // Память для жестких кадров плавности 4T (до 8 кадров для Soft)
+    // Память для кадров плавности 4T (2, 5, 8 кадров)
     private val history4T = FloatArray(8) { 0f }
     private var historyIndex4T = 0
 
@@ -27,7 +27,7 @@ class AudioAnalyzer(
     private var lastValidLag = -1
     private var lastValidRpm = 0f
 
-    // Память для Others (электродвигатели и общие звуки)
+    // Память для Others
     private var smoothedOtherFreq = 0f
 
     @SuppressLint("MissingPermission")
@@ -83,7 +83,7 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 1. Расчет громкости по всему буферу
+                // 1. Расчет громкости
                 var sum = 0.0
                 for (i in 0 until readCount) {
                     val v = buffer[i].toDouble()
@@ -107,11 +107,11 @@ class AudioAnalyzer(
                 val smoothPreset = prefsManager.smoothPreset
                 val engineType = prefsManager.engineType
 
-                // 2. ВЫБОР АЛГОРИТМА В ЗАВИСИМОСТИ ОТ ТИПА ТЕХНИКИ
+                // 2. Выбор алгоритма
                 val rawFreq = when (engineType) {
-                    4 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate)      // 4T: Zero-Crossing
-                    2 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate) // 2T: Автокорреляция с защитным коридором
-                    else -> findFrequencySpectralPeak(buffer, readCount, sampleRate) // Others: Спектральный анализ (электромоторы / свист)
+                    4 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate)
+                    2 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate)
+                    else -> findFrequencySpectralPeak(buffer, readCount, sampleRate)
                 }
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
@@ -126,25 +126,18 @@ class AudioAnalyzer(
                 val instantRpm = when (engineType) {
                     2 -> rawFreq * 60.0f
                     4 -> rawFreq * 30.0f
-                    else -> rawFreq * 60.0f // Others
+                    else -> rawFreq * 60.0f
                 }
 
                 val maxAllowed = prefsManager.maxAllowedRpm.toFloat()
                 if (instantRpm > maxAllowed) continue
 
-                // 4. ЖЕСТКАЯ ПЛАВНОСТЬ ПО ПРЕСЕТАМ (Sharp=1 кадр / мгновенно, Norm=5 кадров, Soft=8 кадров)
+                // 4. Честная работа пресетов плавности (Sharp = 2 кадра, Norm = 5 кадров, Soft = 8 кадров)
                 val finalRpm = when (engineType) {
                     4 -> {
-                        // --- 4T логика кадров ---
                         history4T[historyIndex4T] = instantRpm
                         historyIndex4T = (historyIndex4T + 1) % 8
-                        
-                        val frames = when (smoothPreset) {
-                            0 -> 1  // Sharp: 1 кадр (моментально)
-                            1 -> 5  // Norm: 5 кадров
-                            else -> 8 // Soft: 8 кадров
-                        }
-                        
+                        val frames = when (smoothPreset) { 0 -> 2; 1 -> 5; else -> 8 }
                         var s = 0f
                         for (i in 0 until frames) {
                             s += history4T[(historyIndex4T - 1 - i + 8) % 8]
@@ -152,32 +145,31 @@ class AudioAnalyzer(
                         s / frames
                     }
                     2 -> {
-                        // --- 2T логика с защитой от скачков вверх ---
                         var corrected = instantRpm
-                        if (lastValidRpm > 0f && corrected > lastValidRpm + 300f) {
-                            corrected = lastValidRpm // Давим галлюцинацию вверх при сбросе
+                        if (lastValidRpm > 0f && corrected > lastValidRpm + 400f) {
+                            corrected = lastValidRpm // Давим галлюцинацию вверх
                         }
-                        
+
+                        val steps = when (smoothPreset) {
+                            0 -> 1.0f // Sharp: мгновенно
+                            1 -> 5.0f // Norm: 5 шагов
+                            else -> 8.0f // Soft: 8 шагов
+                        }
+
                         val res = if (smoothPreset == 0) {
-                            // Sharp для 2T: мгновенный сброс без шагов
                             corrected
                         } else {
-                            val steps = if (smoothPreset == 1) 5.0f else 8.0f
-                            if (corrected >= lastValidRpm) {
-                                corrected
-                            } else {
-                                lastValidRpm - (lastValidRpm - corrected) / steps
-                            }
+                            // Плавность работает и на рост, и на падение
+                            lastValidRpm + (corrected - lastValidRpm) / steps
                         }
                         lastValidRpm = res
                         res
                     }
                     else -> {
-                        // --- Others (Электродвигатели и общие звуки) ---
                         val alpha = when (smoothPreset) {
-                            0 -> 1.0f  // Sharp: 100% отклика, мгновенно
+                            0 -> 1.0f  // Sharp
                             1 -> 0.25f // Norm
-                            else -> 0.12f // Soft: глубокая инерция
+                            else -> 0.12f // Soft
                         }
                         if (smoothedOtherFreq == 0f || smoothPreset == 0) {
                             smoothedOtherFreq = instantRpm
@@ -194,7 +186,6 @@ class AudioAnalyzer(
         analysisThread?.start()
     }
 
-    // --- АЛГОРИТМ 4T: Пересечение нуля ---
     private fun findFrequencyZeroCrossing(buffer: ShortArray, size: Int, sampleRate: Int): Float {
         var crossings = 0
         var sum = 0L
@@ -211,7 +202,6 @@ class AudioAnalyzer(
         return (crossings.toFloat() / 2.0f) * (sampleRate.toFloat() / size.toFloat())
     }
 
-    // --- АЛГОРИТМ 2T: Автокорреляция с защитным коридором ---
     private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
         val absoluteMinLag = sampleRate / 300
         val absoluteMaxLag = sampleRate / 20
@@ -221,9 +211,10 @@ class AudioAnalyzer(
         val minLag: Int
         val maxLag: Int
 
+        // Исправленный коридор: при разгоне лаг уменьшается (идем в сторону 0.5f), при сбросе растет (до 1.5f)
         if (lastValidLag > 0) {
-            minLag = (lastValidLag * 0.8f).toInt().coerceAtLeast(absoluteMinLag)
-            maxLag = (lastValidLag * 1.2f).toInt().coerceAtMost(absoluteMaxLag)
+            minLag = (lastValidLag * 0.5f).toInt().coerceAtLeast(absoluteMinLag)
+            maxLag = (lastValidLag * 1.5f).toInt().coerceAtMost(absoluteMaxLag)
         } else {
             minLag = absoluteMinLag
             maxLag = absoluteMaxLag
@@ -266,7 +257,6 @@ class AudioAnalyzer(
         return sampleRate.toFloat() / bestLag.toFloat()
     }
 
-    // --- АЛГОРИТМ OTHERS: Спектральный поиск пика (для электромоторов и любых тонов) ---
     private fun findFrequencySpectralPeak(buffer: ShortArray, size: Int, sampleRate: Int): Float {
         val minFreq = 20.0f
         val maxFreq = 400.0f

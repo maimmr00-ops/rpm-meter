@@ -90,17 +90,17 @@ object UIBuilder {
         // Sharp: быстрый отклик (почти без фильтра)
         // Norm: средний баланс
         // Soft: максимальное сглаживание для устранения дребезга цифр
-        val btnSmoothSharp = Button(context).apply {
+                val btnSmoothSharp = Button(context).apply {
             text = "Sharp"
-            setOnClickListener { prefsManager.saveSmooth(0.6f, 0.8f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.8f, 0.9f); onRefreshUI() }
         }
         val btnSmoothNorm = Button(context).apply {
             text = "Norm"
-            setOnClickListener { prefsManager.saveSmooth(0.15f, 0.25f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.2f, 0.35f); onRefreshUI() }
         }
         val btnSmoothSoft = Button(context).apply {
             text = "Soft"
-            setOnClickListener { prefsManager.saveSmooth(0.03f, 0.06f); onRefreshUI() }
+            setOnClickListener { prefsManager.saveSmooth(0.02f, 0.05f); onRefreshUI() }
         }
 
         val btnX1 = Button(context).apply { text = "/1" }

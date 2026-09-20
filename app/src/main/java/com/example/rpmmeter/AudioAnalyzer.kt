@@ -84,24 +84,22 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 3. Вычисление оборотов
+                // 3. Вычисление оборотов (для 4T корректный расчет через деление/множение частоты)
                 val engineType = prefsManager.engineType
-                val multiplier = when (engineType) {
-                    2 -> 60.0f  // 2T
-                    4 -> 120.0f // 4T
-                    else -> 60.0f
+                val calculatedRpm = when (engineType) {
+                    2 -> rawFreq * 60.0f  // 2T: 1 вспышка на оборот
+                    4 -> rawFreq * 30.0f  // 4T: вспышка каждые 2 оборота (реальная частота коленвала вдвое выше частоты вспышек)
+                    else -> rawFreq * 60.0f
                 }
 
-                val calculatedRpm = rawFreq * multiplier
                 val maxAllowed = prefsManager.maxAllowedRpm.toFloat()
-
                 if (calculatedRpm > maxAllowed) {
                     continue
                 }
 
-                // 4. Сглаживание RPM с защитой от залипания при сбросе
+                // 4. Честное сглаживание RPM из настроек без жестких костылей
                 val riseAlpha = prefsManager.riseTimeConstant
-                val fallAlpha = maxOf(prefsManager.fallTimeConstant, 0.35f)
+                val fallAlpha = prefsManager.fallTimeConstant
 
                 val alpha = if (calculatedRpm > smoothedRpm) riseAlpha else fallAlpha
                 smoothedRpm = smoothedRpm + alpha * (calculatedRpm - smoothedRpm)

@@ -2,7 +2,6 @@ package com.example.rpmmeter
 
 import android.content.Context
 import android.graphics.Color
-import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -13,17 +12,20 @@ class HeaderBuilder(
     private val onAlgorithmSelected: (Int) -> Unit
 ) {
 
+    // Верхняя панель (Заголовок)
     val topPanel = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         setPadding(8, 8, 8, 8)
     }
 
+    // Информационная панель (Обороты и статус)
     val infoPanel = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(8, 8, 8, 8)
         setBackgroundColor(Color.parseColor("#1A1A1A"))
     }
 
+    // Строка выбора алгоритмов
     val algorithmRow = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(8, 8, 8, 8)
@@ -64,6 +66,7 @@ class HeaderBuilder(
                 text = algNames[i]
                 textSize = 10f
                 setOnClickListener {
+                    // Проверяем, разрешен ли алгоритм для текущего типа мотора
                     if (prefsManager.isAlgorithmAllowed(i, prefsManager.engineType)) {
                         onAlgorithmSelected(i)
                         updateButtonStates()
@@ -86,8 +89,8 @@ class HeaderBuilder(
     }
 
     /**
-     * Обновляет состояние и внешний вид кнопок:
-     * Разрешенные для текущего мотора подсвечиваются (активные), неподходящие — блокируются (серые).
+     * Обновляет состояние кнопок: блокирует неподходящие под текущий мотор,
+     * а разрешенные подсвечивает (выбранную ярче, остальные стандартно).
      */
     fun updateButtonStates() {
         val currentEngine = prefsManager.engineType
@@ -101,15 +104,15 @@ class HeaderBuilder(
             btn.isEnabled = isAllowed
 
             if (!isAllowed) {
-                // Неподходящий алгоритм для этого мотора — делаем неактивным
+                // Алгоритм заблокирован для этого мотора
                 btn.setBackgroundColor(Color.parseColor("#1F1F1F"))
                 btn.setTextColor(Color.parseColor("#555555"))
             } else if (i == selectedIndex) {
-                // Разрешенный и выбранный в данный момент
+                // Активный и выбранный алгоритм
                 btn.setBackgroundColor(Color.parseColor("#3F51B5"))
                 btn.setTextColor(Color.WHITE)
             } else {
-                // Разрешенный, но не выбранный
+                // Доступный, но не выбранный
                 btn.setBackgroundColor(Color.parseColor("#333333"))
                 btn.setTextColor(Color.LTGRAY)
             }

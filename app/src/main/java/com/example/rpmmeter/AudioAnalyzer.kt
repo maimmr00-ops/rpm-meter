@@ -82,10 +82,10 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 2. Расчет базовой сырой частоты буфера (All) для мониторинга
+                // 2. Расчет базовой сырой частоты буфера (All)
                 val allFreq = findFrequencyZeroCrossing(buffer, readCount, sampleRate)
 
-                // 3. Выбор алгоритма согласно настройке пользователя (algorithmIndex)
+                // 3. Выбор алгоритма согласно настройке пользователя
                 val preFreq = when (prefsManager.algorithmIndex) {
                     0 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate) // Zero-X
                     1 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate) // AutoCorr
@@ -98,7 +98,6 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // Перевод частоты в сырые обороты (с учетом типа двигателя 2T/4T)
                 val engineType = prefsManager.engineType
                 val rawRpm = when (engineType) {
                     2 -> preFreq * 60.0f
@@ -109,7 +108,6 @@ class AudioAnalyzer(
                 val maxAllowed = prefsManager.maxAllowedRpm.toFloat()
                 if (rawRpm > maxAllowed) continue
 
-                // Передаем честные данные наверх без искусственных тормозов
                 onUpdate(rawRpm, allFreq, preFreq, currentVolInt, "Работа мотора")
             }
         }
@@ -167,11 +165,14 @@ class AudioAnalyzer(
             var real = 0.0
             var imag = 0.0
             val limit = size.coerceAtMost(256)
-            for (i in 0 until limit dt 2) {
+            // Исправлен шаг цикла (обычный шаг +2)
+            var i = 0
+            while (i < limit) {
                 val angle = 2.0 * Math.PI * freq * i / sampleRate
                 val sampleVal = buffer[i].toDouble()
                 real += sampleVal * cos(angle)
                 imag += sampleVal * sin(angle)
+                i += 2
             }
             val power = real * real + imag * imag
             if (power > maxPower) {
@@ -193,4 +194,3 @@ class AudioAnalyzer(
         analysisThread?.interrupt()
     }
 }
-private infix int.dt(other: Int): Int = this + other // хелпер для шага цикла

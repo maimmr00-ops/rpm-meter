@@ -116,10 +116,10 @@ class MainActivity : AppCompatActivity() {
             audioAnalyzer = AudioAnalyzer(
                 prefsManager = prefsManager,
                 selectedAlgorithmIndex = prefsManager.algorithmIndex,
-                onUpdate = { rpm, rawFreq, filteredFreq, volume, status ->
+                onUpdate = { rpm, freq, volume, status ->
                     val minThresh = prefsManager.minVolumeThreshold
                     val detailsText = "Громкость: $volume | Порог: $minThresh"
-                    val freqText = "Частота: ${filteredFreq.toInt()} Гц | Статус: ${if (volume >= minThresh) "Активно" else "Ниже порога"}"
+                    val freqText = "Частота: ${freq.toInt()} Гц | Статус: ${if (volume >= minThresh) "Активно" else "Ниже порога"}"
                     val progressVal = volume.coerceIn(0, headerBuilder.vuMeterBar.max)
 
                     // Если активен HOLD, замораживаем только отрисовку интерфейса оборотов
@@ -164,12 +164,10 @@ class MainActivity : AppCompatActivity() {
         val currentSensitivityThreshold = prefsManager.minVolumeThreshold
         
         var thresholdIndex = 0
-        if (prefsManager.hasStoredThreshold()) {
-            for (i in 0 until 10) {
-                if (UIBuilder.getThresholdForSquare(i) == currentSensitivityThreshold) {
-                    thresholdIndex = i
-                    break
-                }
+        for (i in 0 until 10) {
+            if (UIBuilder.getThresholdForSquare(i) == currentSensitivityThreshold) {
+                thresholdIndex = i
+                break
             }
         }
         
@@ -245,6 +243,16 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startAnalyzer()
+            } else {
+                Toast.makeText(this, "Требуется доступ к микрофону!", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+}
+tCode, permissions, grantResults)
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startAnalyzer()

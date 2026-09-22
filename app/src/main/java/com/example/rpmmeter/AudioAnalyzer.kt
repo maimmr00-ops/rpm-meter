@@ -70,10 +70,11 @@ class AudioAnalyzer(
                             // Выбор математики анализа
                             frequency = when (selectedAlgorithmIndex) {
                                 
-                                // АЛГОРИТМ 0: Zero-Crossing с гистерезисом (быстрый, для чистых режимов)
+                                // АЛГОРИТМ 0: Zero-Crossing с гистерезисом
                                 0 -> {
                                     var zeroCrossings = 0
-                                    val noiseFloor = (volume * 0.15).toShort()
+                                    // ИСПРАВЛЕНО: явное приведение к Int перед toShort()
+                                    val noiseFloor = (volume * 0.15).toInt().toShort()
                                     var lastState = 0
                                     for (i in 0 until readSize) {
                                         val sample = audioBuffer[i]
@@ -90,7 +91,7 @@ class AudioAnalyzer(
                                     (zeroCrossings.toFloat() * sampleRate / (readSize * 2f))
                                 }
 
-                                // АЛГОРИТМ 1: Автокорреляция (Идеально для 4T и гула в Others)
+                                // АЛГОРИТМ 1: Автокорреляция
                                 1 -> {
                                     val minLag = sampleRate / 400
                                     val maxLag = sampleRate / 15
@@ -111,7 +112,7 @@ class AudioAnalyzer(
                                     if (bestLag > 0) sampleRate.toFloat() / bestLag.toFloat() else 50.0f
                                 }
 
-                                // АЛГОРИТМ 2: AMDF (Лучший для 2T со звоном и подавления шумов)
+                                // АЛГОРИТМ 2: AMDF (Лучший для 2T со звоном)
                                 2 -> {
                                     val minLag = sampleRate / 400
                                     val maxLag = sampleRate / 15
@@ -133,12 +134,13 @@ class AudioAnalyzer(
                                     if (bestLag > 0) sampleRate.toFloat() / bestLag.toFloat() else 50.0f
                                 }
 
-                                // АЛГОРИТМ 3: Межпиковый интервал / Пиковый анализ
+                                // АЛГОРИТМ 3: Межпиковый интервал
                                 3 -> {
                                     var lastPeakIdx = -1
                                     var totalIntervals = 0
                                     var sumIntervals = 0f
-                                    val peakThreshold = (volume * 0.6).toShort()
+                                    // ИСПРАВЛЕНО: явное приведение к Int перед toShort()
+                                    val peakThreshold = (volume * 0.6).toInt().toShort()
                                     for (i in 2 until readSize - 2) {
                                         if (audioBuffer[i] > peakThreshold && 
                                             audioBuffer[i] >= audioBuffer[i-1] && 
@@ -166,11 +168,11 @@ class AudioAnalyzer(
                             // Защита от зависаний при перегазовках
                             frequency = frequency.coerceIn(5.0f, 500.0f)
 
-                            // Точный расчет RPM с учетом типа двигателя (2T, 4T, Others)
+                            // Расчет RPM для 2T, 4T и Others
                             rpm = when (engineType) {
-                                4 -> (frequency * 30).toInt()  // 4T: вспышка раз в 2 оборота
-                                2 -> (frequency * 60).toInt()  // 2T: вспышка каждый оборот
-                                else -> (frequency * 60).toInt() // Others: прямая частота
+                                4 -> (frequency * 30).toInt()  // 4T
+                                2 -> (frequency * 60).toInt()  // 2T
+                                else -> (frequency * 60).toInt() // Others
                             }
                             
                             val modeName = when (engineType) {

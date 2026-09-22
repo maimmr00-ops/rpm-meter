@@ -4,9 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
-import android.view.Gravity
 import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -17,13 +15,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefsManager: PreferencesManager
     private var audioAnalyzer: AudioAnalyzer? = null
     
-    private lateinit var tvRpmValue: TextView
-    private lateinit var tvStatusValue: TextView
-    
     private lateinit var headerBuilder: HeaderBuilder
     private lateinit var uiBuilder: UIBuilder
     
     private var isRunning = false
+    var isHoldActive = false // Флаг для кнопки HOLD
 
     companion object {
         private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
@@ -32,7 +28,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // --- ПЕРЕХВАТЧИК ОШИБОК ДЛЯ СОХРАНЕНИЯ В ФАЙЛ ---
+        // Перехватчик фатальных ошибок на случай непредвиденных сбоев
         val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
@@ -47,7 +43,6 @@ class MainActivity : AppCompatActivity() {
             }
             oldHandler?.uncaughtException(thread, throwable)
         }
-        // ----------------------------------------------
 
         try {
             prefsManager = PreferencesManager(this)
@@ -55,34 +50,17 @@ class MainActivity : AppCompatActivity() {
             val rootLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundColor(Color.parseColor("#121212"))
-                setPadding(12, 12, 12, 12)
+                setPadding(8, 8, 8, 8)
             }
             setContentView(rootLayout)
 
-            // Инициализация строителей интерфейса
+            // Инициализация шапки (кнопки EXIT/HOLD, VU-метр, детальные строки)
             headerBuilder = HeaderBuilder(this, prefsManager) { selectedAlgIndex ->
                 prefsManager.algorithmIndex = selectedAlgIndex
                 restartAnalyzer()
             }
 
-            tvRpmValue = TextView(this).apply {
-                text = "0 RPM"
-                textSize = 36f
-                setTextColor(Color.parseColor("#00E676"))
-                gravity = Gravity.CENTER
-                setTypeface(null, android.graphics.Typeface.BOLD)
-            }
-            
-            tvStatusValue = TextView(this).apply {
-                text = "Инициализация..."
-                textSize = 12f
-                setTextColor(Color.parseColor("#B0BEC5"))
-                gravity = Gravity.CENTER
-            }
-            
-            headerBuilder.infoPanel.addView(tvRpmValue)
-            headerBuilder.infoPanel.addView(tvStatusValue)
-
+            // Инициализация таблицы настроек
             uiBuilder = UIBuilder(this, prefsManager) {
                 headerBuilder.updateButtonStates()
                 restartAnalyzer()
@@ -92,15 +70,6 @@ class MainActivity : AppCompatActivity() {
             rootLayout.addView(headerBuilder.infoPanel)
             rootLayout.addView(uiBuilder.table)
             rootLayout.addView(headerBuilder.algorithmRow)
-
-            val copyright = TextView(this).apply {
-                text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
-                textSize = 11f
-                setTextColor(Color.parseColor("#9E9E9E"))
-                gravity = Gravity.CENTER
-                setPadding(16, 16, 16, 8)
-            }
-            rootLayout.addView(copyright)
 
         } catch (e: Exception) {
             Toast.makeText(this, "Ошибка UI: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
@@ -138,22 +107,32 @@ class MainActivity : AppCompatActivity() {
             audioAnalyzer = AudioAnalyzer(
                 prefsManager = prefsManager,
                 selectedAlgorithmIndex = prefsManager.algorithmIndex,
-                onUpdate = { rpm, _, _, status ->
+                onUpdate = { rpm, freq, volume, status ->
+                    val minThresh = prefsManager.minVolumeThreshold
+                    val detailsText = "Громкость: $volume | Порог: $minThresh"
+                    val freqText = "Частота: ${freq.toInt()} Гц | Статус: ${if (volume >= minThresh) "Активно" else "Ниже порога"}"
+                    val progressVal = volume.coerceIn(0, 1000)
+
+                    // Если активен HOLD, замораживаем только отрисовку интерфейса
+                    if (isHoldActive) return@AudioAnalyzer
+
                     runOnUiThread {
-                        tvRpmValue.text = "$rpm RPM"
-                        tvStatusValue.text = status
+                        headerBuilder.tvRpmValue.text = rpm.toString()
+                        headerBuilder.tvMainStatus.text = status
+                        headerBuilder.tvDetails.text = detailsText
+                        headerBuilder.tvFreqStatus.text = freqText
+                        headerBuilder.vuMeterBar.progress = progressVal
                     }
                 },
                 onError = { err ->
                     runOnUiThread {
-                        tvStatusValue.text = "Ошибка: $err"
+                        headerBuilder.tvMainStatus.text = "Ошибка: $err"
                     }
                 }
             )
             audioAnalyzer?.start()
         } catch (e: Exception) {
             isRunning = false
-            tvStatusValue.text = "Сбой потока: ${e.localizedMessage}"
         }
     }
 
@@ -182,7 +161,6 @@ class MainActivity : AppCompatActivity() {
                 startAnalyzer()
             } else {
                 Toast.makeText(this, "Требуется доступ к микрофону!", Toast.LENGTH_LONG).show()
-                tvStatusValue.text = "Нет доступа к микрофону"
             }
         }
     }

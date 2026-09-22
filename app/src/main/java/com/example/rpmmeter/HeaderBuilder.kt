@@ -3,73 +3,82 @@ package com.example.rpmmeter
 import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.TextView
 
 class HeaderBuilder(
     private val context: Context,
-    private val prefsManager: PreferencesManager,
-    private val onAlgorithmSelected: (Int) -> Unit
+    private val onExit: () -> Unit,
+    private val onHoldToggle: () -> Unit,
+    private val onMultiplierSelect: (Int) -> Unit,
+    private val onSmoothSelect: (Int) -> Unit
 ) {
-    val topPanel = LinearLayout(context)
-    val infoPanel = LinearLayout(context)
-    val algorithmRow = LinearLayout(context)
+    lateinit var btnExit: Button
+    lateinit var btnHold: Button
+    lateinit var rpmTextView: TextView
     
-    lateinit var tvRpmValue: TextView
-    lateinit var tvMainStatus: TextView
-    lateinit var tvDetails: TextView
-    lateinit var tvFreqStatus: TextView
-    lateinit var vuMeterBar: ProgressBar
-    
-    private val algorithmButtons = arrayOfNulls<Button>(4)
+    lateinit var statusLine1: TextView
+    lateinit var statusLine2: TextView
+    lateinit var statusLine3: TextView
 
-    init {
-        createTopPanel()
-        createInfoPanel()
-        createAlgorithmRow()
-        updateButtonStates()
-    }
+    // Кнопки коэффициентов /1, /2 и плавности (Sharp, Norm, Soft)
+    val btnX1 = Button(context).apply { text = "/1"; textSize = 10f }
+    val btnX2 = Button(context).apply { text = "/2"; textSize = 10f }
+    val btnSmoothSharp = Button(context).apply { text = "Sharp"; textSize = 9f }
+    val btnSmoothNorm = Button(context).apply { text = "Norm"; textSize = 9f }
+    val btnSmoothSoft = Button(context).apply { text = "Soft"; textSize = 9f }
 
-    private fun createTopPanel() {
-        topPanel.orientation = LinearLayout.HORIZONTAL
-        topPanel.gravity = Gravity.CENTER_VERTICAL
-        topPanel.setPadding(0, 0, 0, 4)
-        topPanel.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+    // Правые кнопки /3, /4
+    val btnX3 = Button(context).apply { text = "/3"; textSize = 10f }
+    val btnX4 = Button(context).apply { text = "/4"; textSize = 10f }
 
-        // Кнопка EXIT слева
-        val btnExit = Button(context).apply {
+    fun buildTopPanel(): View {
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, 4)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val leftCol = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.FILL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
+        }
+
+        btnExit = Button(context).apply {
             text = "EXIT"
             textSize = 12f
-            setBackgroundColor(Color.parseColor("#424242"))
-            setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, 110, 0.22f).apply {
-                setMargins(2, 2, 2, 2)
-            }
-            setOnClickListener {
-                (context as? MainActivity)?.finish()
-            }
+            setOnClickListener { onExit() }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
         }
+        leftCol.addView(btnExit)
+        container.addView(leftCol)
 
-        // Большое поле RPM и подпись по центру
-        val centerContainer = LinearLayout(context).apply {
+        container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
+
+        val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
             gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
         }
 
-        tvRpmValue = TextView(context).apply {
-            text = "0"
-            textSize = 72f
+        rpmTextView = TextView(context).apply {
+            text = "00000"
+            textSize = 82f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
-            setTypeface(null, android.graphics.Typeface.BOLD)
         }
+        rpmBlock.addView(rpmTextView)
 
         val rpmLabel = TextView(context).apply {
             text = "RPM (об / мин)"
@@ -78,149 +87,123 @@ class HeaderBuilder(
             gravity = Gravity.CENTER
             includeFontPadding = false
         }
+        rpmBlock.addView(rpmLabel)
 
-        centerContainer.addView(tvRpmValue)
-        centerContainer.addView(rpmLabel)
+        container.addView(rpmBlock)
+        container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Кнопка HOLD справа
-        val btnHold = Button(context).apply {
-            text = "HOLD"
-            textSize = 12f
-            setBackgroundColor(Color.parseColor("#424242"))
-            setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, 110, 0.22f).apply {
-                setMargins(2, 2, 2, 2)
-            }
-            setOnClickListener {
-                val activity = (context as? MainActivity) ?: return@setOnClickListener
-                activity.isHoldActive = !activity.isHoldActive
-                if (activity.isHoldActive) {
-                    setBackgroundColor(Color.parseColor("#FF9800"))
-                    setTextColor(Color.BLACK)
-                } else {
-                    setBackgroundColor(Color.parseColor("#424242"))
-                    setTextColor(Color.WHITE)
-                }
-            }
+        val rightCol = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.FILL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
         }
 
-        topPanel.addView(btnExit)
-        topPanel.addView(centerContainer)
-        topPanel.addView(btnHold)
+        btnHold = Button(context).apply {
+            text = "HOLD"
+            textSize = 12f
+            setOnClickListener { onHoldToggle() }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        rightCol.addView(btnHold)
+        container.addView(rightCol)
+
+        return container
     }
 
-    private fun createInfoPanel() {
-        infoPanel.orientation = LinearLayout.VERTICAL
-        infoPanel.setPadding(4, 2, 4, 4)
-        infoPanel.gravity = Gravity.CENTER_HORIZONTAL
-        infoPanel.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
+    fun buildInfoPanelWithSides(): View {
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(4, 4, 4, 8)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
 
-        tvMainStatus = TextView(context).apply {
+        val panelHeight = 48
+        val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+            setMargins(1, 0, 1, 0)
+        }
+
+        // Левая колонка: /1, /2 и переключатели плавности
+        val leftCol = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
+        }
+        val topMultRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+        btnX1.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onMultiplierSelect(1) } }
+        btnX2.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onMultiplierSelect(2) } }
+        topMultRow.addView(btnX1); topMultRow.addView(btnX2)
+
+        val bottomSmoothRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+        btnSmoothSharp.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onSmoothSelect(0) } }
+        btnSmoothNorm.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onSmoothSelect(1) } }
+        val btnSmoothSoftMini = btnSmoothSoft.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onSmoothSelect(2) } }
+        bottomSmoothRow.addView(btnSmoothSharp); bottomSmoothRow.addView(btnSmoothNorm); bottomSmoothRow.addView(btnSmoothSoftMini)
+
+        leftCol.addView(topMultRow)
+        leftCol.addView(bottomSmoothRow)
+        container.addView(leftCol)
+
+        container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
+
+        // Центр: статусы, громкость, частоты All и Pre-Freq
+        val centerTextCol = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.52f)
+        }
+
+        statusLine1 = TextView(context).apply {
             text = "Ожидание запуска двигателя"
             textSize = 11f
             setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
-            setTypeface(null, android.graphics.Typeface.BOLD)
         }
+        centerTextCol.addView(statusLine1)
 
-        tvDetails = TextView(context).apply {
+        statusLine2 = TextView(context).apply {
             text = "Громкость: 0 | Порог: 20"
             textSize = 10f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
         }
+        centerTextCol.addView(statusLine2)
 
-        tvFreqStatus = TextView(context).apply {
-            text = "Частота: 0 Гц | Статус: Ниже порога"
+        statusLine3 = TextView(context).apply {
+            text = "All: 0 Гц | Pre-Freq: 0 Гц"
             textSize = 10f
             setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER
         }
+        centerTextCol.addView(statusLine3)
 
-        // VU-метр на всю ширину
-        val vuLayout = LinearLayout(context).apply {
+        container.addView(centerTextCol)
+        container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
+
+        // Правая колонка: /3 и /4
+        val rightMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(4, 6, 4, 4)
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
         }
-        
-        val vuTitle = TextView(context).apply {
-            text = "VU-метр: "
-            textSize = 10f
-            setTextColor(Color.parseColor("#B0BEC5"))
-        }
+        btnX3.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onMultiplierSelect(3) } }
+        btnX4.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onMultiplierSelect(4) } }
+        rightMultipliers.addView(btnX3)
+        rightMultipliers.addView(btnX4)
+        container.addView(rightMultipliers)
 
-        vuMeterBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 1000
-            progress = 0
-            layoutParams = LinearLayout.LayoutParams(0, 24, 1f).apply {
-                setMargins(4, 0, 4, 0)
-            }
-        }
-
-        vuLayout.addView(vuTitle)
-        vuLayout.addView(vuMeterBar)
-
-        infoPanel.addView(tvMainStatus)
-        infoPanel.addView(tvDetails)
-        infoPanel.addView(tvFreqStatus)
-        infoPanel.addView(vuLayout)
-    }
-
-    private fun createAlgorithmRow() {
-        algorithmRow.orientation = LinearLayout.HORIZONTAL
-        algorithmRow.setPadding(2, 4, 2, 4)
-        algorithmRow.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-
-        for (i in 0..3) {
-            val btn = Button(context).apply {
-                text = "АЛГ ${i + 1}"
-                textSize = 11f
-                setPadding(1, 1, 1, 1)
-                layoutParams = LinearLayout.LayoutParams(0, 80, 1f).apply {
-                    setMargins(2, 2, 2, 2)
-                }
-                setOnClickListener {
-                    if (prefsManager.isAlgorithmAllowed(i, prefsManager.engineType)) {
-                        onAlgorithmSelected(i)
-                        updateButtonStates()
-                    }
-                }
-            }
-            algorithmButtons[i] = btn
-            algorithmRow.addView(btn)
-        }
-    }
-
-    fun updateButtonStates() {
-        val engine = prefsManager.engineType
-        val currentAlg = prefsManager.algorithmIndex
-
-        for (i in 0..3) {
-            val btn = algorithmButtons[i] ?: continue
-            val isAllowed = prefsManager.isAlgorithmAllowed(i, engine)
-            
-            if (isAllowed) {
-                if (i == currentAlg) {
-                    btn.setBackgroundColor(Color.parseColor("#00ACC1")) // Активный алгоритм (бирюзовый)
-                    btn.setTextColor(Color.WHITE)
-                } else {
-                    btn.setBackgroundColor(Color.parseColor("#37474F")) // Доступный
-                    btn.setTextColor(Color.WHITE)
-                }
-                btn.isEnabled = true
-            } else {
-                btn.setBackgroundColor(Color.parseColor("#212121")) // Заблокированный
-                btn.setTextColor(Color.parseColor("#616161"))
-                btn.isEnabled = false
-            }
-        }
+        return container
     }
 }

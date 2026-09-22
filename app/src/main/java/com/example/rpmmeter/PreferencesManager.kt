@@ -10,8 +10,9 @@ class PreferencesManager(context: Context) {
         get() = prefs.getInt("key_algorithm_index", 0)
         set(value) = prefs.edit().putInt("key_algorithm_index", value).apply()
 
+    // 2 = 2T, 4 = 4T, 0 или другой = Others
     var engineType: Int
-        get() = prefs.getInt("key_engine_type", 2) // По умолчанию 2T (2)
+        get() = prefs.getInt("key_engine_type", 2)
         set(value) = prefs.edit().putInt("key_engine_type", value).apply()
 
     var minVolumeThreshold: Int

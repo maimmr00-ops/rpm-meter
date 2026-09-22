@@ -32,6 +32,23 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // --- ПЕРЕХВАТЧИК ОШИБОК ДЛЯ СОХРАНЕНИЯ В ФАЙЛ ---
+        val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val sw = java.io.StringWriter()
+                val pw = java.io.PrintWriter(sw)
+                throwable.printStackTrace(pw)
+                
+                val logFile = java.io.File(getExternalFilesDir(null), "crash_log.txt")
+                logFile.writeText(sw.toString())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            oldHandler?.uncaughtException(thread, throwable)
+        }
+        // ----------------------------------------------
+
         try {
             prefsManager = PreferencesManager(this)
 

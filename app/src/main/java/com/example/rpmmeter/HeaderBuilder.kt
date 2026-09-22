@@ -18,7 +18,10 @@ object HeaderBuilder {
         val btnHold: Button,
         val btnExit: Button,
         val tvAlgorithmModeLabel: TextView,
-        val algorithmButtons: Array<Button?>
+        val algorithmButtons: Array<Button?>,
+        val statusLine1: TextView,
+        val statusLine2: TextView,
+        val statusLine3: TextView
     )
 
     fun buildAll(
@@ -50,7 +53,7 @@ object HeaderBuilder {
             setOnClickListener { onHoldClick() }
         }
 
-        // 1. Верхняя панель с RPM и кнопками EXIT / HOLD
+        // 1. Верхняя панель с RPM и кнопками
         val topPanel = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -87,7 +90,7 @@ object HeaderBuilder {
         topPanel.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
         topPanel.addView(rightCol)
 
-        // 2. Панель статусов и множителей /1 - /4
+        // 2. Информационная панель со статусами
         val statusLine1 = TextView(context).apply { text = "Ожидание запуска"; textSize = 11f; setTextColor(Color.YELLOW); gravity = Gravity.CENTER }
         val statusLine2 = TextView(context).apply { text = "Громкость: 0"; textSize = 10f; setTextColor(Color.parseColor("#80CBC4")); gravity = Gravity.CENTER }
         val statusLine3 = TextView(context).apply { text = "Pre-Freq: 0 Гц"; textSize = 10f; setTextColor(Color.parseColor("#B0BEC5")); gravity = Gravity.CENTER }
@@ -138,7 +141,7 @@ object HeaderBuilder {
             it.addView(rightMultipliers)
         }
 
-        // 3. Строка выбора алгоритмов (Алг 1 - Алг 4)
+        // 3. Строка выбора алгоритмов
         val tvAlgorithmModeLabel = TextView(context).apply {
             text = "режим: 2T"
             textSize = 12f
@@ -180,7 +183,7 @@ object HeaderBuilder {
 
         return TopPanelComponents(
             topPanel, infoPanel, algorithmRow, rpmTextView, btnHold, btnExit,
-            tvAlgorithmModeLabel, algorithmButtons
+            tvAlgorithmModeLabel, algorithmButtons, statusLine1, statusLine2, statusLine3
         )
     }
 }

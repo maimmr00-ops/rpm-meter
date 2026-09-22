@@ -1,205 +1,312 @@
 package com.example.rpmmeter
 
-import android.annotation.SuppressLint
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.os.Bundle
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import kotlin.math.roundToInt
 
-class AudioAnalyzer(
-    private val prefsManager: PreferencesManager,
-    private val selectedAlgorithmIndex: Int, 
-    private val onUpdate: (rpm: Int, rawFreq: Float, volume: Int, status: String) -> Unit,
-    private val onError: (String) -> Unit
-) {
-    private var audioRecord: AudioRecord? = null
-    private var isRunning = false
-    private var analysisThread: Thread? = null
-    private var smoothedVolume = 0f
-    private var lastValidLag = -1
+class MainActivity : Activity() {
 
-    @SuppressLint("MissingPermission")
-    fun start() {
-        if (isRunning) return
-        isRunning = true
+    private lateinit var statusLine1: TextView
+    private lateinit var statusLine2: TextView
+    private lateinit var statusLine3: TextView
+    
+    private lateinit var rpmTextView: TextView
+    private lateinit var btnHold: Button
+    private lateinit var btnExit: Button
+    
+    private var currentMultiplier = 1
 
-        analysisThread = Thread {
-            val sampleRate = 8000
-            val channelConfig = AudioFormat.CHANNEL_IN_MONO
-            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-            val minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-            val bufferSize = maxOf(minBufSize, prefsManager.audioBufferSize)
-            val buffer = ShortArray(bufferSize)
+    private lateinit var settings: UIBuilder.SettingsButtons
+    private val volumeStepButtons = arrayOfNulls<Button>(10)
 
-            val record = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioFormat, bufferSize)
-            audioRecord = record
+    private var isHoldActive = false
+    private var heldRpmValue = 0
+    private var currentRealRpm = 0
 
-            if (record.state != AudioRecord.STATE_INITIALIZED) {
-                onError("Ошибка инициализации микрофона")
-                isRunning = false
-                return@Thread
-            }
+    private lateinit var prefsManager: PreferencesManager
+    private var audioAnalyzer: AudioAnalyzer? = null
+    private val PERMISSION_CODE = 200
 
-            try { record.startRecording() } catch (e: Exception) {
-                onError("Ошибка запуска: ${e.localizedMessage}")
-                isRunning = false
-                return@Thread
-            }
+    private var currentAlgorithmIndex = 0
+    private lateinit var tvAlgorithmModeLabel: TextView
+    private val algorithmButtons = arrayOfNulls<Button>(4)
 
-            while (isRunning) {
-                val readCount = try { record.read(buffer, 0, buffer.size) } catch (_: Exception) { -1 }
-                if (readCount <= 0) {
-                    try { Thread.sleep(10) } catch (_: InterruptedException) {}
-                    continue
-                }
+    private var displayedRpmFloat = 0f
+    private var targetRpmFloat = 0f
+    private var isAnimatingRpm = false
 
-                var sum = 0.0
-                for (i in 0 until readCount) {
-                    val v = buffer[i].toDouble()
-                    sum += v * v
-                }
-                val rawVolume = sqrt(sum / readCount)
-                smoothedVolume = smoothedVolume + 0.3f * (rawVolume.toFloat() - smoothedVolume)
-                val currentVolInt = smoothedVolume.toInt()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
-                if (currentVolInt < prefsManager.minVolumeThreshold) {
-                    lastValidLag = -1
-                    onUpdate(0, 0f, currentVolInt, "Тишина / Ниже порога")
-                    continue
-                }
+        prefsManager = PreferencesManager(this)
+        currentAlgorithmIndex = prefsManager.algorithmIndex
 
-                // Выбор алгоритма в зависимости от индекса выбранной кнопки в новой строке
-                val rawFreq = when (selectedAlgorithmIndex) {
-                    0 -> findFrequencyAMDF(buffer, readCount, sampleRate)          // Кнопка 1: AMDF
-                    1 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate) // Кнопка 2: Zero-Crossing
-                    2 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate)// Кнопка 3: Autocorr
-                    else -> findFrequencySpectral(buffer, readCount, sampleRate)   // Кнопка 4: Spectral
-                }
-
-                if (rawFreq < 10.0f || rawFreq > 400.0f) {
-                    lastValidLag = -1
-                    onUpdate(0, rawFreq, currentVolInt, "Поиск сигнала...")
-                    continue
-                }
-
-                val instantRpm = when (prefsManager.engineType) {
-                    2 -> rawFreq * 60.0f
-                    4 -> rawFreq * 30.0f
-                    else -> rawFreq * 60.0f
-                }
-
-                if (instantRpm > prefsManager.maxAllowedRpm.toFloat()) continue
-
-                onUpdate(instantRpm.toInt(), rawFreq, currentVolInt, "Работа мотора")
-            }
+        val scrollView = ScrollView(this).apply {
+            setBackgroundColor(Color.parseColor("#121212"))
+            isFillViewport = true
         }
-        analysisThread?.start()
+
+        val rootLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 12, 16, 12)
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+
+        settings = UIBuilder.buildSettingsTable(
+            context = this,
+            prefsManager = prefsManager,
+            onRefreshUI = { refreshAllUI() },
+            volumeStepButtons = volumeStepButtons,
+            onMultiplierChange = { mult -> currentMultiplier = mult; refreshAllUI() },
+            currentMultiplierGetter = { currentMultiplier }
+        )
+
+        val header = HeaderBuilder.buildAll(
+            context = this,
+            onExitClick = { finish() },
+            onHoldClick = {
+                isHoldActive = !isHoldActive
+                if (isHoldActive) heldRpmValue = currentRealRpm
+                refreshAllUI()
+            },
+            onMultiplierClick = { mult -> currentMultiplier = mult; refreshAllUI() },
+            onAlgorithmClick = { idx ->
+                currentAlgorithmIndex = idx
+                prefsManager.algorithmIndex = idx
+                refreshAlgorithmButtonsUI()
+                restartAnalyzer()
+            },
+            settings = settings
+        )
+
+        rpmTextView = header.rpmTextView
+        btnHold = header.btnHold
+        btnExit = header.btnExit
+        tvAlgorithmModeLabel = header.tvAlgorithmModeLabel
+        for (i in 0..3) { algorithmButtons[i] = header.algorithmButtons[i] }
+
+        statusLine1 = header.statusLine1
+        statusLine2 = header.statusLine2
+        statusLine3 = header.statusLine3
+
+        rootLayout.addView(header.topPanel)
+        rootLayout.addView(header.infoPanel)
+        rootLayout.addView(settings.table)
+        rootLayout.addView(header.algorithmRow)
+
+        val copyright = TextView(this).apply {
+            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
+            textSize = 12f
+            setTextColor(Color.parseColor("#9E9E9E"))
+            gravity = Gravity.CENTER
+            setPadding(16, 12, 16, 8)
+        }
+        rootLayout.addView(copyright)
+
+        scrollView.addView(rootLayout)
+        setContentView(scrollView)
+
+        refreshAllUI()
+        updateAlgorithmButtonsVisibility()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
+        } else {
+            initAndStartAudioAnalyzer()
+        }
     }
 
-    private fun findFrequencyAMDF(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val minLag = sampleRate / 400
-        val maxLag = sampleRate / 20
-        if (size <= maxLag) return 0f
-
-        val searchMin = if (lastValidLag > 0) (lastValidLag * 0.7f).toInt().coerceAtLeast(minLag) else minLag
-        val searchMax = if (lastValidLag > 0) (lastValidLag * 1.3f).toInt().coerceAtMost(maxLag) else maxLag
-
-        var bestLag = -1
-        var minDiff = Double.MAX_VALUE
-
-        for (lag in searchMin..searchMax step 2) {
-            var diffSum = 0.0
-            val limit = size - lag
-            for (i in 0 until limit step 2) {
-                diffSum += abs(buffer[i].toInt() - buffer[i + lag].toInt())
-            }
-            val avgDiff = diffSum / (limit / 2)
-            if (avgDiff < minDiff) {
-                minDiff = avgDiff
-                bestLag = lag
-            }
+    private fun refreshAlgorithmButtonsUI() {
+        val activeColor = Color.parseColor("#00838F")
+        val defaultColor = Color.parseColor("#424242")
+        for (i in 0 until 4) {
+            algorithmButtons[i]?.setBackgroundColor(if (i == currentAlgorithmIndex) activeColor else defaultColor)
+            algorithmButtons[i]?.setTextColor(Color.WHITE)
         }
-        if (bestLag <= 0) {
-            lastValidLag = -1
-            return 0f
-        }
-        lastValidLag = bestLag
-        return sampleRate.toFloat() / bestLag.toFloat()
     }
 
-    private fun findFrequencyZeroCrossing(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        var crossings = 0
-        var sum = 0L
-        for (i in 0 until size) sum += buffer[i]
-        val avg = (sum / size).toInt()
-
-        for (i in 0 until size - 1) {
-            val curr = buffer[i] - avg
-            val next = buffer[i + 1] - avg
-            if ((curr <= 0 && next > 0) || (curr >= 0 && next < 0)) {
-                crossings++
-            }
+    private fun updateAlgorithmButtonsVisibility() {
+        val eType = prefsManager.engineType
+        tvAlgorithmModeLabel.text = when (eType) {
+            2 -> "режим: 2T"
+            4 -> "режим: 4T"
+            else -> "режим: Others"
         }
-        return (crossings.toFloat() / 2.0f) * (sampleRate.toFloat() / size.toFloat())
+        refreshAlgorithmButtonsUI()
     }
 
-    private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val minLag = sampleRate / 400
-        val maxLag = sampleRate / 20
-        if (size <= maxLag) return 0f
-
-        var bestLag = -1
-        var maxCorrelation = -1.0
-
-        for (lag in minLag..maxLag step 2) {
-            var correlation = 0.0
-            val limit = size - lag
-            for (i in 0 until limit step 4) {
-                correlation += (buffer[i].toDouble() * buffer[i + lag].toDouble())
-            }
-            if (correlation > maxCorrelation) {
-                maxCorrelation = correlation
-                bestLag = lag
-            }
-        }
-        if (bestLag <= 0) return 0f
-        return sampleRate.toFloat() / bestLag.toFloat()
+    fun restartAnalyzer() {
+        audioAnalyzer?.stop()
+        audioAnalyzer = null
+        initAndStartAudioAnalyzer()
     }
 
-    private fun findFrequencySpectral(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val minFreq = 20.0f
-        val maxFreq = 400.0f
-        var bestFreq = 0f
-        var maxPower = 0.0
+    private fun initAndStartAudioAnalyzer() {
+        audioAnalyzer?.stop()
+        audioAnalyzer = AudioAnalyzer(
+            prefsManager = prefsManager,
+            selectedAlgorithmIndex = currentAlgorithmIndex,
+            onUpdate = { rpm, freq, vol, status ->
+                currentRealRpm = if (currentMultiplier > 0) (rpm / currentMultiplier) else rpm
+                runOnUiThread {
+                    val currentThreshold = prefsManager.minVolumeThreshold
+                    val targetVal = if (isHoldActive) (if (heldRpmValue > 0) heldRpmValue else 0) else currentRealRpm
+                    
+                    setTargetRpmSmooth(targetVal.toFloat())
+                    
+                    if (isHoldActive) {
+                        statusLine1.text = "HOLD. Текущие: $currentRealRpm об/мин"
+                        statusLine1.setTextColor(Color.parseColor("#FF9800"))
+                    } else {
+                        if (vol < currentThreshold) {
+                            statusLine1.text = "Ожидание запуска двигателя"
+                            statusLine1.setTextColor(Color.YELLOW)
+                        } else {
+                            statusLine1.text = "Работа мотора"
+                            statusLine1.setTextColor(Color.parseColor("#00E676"))
+                        }
+                    }
 
-        var freq = minFreq
-        while (freq <= maxFreq) {
-            var real = 0.0
-            var imag = 0.0
-            val limit = size.coerceAtMost(256)
-            for (i in 0 until limit step 2) {
-                val angle = 2.0 * Math.PI * freq * i / sampleRate
-                val sampleVal = buffer[i].toDouble()
-                real += sampleVal * cos(angle)
-                imag += sampleVal * sin(angle)
+                    statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
+                    statusLine3.text = "Частота: ${freq.roundToInt()} Гц | Статус: $status"
+                    updateVolumeSquaresUI(vol)
+                }
+            },
+            onError = { errorMsg ->
+                runOnUiThread {
+                    statusLine1.text = errorMsg
+                    statusLine1.setTextColor(Color.RED)
+                }
             }
-            val power = real * real + imag * imag
-            if (power > maxPower) {
-                maxPower = power
-                bestFreq = freq
-            }
-            freq += 2.0f
-        }
-        return bestFreq
+        )
+        audioAnalyzer?.start()
     }
 
-    fun stop() {
-        isRunning = false
-        try { audioRecord?.stop(); audioRecord?.release() } catch (_: Exception) {}
-        audioRecord = null
-        analysisThread?.interrupt()
+    private fun setTargetRpmSmooth(target: Float) {
+        targetRpmFloat = target
+        if (!isAnimatingRpm) startRpmInertiaLoop()
+    }
+
+    private fun startRpmInertiaLoop() {
+        isAnimatingRpm = true
+        rpmTextView.postDelayed(object : Runnable {
+            override fun run() {
+                val diff = targetRpmFloat - displayedRpmFloat
+                val preset = prefsManager.smoothPreset
+                val smoothingFactor = when (preset) {
+                    0 -> 1.0f
+                    1 -> if (targetRpmFloat < displayedRpmFloat) 0.2f else 0.4f
+                    else -> if (targetRpmFloat < displayedRpmFloat) 0.08f else 0.25f
+                }
+
+                if (preset == 0) displayedRpmFloat = targetRpmFloat
+                else displayedRpmFloat += diff * smoothingFactor
+
+                updateRpmDisplay(displayedRpmFloat.toInt())
+
+                if (kotlin.math.abs(diff) > 0.5f || targetRpmFloat > 0f) {
+                    rpmTextView.postDelayed(this, 16L)
+                } else {
+                    isAnimatingRpm = false
+                }
+            }
+        }, 16L)
+    }
+
+    private fun updateRpmDisplay(value: Int) {
+        val clamped = value.coerceIn(0, 99999)
+        rpmTextView.text = String.format("%5d", clamped).replace(' ', '\u00A0')
+    }
+
+    private fun updateVolumeSquaresUI(currentVol: Int) {
+        val thresh = prefsManager.minVolumeThreshold
+        var threshIdx = 0
+        if (prefsManager.hasStoredThreshold()) {
+            for (i in 0 until 10) if (UIBuilder.getThresholdForSquare(i) == thresh) { threshIdx = i; break }
+        }
+        var volIdx = -1
+        if (currentVol > 0) {
+            for (i in 9 downTo 0) if (currentVol >= UIBuilder.getThresholdForSquare(i)) { volIdx = i; break }
+        }
+
+        for (i in 0 until 10) {
+            val btn = volumeStepButtons[i] ?: continue
+            val color = when {
+                i == threshIdx && volIdx >= i -> Color.parseColor("#00E676")
+                i == threshIdx -> Color.parseColor("#FF9800")
+                i < threshIdx && volIdx >= i -> Color.parseColor("#00BCD4")
+                i > threshIdx && volIdx >= i -> Color.parseColor("#D0F8E8")
+                else -> Color.parseColor("#37474F")
+            }
+            btn.setBackgroundColor(color)
+        }
+    }
+
+    private fun refreshAllUI() {
+        if (!::btnHold.isInitialized || !::settings.isInitialized) return
+
+        btnHold.setBackgroundColor(if (isHoldActive) Color.parseColor("#FF9800") else Color.parseColor("#424242"))
+        btnHold.setTextColor(if (isHoldActive) Color.BLACK else Color.WHITE)
+        btnExit.setBackgroundColor(Color.parseColor("#424242"))
+        btnExit.setTextColor(Color.WHITE)
+
+        val mults = listOf(settings.btnX1 to 1, settings.btnX2 to 2, settings.btnX3 to 3, settings.btnX4 to 4)
+        mults.forEach { (btn, m) ->
+            btn.setBackgroundColor(if (currentMultiplier == m) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+            btn.setTextColor(if (currentMultiplier == m) Color.BLACK else Color.WHITE)
+        }
+
+        val eType = prefsManager.engineType
+        val engines = listOf(settings.btn2T to 2, settings.btn4T to 4, settings.btnOthers to 3)
+        engines.forEach { (btn, t) ->
+            btn.setBackgroundColor(if (eType == t) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+            btn.setTextColor(if (eType == t) Color.BLACK else Color.WHITE)
+        }
+
+        val limit = prefsManager.maxAllowedRpm
+        val limits = listOf(settings.btnLimit1 to 6000, settings.btnLimit2 to 12000, settings.btnLimit3 to 20000)
+        limits.forEach { (btn, l) ->
+            btn.setBackgroundColor(if (limit == l) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+            btn.setTextColor(Color.WHITE)
+        }
+
+        val bufSize = prefsManager.audioBufferSize
+        val buffers = listOf(settings.btnRateFast to 1536, settings.btnRateNorm to 2560, settings.btnRateSlow to 4096)
+        buffers.forEach { (btn, b) ->
+            btn.setBackgroundColor(if (bufSize == b) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+            btn.setTextColor(Color.WHITE)
+        }
+
+        val preset = prefsManager.smoothPreset
+        val smooths = listOf(settings.btnSmoothSharp to 0, settings.btnSmoothNorm to 1, settings.btnSmoothSoft to 2)
+        smooths.forEach { (btn, p) ->
+            btn.setBackgroundColor(if (preset == p) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+            btn.setTextColor(Color.WHITE)
+        }
+
+        updateAlgorithmButtonsVisibility()
+        updateVolumeSquaresUI(0)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            initAndStartAudioAnalyzer()
+        }
+    }
+
+    override fun onDestroy() {
+        audioAnalyzer?.stop()
+        super.onDestroy()
     }
 }

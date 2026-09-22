@@ -1,225 +1,196 @@
 package com.example.rpmmeter
 
+import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 class AudioAnalyzer(
     private val prefsManager: PreferencesManager,
-    private val selectedAlgorithmIndex: Int,
-    private val onUpdate: (Int, Float, Int, String) -> Unit,
+    private val onUpdate: (rawRpm: Float, allFreq: Float, preFreq: Float, volume: Int, status: String) -> Unit,
     private val onError: (String) -> Unit
 ) {
-
-    private var isRunning = false
     private var audioRecord: AudioRecord? = null
+    private var isRunning = false
     private var analysisThread: Thread? = null
+    private var smoothedVolume = 0f
 
+    @SuppressLint("MissingPermission")
     fun start() {
         if (isRunning) return
         isRunning = true
 
-        analysisThread = Thread({
+        analysisThread = Thread {
             val sampleRate = 8000
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-            
-            try {
-                val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-                if (minBufferSize <= 0) {
-                    onError("Ошибка буфера микрофона: $minBufferSize")
-                    isRunning = false
-                    return@Thread
-                }
-                
-                val bufferSize = maxOf(minBufferSize, prefsManager.audioBufferSize)
 
-                audioRecord = AudioRecord(
-                    MediaRecorder.AudioSource.MIC,
-                    sampleRate,
-                    channelConfig,
-                    audioFormat,
-                    bufferSize
-                )
+            val minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+            val bufferSize = maxOf(minBufSize, prefsManager.audioBufferSize)
+            val buffer = ShortArray(bufferSize)
 
-                if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                    onError("Микрофон не инициализирован")
-                    isRunning = false
-                    return@Thread
-                }
+            val record = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                sampleRate,
+                channelConfig,
+                audioFormat,
+                bufferSize
+            )
+            audioRecord = record
 
-                audioRecord?.startRecording()
-                val audioBuffer = ShortArray(bufferSize)
-
-                while (isRunning) {
-                    val currentRecord = audioRecord
-                    if (currentRecord == null || currentRecord.state != AudioRecord.STATE_INITIALIZED) {
-                        break
-                    }
-
-                    val readSize = currentRecord.read(audioBuffer, 0, audioBuffer.size)
-                    if (readSize > 0) {
-                        
-                        // Расчет RMS (громкость)
-                        var sum = 0.0
-                        for (i in 0 until readSize) {
-                            val sample = audioBuffer[i].toDouble()
-                            sum += sample * sample
-                        }
-                        val rms = sqrt(sum / readSize)
-                        val volume = rms.toInt()
-
-                        val minThreshold = prefsManager.minVolumeThreshold
-                        var frequency = 0f
-                        var rpm = 0
-                        var statusStr = "Ожидание"
-
-                        if (volume >= minThreshold) {
-                            val engineType = prefsManager.engineType
-
-                            // Выбор математики анализа
-                            frequency = when (selectedAlgorithmIndex) {
-                                // Алгоритм 0: Zero-Crossing
-                                0 -> {
-                                    var zeroCrossings = 0
-                                    val noiseFloor = (volume * 0.15).toInt().toShort()
-                                    var lastState = 0
-                                    for (i in 0 until readSize) {
-                                        val sample = audioBuffer[i]
-                                        val currentState = when {
-                                            sample > noiseFloor -> 1
-                                            sample < -noiseFloor -> -1
-                                            else -> lastState
-                                        }
-                                        if (lastState != 0 && currentState != 0 && currentState != lastState) {
-                                            zeroCrossings++
-                                        }
-                                        if (currentState != 0) lastState = currentState
-                                    }
-                                    (zeroCrossings.toFloat() * sampleRate / (readSize * 2f))
-                                }
-
-                                // Алгоритм 1: Autocorrel
-                                1 -> {
-                                    val minLag = sampleRate / 400
-                                    val maxLag = sampleRate / 15
-                                    var bestLag = minLag
-                                    var maxCorr = -1.0
-                                    val limitSize = minOf(readSize, 1024)
-                                    for (lag in minLag..minOf(maxLag, limitSize / 2)) {
-                                        var corr = 0.0
-                                        val n = limitSize - lag
-                                        for (i in 0 until n) {
-                                            corr += audioBuffer[i].toDouble() * audioBuffer[i + lag].toDouble()
-                                        }
-                                        if (corr > maxCorr) {
-                                            maxCorr = corr
-                                            bestLag = lag
-                                        }
-                                    }
-                                    if (bestLag > 0) sampleRate.toFloat() / bestLag.toFloat() else 50.0f
-                                }
-
-                                // Алгоритм 2: AMDF
-                                2 -> {
-                                    val minLag = sampleRate / 400
-                                    val maxLag = sampleRate / 15
-                                    var bestLag = minLag
-                                    var minVal = Double.MAX_VALUE
-                                    val limitSize = minOf(readSize, 1024)
-                                    for (lag in minLag..minOf(maxLag, limitSize / 2)) {
-                                        var sumDiff = 0.0
-                                        val n = limitSize - lag
-                                        for (i in 0 until n) {
-                                            sumDiff += abs(audioBuffer[i] - audioBuffer[i + lag])
-                                        }
-                                        val avgDiff = sumDiff / n
-                                        if (avgDiff < minVal) {
-                                            minVal = avgDiff
-                                            bestLag = lag
-                                        }
-                                    }
-                                    if (bestLag > 0) sampleRate.toFloat() / bestLag.toFloat() else 50.0f
-                                }
-
-                                // Алгоритм 3: Peak-Time
-                                3 -> {
-                                    var lastPeakIdx = -1
-                                    var totalIntervals = 0
-                                    var sumIntervals = 0f
-                                    val peakThreshold = (volume * 0.6).toInt().toShort()
-                                    for (i in 2 until readSize - 2) {
-                                        if (audioBuffer[i] > peakThreshold && 
-                                            audioBuffer[i] >= audioBuffer[i-1] && 
-                                            audioBuffer[i] >= audioBuffer[i+1]) {
-                                            if (lastPeakIdx != -1) {
-                                                val interval = (i - lastPeakIdx).toFloat()
-                                                if (interval > (sampleRate / 450f) && interval < (sampleRate / 10f)) {
-                                                    sumIntervals += interval
-                                                    totalIntervals++
-                                                }
-                                            }
-                                            lastPeakIdx = i
-                                        }
-                                    }
-                                    if (totalIntervals > 0) {
-                                        sampleRate.toFloat() / (sumIntervals / totalIntervals)
-                                    } else {
-                                        50.0f
-                                    }
-                                }
-
-                                else -> 50.0f
-                            }
-
-                            frequency = frequency.coerceIn(5.0f, 500.0f)
-
-                            rpm = when (engineType) {
-                                4 -> (frequency * 30).toInt()
-                                2 -> (frequency * 60).toInt()
-                                else -> (frequency * 60).toInt()
-                            }
-                            
-                            val modeName = when (engineType) {
-                                2 -> "2T"
-                                4 -> "4T"
-                                else -> "Others"
-                            }
-                            statusStr = "$modeName | Алг ${selectedAlgorithmIndex + 1}"
-                        } else {
-                            statusStr = "Ожидание / Тишина"
-                        }
-
-                        onUpdate(rpm, frequency, volume, statusStr)
-                    }
-                    Thread.sleep(10)
-                }
-            } catch (e: SecurityException) {
-                onError("Нет разрешения на микрофон")
-            } catch (e: Exception) {
-                onError("Ошибка звука: ${e.localizedMessage}")
-            } finally {
-                stopInternal()
+            if (record.state != AudioRecord.STATE_INITIALIZED) {
+                onError("Ошибка инициализации микрофона")
+                isRunning = false
+                return@Thread
             }
-        }, "AudioAnalyzerWorkerThread")
 
+            try {
+                record.startRecording()
+            } catch (e: Exception) {
+                onError("Ошибка запуска записи: ${e.localizedMessage}")
+                isRunning = false
+                return@Thread
+            }
+
+            while (isRunning) {
+                val readCount = try {
+                    record.read(buffer, 0, buffer.size)
+                } catch (e: Exception) {
+                    -1
+                }
+
+                if (readCount <= 0) {
+                    try { Thread.sleep(10) } catch (_: InterruptedException) {}
+                    continue
+                }
+
+                // 1. Расчет громкости
+                var sum = 0.0
+                for (i in 0 until readCount) {
+                    val v = buffer[i].toDouble()
+                    sum += v * v
+                }
+                val rawVolume = sqrt(sum / readCount)
+                smoothedVolume = smoothedVolume + 0.3f * (rawVolume.toFloat() - smoothedVolume)
+                val currentVolInt = smoothedVolume.toInt()
+
+                if (currentVolInt < prefsManager.minVolumeThreshold) {
+                    onUpdate(0f, 0f, 0f, currentVolInt, "Тишина / Ниже порога")
+                    continue
+                }
+
+                // 2. Расчет базовой сырой частоты буфера (All) для мониторинга
+                val allFreq = findFrequencyZeroCrossing(buffer, readCount, sampleRate)
+
+                // 3. Выбор алгоритма согласно настройке пользователя (algorithmIndex)
+                val preFreq = when (prefsManager.algorithmIndex) {
+                    0 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate) // Zero-X
+                    1 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate) // AutoCorr
+                    2 -> findFrequencySpectralPeak(buffer, readCount, sampleRate) // Spectral
+                    else -> findFrequencyAutocorrelation(buffer, readCount, sampleRate) // Hybrid
+                }
+
+                if (preFreq < 10.0f || preFreq > 400.0f) {
+                    onUpdate(0f, allFreq, 0f, currentVolInt, "Поиск сигнала...")
+                    continue
+                }
+
+                // Перевод частоты в сырые обороты (с учетом типа двигателя 2T/4T)
+                val engineType = prefsManager.engineType
+                val rawRpm = when (engineType) {
+                    2 -> preFreq * 60.0f
+                    4 -> preFreq * 30.0f
+                    else -> preFreq * 60.0f
+                }
+
+                val maxAllowed = prefsManager.maxAllowedRpm.toFloat()
+                if (rawRpm > maxAllowed) continue
+
+                // Передаем честные данные наверх без искусственных тормозов
+                onUpdate(rawRpm, allFreq, preFreq, currentVolInt, "Работа мотора")
+            }
+        }
         analysisThread?.start()
+    }
+
+    private fun findFrequencyZeroCrossing(buffer: ShortArray, size: Int, sampleRate: Int): Float {
+        var crossings = 0
+        var sum = 0L
+        for (i in 0 until size) sum += buffer[i]
+        val avg = (sum / size).toInt()
+
+        for (i in 0 until size - 1) {
+            val curr = buffer[i] - avg
+            val next = buffer[i + 1] - avg
+            if ((curr <= 0 && next > 0) || (curr >= 0 && next < 0)) {
+                crossings++
+            }
+        }
+        return (crossings.toFloat() / 2.0f) * (sampleRate.toFloat() / size.toFloat())
+    }
+
+    private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
+        val absoluteMinLag = sampleRate / 300
+        val absoluteMaxLag = sampleRate / 20
+        if (size <= absoluteMaxLag) return 0f
+
+        var bestLag = -1
+        var maxCorrelation = -1.0
+
+        for (lag in absoluteMinLag..absoluteMaxLag step 2) {
+            var correlation = 0.0
+            val limit = size - lag
+            for (i in 0 until limit step 4) {
+                correlation += (buffer[i].toDouble() * buffer[i + lag].toDouble())
+            }
+            if (correlation > maxCorrelation) {
+                maxCorrelation = correlation
+                bestLag = lag
+            }
+        }
+
+        if (bestLag <= 0) return 0f
+        return sampleRate.toFloat() / bestLag.toFloat()
+    }
+
+    private fun findFrequencySpectralPeak(buffer: ShortArray, size: Int, sampleRate: Int): Float {
+        val minFreq = 20.0f
+        val maxFreq = 400.0f
+        var bestFreq = 0f
+        var maxPower = 0.0
+
+        var freq = minFreq
+        while (freq <= maxFreq) {
+            var real = 0.0
+            var imag = 0.0
+            val limit = size.coerceAtMost(256)
+            for (i in 0 until limit dt 2) {
+                val angle = 2.0 * Math.PI * freq * i / sampleRate
+                val sampleVal = buffer[i].toDouble()
+                real += sampleVal * cos(angle)
+                imag += sampleVal * sin(angle)
+            }
+            val power = real * real + imag * imag
+            if (power > maxPower) {
+                maxPower = power
+                bestFreq = freq
+            }
+            freq += 2.0f
+        }
+        return bestFreq
     }
 
     fun stop() {
         isRunning = false
-        analysisThread?.interrupt()
-        stopInternal()
-    }
-
-    private fun stopInternal() {
         try {
             audioRecord?.stop()
             audioRecord?.release()
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
         audioRecord = null
+        analysisThread?.interrupt()
     }
 }
+private infix int.dt(other: Int): Int = this + other // хелпер для шага цикла

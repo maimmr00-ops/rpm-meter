@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -16,8 +17,9 @@ class MainActivity : AppCompatActivity() {
     private var audioAnalyzer: AudioAnalyzer? = null
     
     private lateinit var headerBuilder: HeaderBuilder
-    private lateinit var uiBuilder: UIBuilder
+    private lateinit var uiBuilder: UIBuilder.SettingsButtons
     
+    private val volumeStepButtons = arrayOfNulls<Button>(10)
     private var isRunning = false
     var isHoldActive = false // Флаг для кнопки HOLD
 
@@ -60,16 +62,23 @@ class MainActivity : AppCompatActivity() {
                 restartAnalyzer()
             }
 
-            // Инициализация таблицы настроек
-            uiBuilder = UIBuilder(this, prefsManager) {
-                headerBuilder.updateButtonStates()
-                restartAnalyzer()
-            }
+            // Инициализация таблицы настроек (старый визуал с кнопками и квадратами порога)
+            uiBuilder = UIBuilder.buildSettingsTable(
+                context = this,
+                prefsManager = prefsManager,
+                onRefreshUI = {
+                    refreshAllUI()
+                    restartAnalyzer()
+                },
+                volumeStepButtons = volumeStepButtons
+            )
 
             rootLayout.addView(headerBuilder.topPanel)
             rootLayout.addView(headerBuilder.infoPanel)
             rootLayout.addView(uiBuilder.table)
             rootLayout.addView(headerBuilder.algorithmRow)
+
+            refreshAllUI()
 
         } catch (e: Exception) {
             Toast.makeText(this, "Ошибка UI: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
@@ -107,13 +116,13 @@ class MainActivity : AppCompatActivity() {
             audioAnalyzer = AudioAnalyzer(
                 prefsManager = prefsManager,
                 selectedAlgorithmIndex = prefsManager.algorithmIndex,
-                onUpdate = { rpm, freq, volume, status ->
+                onUpdate = { rpm, rawFreq, filteredFreq, volume, status ->
                     val minThresh = prefsManager.minVolumeThreshold
                     val detailsText = "Громкость: $volume | Порог: $minThresh"
-                    val freqText = "Частота: ${freq.toInt()} Гц | Статус: ${if (volume >= minThresh) "Активно" else "Ниже порога"}"
-                    val progressVal = volume.coerceIn(0, 1000)
+                    val freqText = "Частота: ${filteredFreq.toInt()} Гц | Статус: ${if (volume >= minThresh) "Активно" else "Ниже порога"}"
+                    val progressVal = volume.coerceIn(0, headerBuilder.vuMeterBar.max)
 
-                    // Если активен HOLD, замораживаем только отрисовку интерфейса
+                    // Если активен HOLD, замораживаем только отрисовку интерфейса оборотов
                     if (isHoldActive) return@AudioAnalyzer
 
                     runOnUiThread {
@@ -122,6 +131,7 @@ class MainActivity : AppCompatActivity() {
                         headerBuilder.tvDetails.text = detailsText
                         headerBuilder.tvFreqStatus.text = freqText
                         headerBuilder.vuMeterBar.progress = progressVal
+                        updateVolumeSquaresUI(volume)
                     }
                 },
                 onError = { err ->
@@ -148,6 +158,85 @@ class MainActivity : AppCompatActivity() {
     fun restartAnalyzer() {
         stopAnalyzer()
         startAnalyzer()
+    }
+
+    private fun updateVolumeSquaresUI(currentVol: Int) {
+        val currentSensitivityThreshold = prefsManager.minVolumeThreshold
+        
+        var thresholdIndex = 0
+        if (prefsManager.hasStoredThreshold()) {
+            for (i in 0 until 10) {
+                if (UIBuilder.getThresholdForSquare(i) == currentSensitivityThreshold) {
+                    thresholdIndex = i
+                    break
+                }
+            }
+        }
+        
+        var volumeIndex = -1
+        if (currentVol > 0) {
+            for (i in 9 downTo 0) {
+                if (currentVol >= UIBuilder.getThresholdForSquare(i)) {
+                    volumeIndex = i
+                    break
+                }
+            }
+        }
+
+        for (i in 0 until 10) {
+            val btn = volumeStepButtons[i] ?: continue
+            when {
+                i == thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#00E676"))
+                }
+                i == thresholdIndex -> {
+                    btn.setBackgroundColor(Color.parseColor("#FF9800"))
+                }
+                i < thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#00BCD4"))
+                }
+                i > thresholdIndex && volumeIndex >= i -> {
+                    btn.setBackgroundColor(Color.parseColor("#D0F8E8"))
+                }
+                else -> {
+                    btn.setBackgroundColor(Color.parseColor("#37474F"))
+                }
+            }
+        }
+    }
+
+    private fun refreshAllUI() {
+        if (!::headerBuilder.isInitialized || !::uiBuilder.isInitialized) return
+
+        headerBuilder.updateButtonStates()
+
+        val eType = prefsManager.engineType
+        uiBuilder.btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        uiBuilder.btn2T.setTextColor(if (eType == 2) Color.BLACK else Color.WHITE)
+        uiBuilder.btn4T.setBackgroundColor(if (eType == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        uiBuilder.btn4T.setTextColor(if (eType == 4) Color.BLACK else Color.WHITE)
+        uiBuilder.btnOthers.setBackgroundColor(if (eType == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+        uiBuilder.btnOthers.setTextColor(if (eType == 3) Color.BLACK else Color.WHITE)
+
+        val limit = prefsManager.maxAllowedRpm
+        uiBuilder.btnLimit1.setBackgroundColor(if (limit == 6000) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        uiBuilder.btnLimit2.setBackgroundColor(if (limit == 12000) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        uiBuilder.btnLimit3.setBackgroundColor(if (limit == 20000) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        listOf(uiBuilder.btnLimit1, uiBuilder.btnLimit2, uiBuilder.btnLimit3).forEach { it.setTextColor(Color.WHITE) }
+
+        val bufSize = prefsManager.audioBufferSize
+        uiBuilder.btnRateFast.setBackgroundColor(if (bufSize == 1536) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        uiBuilder.btnRateNorm.setBackgroundColor(if (bufSize == 2560) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        uiBuilder.btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        listOf(uiBuilder.btnRateFast, uiBuilder.btnRateNorm, uiBuilder.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
+
+        val preset = prefsManager.smoothPreset
+        uiBuilder.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        uiBuilder.btnSmoothNorm.setBackgroundColor(if (preset == 1) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#3F51B5") else Color.parseColor("#424242"))
+        listOf(uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
+        
+        updateVolumeSquaresUI(0)
     }
 
     override fun onRequestPermissionsResult(

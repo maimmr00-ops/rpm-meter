@@ -35,14 +35,19 @@ class HeaderBuilder(
     private fun createTopPanel() {
         topPanel.orientation = LinearLayout.HORIZONTAL
         topPanel.gravity = Gravity.CENTER_VERTICAL
-        topPanel.setPadding(4, 4, 4, 4)
+        topPanel.setPadding(0, 0, 0, 4)
+        topPanel.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
 
         // Кнопка EXIT слева
         val btnExit = Button(context).apply {
             text = "EXIT"
+            textSize = 12f
             setBackgroundColor(Color.parseColor("#424242"))
             setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, 130, 1.5f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 110, 0.22f).apply {
                 setMargins(2, 2, 2, 2)
             }
             setOnClickListener {
@@ -50,37 +55,52 @@ class HeaderBuilder(
             }
         }
 
-        // Центральная колонка с большим значением RPM
+        // Большое поле RPM и подпись по центру
         val centerContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 3f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
             gravity = Gravity.CENTER
         }
 
         tvRpmValue = TextView(context).apply {
             text = "0"
-            textSize = 42f
+            textSize = 72f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
+            includeFontPadding = false
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
 
+        val rpmLabel = TextView(context).apply {
+            text = "RPM (об / мин)"
+            textSize = 11f
+            setTextColor(Color.parseColor("#80CBC4"))
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+        }
+
         centerContainer.addView(tvRpmValue)
+        centerContainer.addView(rpmLabel)
 
         // Кнопка HOLD справа
         val btnHold = Button(context).apply {
             text = "HOLD"
+            textSize = 12f
             setBackgroundColor(Color.parseColor("#424242"))
             setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, 130, 1.5f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 110, 0.22f).apply {
                 setMargins(2, 2, 2, 2)
             }
-            var isHold = false
             setOnClickListener {
-                isHold = !isHold
-                setBackgroundColor(if (isHold) Color.parseColor("#FF9800") else Color.parseColor("#424242"))
-                text = if (isHold) "HELD" else "HOLD"
-                (context as? MainActivity)?.isHoldActive = isHold
+                val activity = (context as? MainActivity) ?: return@setOnClickListener
+                activity.isHoldActive = !activity.isHoldActive
+                if (activity.isHoldActive) {
+                    setBackgroundColor(Color.parseColor("#FF9800"))
+                    setTextColor(Color.BLACK)
+                } else {
+                    setBackgroundColor(Color.parseColor("#424242"))
+                    setTextColor(Color.WHITE)
+                }
             }
         }
 
@@ -91,20 +111,17 @@ class HeaderBuilder(
 
     private fun createInfoPanel() {
         infoPanel.orientation = LinearLayout.VERTICAL
-        infoPanel.setPadding(4, 2, 4, 2)
+        infoPanel.setPadding(4, 2, 4, 4)
         infoPanel.gravity = Gravity.CENTER_HORIZONTAL
-
-        val rpmLabel = TextView(context).apply {
-            text = "RPM (об / мин)"
-            textSize = 10f
-            setTextColor(Color.parseColor("#B0BEC5"))
-            gravity = Gravity.CENTER
-        }
+        infoPanel.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
 
         tvMainStatus = TextView(context).apply {
             text = "Ожидание запуска двигателя"
-            textSize = 12f
-            setTextColor(Color.parseColor("#FFEB3B"))
+            textSize = 11f
+            setTextColor(Color.YELLOW)
             gravity = Gravity.CENTER
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
@@ -112,35 +129,35 @@ class HeaderBuilder(
         tvDetails = TextView(context).apply {
             text = "Громкость: 0 | Порог: 20"
             textSize = 10f
-            setTextColor(Color.parseColor("#E0E0E0"))
+            setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
         }
 
         tvFreqStatus = TextView(context).apply {
             text = "Частота: 0 Гц | Статус: Ниже порога"
             textSize = 10f
-            setTextColor(Color.parseColor("#9E9E9E"))
+            setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER
         }
 
-        // VU-метр
+        // VU-метр на всю ширину
         val vuLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(4, 4, 4, 2)
+            setPadding(4, 6, 4, 4)
             gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
         
         val vuTitle = TextView(context).apply {
             text = "VU-метр: "
             textSize = 10f
             setTextColor(Color.parseColor("#B0BEC5"))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         }
 
         vuMeterBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 1000
             progress = 0
-            layoutParams = LinearLayout.LayoutParams(0, 20, 1f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 24, 1f).apply {
                 setMargins(4, 0, 4, 0)
             }
         }
@@ -148,7 +165,6 @@ class HeaderBuilder(
         vuLayout.addView(vuTitle)
         vuLayout.addView(vuMeterBar)
 
-        infoPanel.addView(rpmLabel)
         infoPanel.addView(tvMainStatus)
         infoPanel.addView(tvDetails)
         infoPanel.addView(tvFreqStatus)
@@ -158,14 +174,18 @@ class HeaderBuilder(
     private fun createAlgorithmRow() {
         algorithmRow.orientation = LinearLayout.HORIZONTAL
         algorithmRow.setPadding(2, 4, 2, 4)
+        algorithmRow.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
 
         for (i in 0..3) {
             val btn = Button(context).apply {
-                text = "Алг ${i + 1}"
+                text = "АЛГ ${i + 1}"
                 textSize = 11f
                 setPadding(1, 1, 1, 1)
                 layoutParams = LinearLayout.LayoutParams(0, 80, 1f).apply {
-                    setMargins(1, 1, 1, 1)
+                    setMargins(2, 2, 2, 2)
                 }
                 setOnClickListener {
                     if (prefsManager.isAlgorithmAllowed(i, prefsManager.engineType)) {
@@ -189,7 +209,7 @@ class HeaderBuilder(
             
             if (isAllowed) {
                 if (i == currentAlg) {
-                    btn.setBackgroundColor(Color.parseColor("#00ACC1")) // Активный
+                    btn.setBackgroundColor(Color.parseColor("#00ACC1")) // Активный алгоритм (бирюзовый)
                     btn.setTextColor(Color.WHITE)
                 } else {
                     btn.setBackgroundColor(Color.parseColor("#37474F")) // Доступный

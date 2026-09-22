@@ -39,14 +39,10 @@ class MainActivity : Activity() {
     private var audioAnalyzer: AudioAnalyzer? = null
     private val PERMISSION_CODE = 200
 
-    // Индекс текущего алгоритма (подгружается из памяти)
     private var currentAlgorithmIndex = 0
-
-    // Элементы новой строки алгоритмов
     private lateinit var tvAlgorithmModeLabel: TextView
     private val algorithmButtons = arrayOfNulls<Button>(4)
 
-    // Переменные для инерции (плавности) цифр на экране
     private var displayedRpmFloat = 0f
     private var targetRpmFloat = 0f
     private var isAnimatingRpm = false
@@ -56,8 +52,6 @@ class MainActivity : Activity() {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
         prefsManager = PreferencesManager(this)
-
-        // Загружаем сохраненный алгоритм из постоянной памяти
         currentAlgorithmIndex = prefsManager.algorithmIndex
 
         val scrollView = ScrollView(this).apply {
@@ -74,23 +68,47 @@ class MainActivity : Activity() {
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
-            onRefreshUI = { 
-                refreshAllUI()
-            },
+            onRefreshUI = { refreshAllUI() },
             volumeStepButtons = volumeStepButtons,
-            onMultiplierChange = { mult ->
-                currentMultiplier = mult
-                refreshAllUI()
-            },
+            onMultiplierChange = { mult -> currentMultiplier = mult; refreshAllUI() },
             currentMultiplierGetter = { currentMultiplier }
         )
 
-        rootLayout.addView(buildTopPanel())
-        rootLayout.addView(buildInfoPanelWithSides())
+        // Собираем весь верх через отдельный класс HeaderBuilder
+        val header = HeaderBuilder.buildAll(
+            context = this,
+            onExitClick = { finish() },
+            onHoldClick = {
+                isHoldActive = !isHoldActive
+                if (isHoldActive) heldRpmValue = currentRealRpm
+                refreshAllUI()
+            },
+            onMultiplierClick = { mult -> currentMultiplier = mult; refreshAllUI() },
+            onAlgorithmClick = { idx ->
+                currentAlgorithmIndex = idx
+                prefsManager.algorithmIndex = idx
+                refreshAlgorithmButtonsUI()
+                restartAnalyzer()
+            },
+            settings = settings
+        )
+
+        rpmTextView = header.rpmTextView
+        btnHold = header.btnHold
+        btnExit = header.btnExit
+        tvAlgorithmModeLabel = header.tvAlgorithmModeLabel
+        for (i in 0..3) { algorithmButtons[i] = header.algorithmButtons[i] }
+
+        // Достаем текстовые поля статусов изнутри infoPanel для обновления в реальном времени
+        val infoPanelLayout = header.infoPanel.getChildAt(2) as LinearLayout
+        statusLine1 = infoPanelLayout.getChildAt(0) as TextView
+        statusLine2 = infoPanelLayout.getChildAt(1) as TextView
+        statusLine3 = infoPanelLayout.getChildAt(2) as TextView
+
+        rootLayout.addView(header.topPanel)
+        rootLayout.addView(header.infoPanel)
         rootLayout.addView(settings.table)
-        
-        // Добавляем строку выбора алгоритмов под таблицей настроек
-        rootLayout.addView(buildAlgorithmSelectionRow())
+        rootLayout.addView(header.algorithmRow)
 
         val copyright = TextView(this).apply {
             text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
@@ -112,66 +130,6 @@ class MainActivity : Activity() {
         } else {
             initAndStartAudioAnalyzer()
         }
-    }
-
-    // Создаем строку алгоритмов (слева текст режима, справа кнопки)
-    private fun buildAlgorithmSelectionRow(): View {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(4, 6, 4, 6)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        // Левая плашка (режим мотора / тип)
-        tvAlgorithmModeLabel = TextView(this).apply {
-            text = "режим: 2T"
-            textSize = 12f
-            setTextColor(Color.parseColor("#00E676"))
-            gravity = Gravity.CENTER
-            setPadding(8, 8, 8, 8)
-            setBackgroundColor(Color.parseColor("#1E1E1E"))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.35f).apply {
-                setMargins(0, 0, 4, 0)
-            }
-        }
-        container.addView(tvAlgorithmModeLabel)
-
-        // Правая часть с кнопками алгоритмов
-        val buttonsLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.65f)
-        }
-
-        val btnParams = LinearLayout.LayoutParams(0, 40, 1f).apply {
-            setMargins(2, 0, 2, 0)
-        }
-
-        for (i in 0 until 4) {
-            val algButton = Button(this).apply {
-                text = "Алг ${i + 1}"
-                textSize = 10f
-                setPadding(0, 0, 0, 0)
-                layoutParams = btnParams
-                setOnClickListener {
-                    currentAlgorithmIndex = i
-                    // Сохраняем выбранный алгоритм в память устройства
-                    prefsManager.algorithmIndex = i 
-                    
-                    refreshAlgorithmButtonsUI()
-                    restartAnalyzer()
-                }
-            }
-            algorithmButtons[i] = algButton
-            buttonsLayout.addView(algButton)
-        }
-
-        container.addView(buttonsLayout)
-        return container
     }
 
     private fun refreshAlgorithmButtonsUI() {
@@ -201,23 +159,15 @@ class MainActivity : Activity() {
 
     private fun initAndStartAudioAnalyzer() {
         audioAnalyzer?.stop()
-        
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             selectedAlgorithmIndex = currentAlgorithmIndex,
             onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
                 currentRealRpm = if (currentMultiplier > 0) (rpm / currentMultiplier) else rpm
-                
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
+                    val targetVal = if (isHoldActive) (if (heldRpmValue > 0) heldRpmValue else 0) else currentRealRpm
                     
-                    val targetVal = if (isHoldActive) {
-                        if (heldRpmValue > 0) heldRpmValue else 0
-                    } else {
-                        currentRealRpm
-                    }
-                    
-                    // Передаем целевое значение в механизм плавной инерции цифр
                     setTargetRpmSmooth(targetVal.toFloat())
                     
                     if (isHoldActive) {
@@ -235,7 +185,6 @@ class MainActivity : Activity() {
 
                     statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
                     statusLine3.text = "Pre-Freq: ${rawFreq.roundToInt()}Гц | All: ${filteredFreq.roundToInt()}Гц"
-
                     updateVolumeSquaresUI(vol)
                 }
             },
@@ -249,12 +198,9 @@ class MainActivity : Activity() {
         audioAnalyzer?.start()
     }
 
-    // Плавное изменение цифр на экране с учетом пресетов Sharp / Norm / Soft
     private fun setTargetRpmSmooth(target: Float) {
         targetRpmFloat = target
-        if (!isAnimatingRpm) {
-            startRpmInertiaLoop()
-        }
+        if (!isAnimatingRpm) startRpmInertiaLoop()
     }
 
     private fun startRpmInertiaLoop() {
@@ -262,24 +208,20 @@ class MainActivity : Activity() {
         rpmTextView.postDelayed(object : Runnable {
             override fun run() {
                 val diff = targetRpmFloat - displayedRpmFloat
-                val preset = prefsManager.smoothPreset // 0 - Sharp, 1 - Norm, 2 - Soft
-                
+                val preset = prefsManager.smoothPreset
                 val smoothingFactor = when (preset) {
-                    0 -> 1.0f  // Sharp: Мгновенно
-                    1 -> if (targetRpmFloat < displayedRpmFloat) 0.2f else 0.4f // Norm
-                    else -> if (targetRpmFloat < displayedRpmFloat) 0.08f else 0.25f // Soft
+                    0 -> 1.0f
+                    1 -> if (targetRpmFloat < displayedRpmFloat) 0.2f else 0.4f
+                    else -> if (targetRpmFloat < displayedRpmFloat) 0.08f else 0.25f
                 }
 
-                if (preset == 0) {
-                    displayedRpmFloat = targetRpmFloat
-                } else {
-                    displayedRpmFloat += diff * smoothingFactor
-                }
+                if (preset == 0) displayedRpmFloat = targetRpmFloat
+                else displayedRpmFloat += diff * smoothingFactor
 
-                updateRpmDisplay(displayedRpmFloat.toInt())
+    updateRpmDisplay(displayedRpmFloat.toInt())
 
                 if (kotlin.math.abs(diff) > 0.5f || targetRpmFloat > 0f) {
-                    rpmTextView.postDelayed(this, 16L) // ~60 FPS обновление анимации цифр
+                    rpmTextView.postDelayed(this, 16L)
                 } else {
                     isAnimatingRpm = false
                 }
@@ -289,227 +231,30 @@ class MainActivity : Activity() {
 
     private fun updateRpmDisplay(value: Int) {
         val clamped = value.coerceIn(0, 99999)
-        val formatted = String.format("%5d", clamped).replace(' ', '\u00A0')
-        rpmTextView.text = formatted
-    }
-
-    private fun buildTopPanel(): View {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, 4)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val leftCol = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.FILL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
-        }
-
-        btnExit = Button(this).apply {
-            text = "EXIT"
-            textSize = 12f
-            setOnClickListener { finish() }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        leftCol.addView(btnExit)
-        container.addView(leftCol)
-
-        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
-
-        val rpmBlock = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
-        }
-
-        rpmTextView = TextView(this).apply {
-            text = "00000"
-            textSize = 82f
-            setTextColor(Color.parseColor("#00E676"))
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-        }
-        rpmBlock.addView(rpmTextView)
-
-        val rpmLabel = TextView(this).apply {
-            text = "RPM (об / мин)"
-            textSize = 11f
-            setTextColor(Color.parseColor("#80CBC4"))
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-        }
-        rpmBlock.addView(rpmLabel)
-
-        container.addView(rpmBlock)
-
-        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
-
-        val rightCol = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.FILL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
-        }
-
-        btnHold = Button(this).apply {
-            text = "HOLD"
-            textSize = 12f
-            setOnClickListener {
-                isHoldActive = !isHoldActive
-                if (isHoldActive) heldRpmValue = currentRealRpm
-                refreshAllUI()
-            }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        rightCol.addView(btnHold)
-        container.addView(rightCol)
-
-        return container
-    }
-
-    private fun buildInfoPanelWithSides(): View {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(4, 4, 4, 8)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        val panelHeight = 44
-        val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-            setMargins(1, 0, 1, 0)
-        }
-
-        val leftMultipliers = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
-        }
-
-        settings.btnX1.apply { text = "/1"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 1; refreshAllUI() } }
-        settings.btnX2.apply { text = "/2"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 2; refreshAllUI() } }
-
-        (settings.btnX1.parent as? LinearLayout)?.removeView(settings.btnX1)
-        (settings.btnX2.parent as? LinearLayout)?.removeView(settings.btnX2)
-
-        leftMultipliers.addView(settings.btnX1)
-        leftMultipliers.addView(settings.btnX2)
-        container.addView(leftMultipliers)
-
-        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
-
-        val centerTextCol = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.52f)
-        }
-
-        statusLine1 = TextView(this).apply {
-            text = "Ожидание запуска двигателя"
-            textSize = 11f
-            setTextColor(Color.YELLOW)
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 0)
-        }
-        centerTextCol.addView(statusLine1)
-
-        statusLine2 = TextView(this).apply {
-            text = "Громкость: 0 | Порог: 20"
-            textSize = 10f
-            setTextColor(Color.parseColor("#80CBC4"))
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 0)
-        }
-        centerTextCol.addView(statusLine2)
-
-        statusLine3 = TextView(this).apply {
-            text = "Pre-Freq: 0 Гц | All: 0 Гц"
-            textSize = 10f
-            setTextColor(Color.parseColor("#B0BEC5"))
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 0)
-        }
-        centerTextCol.addView(statusLine3)
-
-        container.addView(centerTextCol)
-
-        container.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
-
-        val rightMultipliers = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
-        }
-
-        settings.btnX3.apply { text = "/3"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 3; refreshAllUI() } }
-        settings.btnX4.apply { text = "/4"; textSize = 10f; setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { currentMultiplier = 4; refreshAllUI() } }
-
-        (settings.btnX3.parent as? LinearLayout)?.removeView(settings.btnX3)
-        (settings.btnX4.parent as? LinearLayout)?.removeView(settings.btnX4)
-
-        rightMultipliers.addView(settings.btnX3)
-        rightMultipliers.addView(settings.btnX4)
-        container.addView(rightMultipliers)
-
-        return container
+        rpmTextView.text = String.format("%5d", clamped).replace(' ', '\u00A0')
     }
 
     private fun updateVolumeSquaresUI(currentVol: Int) {
-        val currentSensitivityThreshold = prefsManager.minVolumeThreshold
-        
-        var thresholdIndex = 0
+        val thresh = prefsManager.minVolumeThreshold
+        var threshIdx = 0
         if (prefsManager.hasStoredThreshold()) {
-            for (i in 0 until 10) {
-                if (UIBuilder.getThresholdForSquare(i) == currentSensitivityThreshold) {
-                    thresholdIndex = i
-                    break
-                }
-            }
+            for (i in 0 until 10) if (UIBuilder.getThresholdForSquare(i) == thresh) { threshIdx = i; break }
         }
-        
-        var volumeIndex = -1
+        var volIdx = -1
         if (currentVol > 0) {
-            for (i in 9 downTo 0) {
-                if (currentVol >= UIBuilder.getThresholdForSquare(i)) {
-                    volumeIndex = i
-                    break
-                }
-            }
+            for (i in 9 downTo 0) if (currentVol >= UIBuilder.getThresholdForSquare(i)) { volIdx = i; break }
         }
 
         for (i in 0 until 10) {
             val btn = volumeStepButtons[i] ?: continue
-            
-            when {
-                i == thresholdIndex && volumeIndex >= i -> {
-                    btn.setBackgroundColor(Color.parseColor("#00E676"))
-                }
-                i == thresholdIndex -> {
-                    btn.setBackgroundColor(Color.parseColor("#FF9800"))
-                }
-                i < thresholdIndex && volumeIndex >= i -> {
-                    btn.setBackgroundColor(Color.parseColor("#00BCD4"))
-                }
-                i > thresholdIndex && volumeIndex >= i -> {
-                    btn.setBackgroundColor(Color.parseColor("#D0F8E8"))
-                }
-                else -> {
-                    btn.setBackgroundColor(Color.parseColor("#37474F"))
-                }
+            val color = when {
+                i == threshIdx && volIdx >= i -> Color.parseColor("#00E676")
+                i == threshIdx -> Color.parseColor("#FF9800")
+                i < threshIdx && volIdx >= i -> Color.parseColor("#00BCD4")
+                i > threshIdx && volIdx >= i -> Color.parseColor("#D0F8E8")
+                else -> Color.parseColor("#37474F")
             }
+            btn.setBackgroundColor(color)
         }
     }
 
@@ -518,14 +263,55 @@ class MainActivity : Activity() {
 
         btnHold.setBackgroundColor(if (isHoldActive) Color.parseColor("#FF9800") else Color.parseColor("#424242"))
         btnHold.setTextColor(if (isHoldActive) Color.BLACK else Color.WHITE)
-
         btnExit.setBackgroundColor(Color.parseColor("#424242"))
         btnExit.setTextColor(Color.WHITE)
 
-        settings.btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        settings.btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
-        settings.btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        settings.btnX2.setTextColor(if (currentMultiplier == 2) Color.BLACK else Color.WHITE)
-        settings.btnX3.setBackgroundColor(if (currentMultiplier == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        settings.btnX3.setTextColor(if (currentMultiplier == 3) Color.BLACK else Color.WHITE)
-        settings.
+        val mults = listOf(settings.btnX1 to 1, settings.btnX2 to 2, settings.btnX3 to 3, settings.btnX4 to 4)
+        mults.forEach { (btn, m) ->
+            btn.setBackgroundColor(if (currentMultiplier == m) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+            btn.setTextColor(if (currentMultiplier == m) Color.BLACK else Color.WHITE)
+        }
+
+        val eType = prefsManager.engineType
+        val engines = listOf(settings.btn2T to 2, settings.btn4T to 4, settings.btnOthers to 3)
+        engines.forEach { (btn, t) ->
+            btn.setBackgroundColor(if (eType == t) Color.parseColor("#00E676") else Color.parseColor("#424242"))
+            btn.setTextColor(if (eType == t) Color.BLACK else Color.WHITE)
+        }
+
+        val limit = prefsManager.maxAllowedRpm
+        val limits = listOf(settings.btnLimit1 to 6000, settings.btnLimit2 to 12000, settings.btnLimit3 to 20000)
+        limits.forEach { (btn, l) ->
+            btn.setBackgroundColor(if (limit == l) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
+            btn.setTextColor(Color.WHITE)
+        }
+
+        val bufSize = prefsManager.audioBufferSize
+        val buffers = listOf(settings.btnRateFast to 1536, settings.btnRateNorm to 2560, settings.btnRateSlow to 4096)
+        buffers.forEach { (btn, b) ->
+            btn.setBackgroundColor(if (bufSize == b) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+            btn.setTextColor(Color.WHITE)
+        }
+
+        val preset = prefsManager.smoothPreset
+        val smooths = listOf(settings.btnSmoothSharp to 0, settings.btnSmoothNorm to 1, settings.btnSmoothSoft to 2)
+        smooths.forEach { (btn, p) ->
+            btn.setBackgroundColor(if (preset == p) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+            btn.setTextColor(Color.WHITE)
+        }
+
+        updateAlgorithmButtonsVisibility()
+        updateVolumeSquaresUI(0)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            initAndStartAudioAnalyzer()
+        }
+    }
+
+    override fun onDestroy() {
+        audioAnalyzer?.stop()
+        super.onDestroy()
+    }
+}

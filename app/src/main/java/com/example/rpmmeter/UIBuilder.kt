@@ -23,6 +23,9 @@ object UIBuilder {
         val btnRateFast: Button,
         val btnRateNorm: Button,
         val btnRateSlow: Button,
+        val btnSmoothSharp: Button,
+        val btnSmoothNorm: Button,
+        val btnSmoothSoft: Button,
         val btnAlg1: Button,
         val btnAlg2: Button,
         val btnAlg3: Button,
@@ -35,16 +38,17 @@ object UIBuilder {
         onRefreshUI: () -> Unit,
         volumeStepButtons: Array<Button?>
     ): SettingsButtons {
-        // 02: Основной компоновщик таблицы параметров
+        // 02: Основной компоновщик таблицы параметров с весом для заполнения экрана
         val table = TableLayout(context).apply {
-            setPadding(0, 2, 0, 0)
+            setPadding(0, 4, 0, 4)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                0, 
+                1f
             )
         }
 
-        // 10: Кнопки выбора типа двигателя (2T, 4T, Others)
+        // 03: Кнопки выбора типа двигателя (2T, 4T, Others)
         val btn2T = Button(context).apply {
             text = "2T"
             setOnClickListener { prefsManager.engineType = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
@@ -58,7 +62,7 @@ object UIBuilder {
             setOnClickListener { prefsManager.engineType = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
 
-        // 34: Кнопки лимитов оборотов (6k, 12k, 20k)
+        // 04: Кнопки лимитов оборотов (6k, 12k, 20k)
         val btnLimit1 = Button(context).apply {
             text = "6k"
             setOnClickListener { prefsManager.maxAllowedRpm = 6000; onRefreshUI() }
@@ -72,7 +76,7 @@ object UIBuilder {
             setOnClickListener { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
         }
 
-        // 45: Кнопки скорости / размера буфера аудио (Fast, Norm, Slow)
+        // 05: Кнопки скорости / размера буфера аудио (Fast, Norm, Slow)
         val btnRateFast = Button(context).apply {
             text = "Fast"
             setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
@@ -86,35 +90,51 @@ object UIBuilder {
             setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         }
 
-        // 78: Кнопки выбора алгоритмов анализа (Zero-X, AutoCorr, Spectral, Hybrid)
+        // 06: Кнопки управления плавностью тахометра (Sharp, Norm, Soft)
+        val btnSmoothSharp = Button(context).apply {
+            text = "Sharp"
+            setOnClickListener { prefsManager.smoothPreset = 0; onRefreshUI() }
+        }
+        val btnSmoothNorm = Button(context).apply {
+            text = "Norm"
+            setOnClickListener { prefsManager.smoothPreset = 1; onRefreshUI() }
+        }
+        val btnSmoothSoft = Button(context).apply {
+            text = "Soft"
+            setOnClickListener { prefsManager.smoothPreset = 2; onRefreshUI() }
+        }
+
+        // 07: Кнопки выбора алгоритмов анализа (Zero-X, AutoCorr, Spectral, Hybrid)
         val btnAlg1 = Button(context).apply { text = "Zero-X"; setOnClickListener { prefsManager.algorithmIndex = 0; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
         val btnAlg2 = Button(context).apply { text = "AutoCorr"; setOnClickListener { prefsManager.algorithmIndex = 1; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
         val btnAlg3 = Button(context).apply { text = "Spectral"; setOnClickListener { prefsManager.algorithmIndex = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
         val btnAlg4 = Button(context).apply { text = "Hybrid"; setOnClickListener { prefsManager.algorithmIndex = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
 
-        // Сборка строк в единую таблицу настроек
+        // 08: Сборка строк таблицы в строгом порядке
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(context, table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
-        
-        // 56 - ву метр (индикатор громкости из 10 квадратов)
-        addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
-        
+        addRow(context, table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
         addFourRow(context, table, "алгоритм:", btnAlg1, btnAlg2, btnAlg3, btnAlg4)
+        
+        // 09: VU-метр (индикатор громкости из 10 квадратов в самом низу таблицы)
+        addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
 
         return SettingsButtons(
             table, btn2T, btn4T, btnOthers,
             btnLimit1, btnLimit2, btnLimit3,
             btnRateFast, btnRateNorm, btnRateSlow,
+            btnSmoothSharp, btnSmoothNorm, btnSmoothSoft,
             btnAlg1, btnAlg2, btnAlg3, btnAlg4
         )
     }
 
-    // 88: Вспомогательный метод добавления строки с тремя кнопками
+    // 10: Вспомогательный метод добавления строки с тремя кнопками
     private fun addRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 2, 0, 2)
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -126,22 +146,23 @@ object UIBuilder {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
+        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
             setMargins(2, 0, 2, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3)
-        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
 
         row.addView(label); row.addView(bLayout)
         table.addView(row)
     }
 
-    // 89: Вспомогательный метод добавления строки с четырьмя кнопками (для алгоритмов)
+    // 11: Вспомогательный метод добавления строки с четырьмя кнопками
     private fun addFourRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button, b4: Button) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 2, 0, 2)
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -153,18 +174,18 @@ object UIBuilder {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
+        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
             setMargins(2, 0, 2, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p; b4.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3); bLayout.addView(b4)
-        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
 
         row.addView(label); row.addView(bLayout)
         table.addView(row)
     }
 
-    // 56: Генерация ряда квадратов для шкалы громкости (VU-метр)
+    // 12: Генерация ряда квадратов для шкалы громкости
     private fun addVolumeSquaresRow(
         context: Context, 
         table: TableLayout, 
@@ -176,6 +197,7 @@ object UIBuilder {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 2, 0, 2)
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -200,19 +222,18 @@ object UIBuilder {
                     onRefreshUI()
                 }
             }
-            val p = LinearLayout.LayoutParams(0, 42, 1f).apply {
+            val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
                 setMargins(1, 0, 1, 0)
             }
             squareBtn.layoutParams = p
             volumeStepButtons[i] = squareBtn
             squaresLayout.addView(squareBtn)
         }
-        squaresLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        squaresLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
         row.addView(label); row.addView(squaresLayout)
         table.addView(row)
     }
 
-    // Массив пороговых значений громкости для шкалы VU-метра
     val thresholdValues = intArrayOf(20, 150, 400, 800, 1400, 2200, 3200, 4800, 6800, 9000)
 
     fun getThresholdForSquare(index: Int): Int {

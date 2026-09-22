@@ -98,7 +98,7 @@ class MainActivity : Activity() {
 
         // 06: Информационный копирайт внизу
         val copyright = TextView(this).apply {
-            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.7"
+            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.8"
             textSize = 11f
             setTextColor(Color.parseColor("#9E9E9E"))
             gravity = Gravity.CENTER
@@ -265,48 +265,15 @@ class MainActivity : Activity() {
         uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // 13: Обновление состояния и подсветка кнопок алгоритмов с учетом совместимости с мотором
-        val alg = prefsManager.algorithmIndex
-        val engine = prefsManager.engineType
-
-        val alg1Allowed = prefsManager.isAlgorithmAllowed(0, engine)
-        val alg2Allowed = prefsManager.isAlgorithmAllowed(1, engine)
-        val alg3Allowed = prefsManager.isAlgorithmAllowed(2, engine)
-        val alg4Allowed = prefsManager.isAlgorithmAllowed(3, engine)
-
-        uiBuilder.btnAlg1.setBackgroundColor(when {
-            alg == 0 -> Color.parseColor("#00BCD4")
-            !alg1Allowed -> Color.parseColor("#212121")
-            else -> Color.parseColor("#424242")
-        })
-        uiBuilder.btnAlg1.setTextColor(if (alg1Allowed) Color.WHITE else Color.parseColor("#616161"))
-        uiBuilder.btnAlg1.isEnabled = alg1Allowed
-
-        uiBuilder.btnAlg2.setBackgroundColor(when {
-            alg == 1 -> Color.parseColor("#00BCD4")
-            !alg2Allowed -> Color.parseColor("#212121")
-            else -> Color.parseColor("#424242")
-        })
+        // 13: Вызов инкапсулированной логики алгоритмов из UIBuilder
+        UIBuilder.updateAlgorithmButtons(
+            prefsManager,
+            uiBuilder.btnAlg1,
+            uiBuilder.btnAlg2,
+            uiBuilder.btnAlg3,
+            uiBuilder.btnAlg4
+        )
         
-        uiBuilder.btnAlg2.setTextColor(if (alg2Allowed) Color.WHITE else Color.parseColor("#616161"))
-        uiBuilder.btnAlg2.isEnabled = alg2Allowed
-
-        uiBuilder.btnAlg3.setBackgroundColor(when {
-            alg == 2 -> Color.parseColor("#00BCD4")
-            !alg3Allowed -> Color.parseColor("#212121")
-            else -> Color.parseColor("#424242")
-        })
-        uiBuilder.btnAlg3.setTextColor(if (alg3Allowed) Color.WHITE else Color.parseColor("#616161"))
-        uiBuilder.btnAlg3.isEnabled = alg3Allowed
-
-        uiBuilder.btnAlg4.setBackgroundColor(when {
-            alg == 3 -> Color.parseColor("#00BCD4")
-            !alg4Allowed -> Color.parseColor("#212121")
-            else -> Color.parseColor("#424242")
-        })
-        uiBuilder.btnAlg4.setTextColor(if (alg4Allowed) Color.WHITE else Color.parseColor("#616161"))
-        uiBuilder.btnAlg4.isEnabled = alg4Allowed
-
         updateVolumeSquaresUI(0)
     }
 

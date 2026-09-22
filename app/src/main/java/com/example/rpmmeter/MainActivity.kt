@@ -9,10 +9,12 @@ import android.view.Gravity
 import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 import kotlin.math.roundToInt
 
 class MainActivity : Activity() {
@@ -34,19 +36,37 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        prefsManager = PreferencesManager(this)
-
-        val scrollView = ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor("#121212"))
-            isFillViewport = true
+        // 01: Перехватчик фатальных ошибок (сохраняет стек в crash_log.txt для самопроверки)
+        val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val sw = StringWriter()
+                val pw = PrintWriter(sw)
+                throwable.printStackTrace(pw)
+                val logFile = File(getExternalFilesDir(null), "crash_log.txt")
+                logFile.writeText(sw.toString())
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            oldHandler?.uncaughtException(thread, throwable)
         }
 
+        // 02: Инициализация менеджера настроек
+        prefsManager = PreferencesManager(this)
+
+        // 03: Корневой контейнер с растяжением на весь экран
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 12, 16, 12)
+            setBackgroundColor(Color.parseColor("#121212"))
+            setPadding(12, 8, 12, 8)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
+        // 04: Инициализация хелпера шапки (HeaderBuilder)
         headerBuilder = HeaderBuilder(
             context = this,
             onExit = { finish() },
@@ -60,13 +80,10 @@ class MainActivity : Activity() {
             onMultiplierSelect = { mult ->
                 currentMultiplier = mult
                 refreshAllUI()
-            },
-            onSmoothSelect = { preset ->
-                prefsManager.smoothPreset = preset
-                refreshAllUI()
             }
         )
 
+        // 05: Инициализация таблицы настроек через UIBuilder
         uiBuilder = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -74,24 +91,26 @@ class MainActivity : Activity() {
             volumeStepButtons = volumeStepButtons
         )
 
+        // Сборка интерфейса экрана
         rootLayout.addView(headerBuilder.buildTopPanel())
         rootLayout.addView(headerBuilder.buildInfoPanelWithSides())
         rootLayout.addView(uiBuilder.table)
 
+        // 06: Информационный копирайт внизу
         val copyright = TextView(this).apply {
-            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.3"
-            textSize = 12f
+            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.7"
+            textSize = 11f
             setTextColor(Color.parseColor("#9E9E9E"))
             gravity = Gravity.CENTER
-            setPadding(16, 12, 16, 8)
+            setPadding(8, 4, 8, 4)
         }
         rootLayout.addView(copyright)
 
-        scrollView.addView(rootLayout)
-        setContentView(scrollView)
+        setContentView(rootLayout)
 
         refreshAllUI()
 
+        // 07: Проверка разрешений на запись аудио
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
         } else {
@@ -99,36 +118,39 @@ class MainActivity : Activity() {
         }
     }
 
+    // 08: Перезапуск аудиоанализатора
     fun restartAnalyzer() {
         audioAnalyzer?.stop()
         audioAnalyzer = null
         initAndStartAudioAnalyzer()
     }
 
+    // 09: Инициализация и запуск потока анализатора звука
     private fun initAndStartAudioAnalyzer() {
         audioAnalyzer?.stop()
         
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rawRpm, allFreq, preFreq, vol, status ->
-                // Делим на выбранный коэффициент (множитель цилиндров / формулы)
                 val targetRpm = if (currentMultiplier > 0) (rawRpm / currentMultiplier) else rawRpm
 
-                // Честная реализация плавности тахометра (Sharp = 0-1 фреймов, Norm = 2-5 фреймов, Soft = 8 фреймов)
+                // Применение пресетов плавности тахометра
                 val preset = prefsManager.smoothPreset
                 val smoothedRpm = when (preset) {
-                    0 -> targetRpm // Sharp: мгновенно (0 промежуточных шагов)
-                    1 -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 3.0f // Norm: плавные промежуточные шаги
-                    else -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 7.0f // Soft: мягкое затухание скачков
+                    0 -> targetRpm
+                    1 -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 3.0f
+                    else -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 7.0f
                 }
                 currentDisplayRpm = smoothedRpm
 
+                val currentLiveRpm = currentDisplayRpm.roundToInt()
+                val displayInt = if (isHoldActive) heldRpmValue else currentLiveRpm
+
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
-                    val displayInt = if (isHoldActive) heldRpmValue else currentDisplayRpm.roundToInt()
 
                     if (isHoldActive) {
-                        headerBuilder.statusLine1.text = "HOLD. Текущая частота: $displayInt rpm"
+                        headerBuilder.statusLine1.text = "HOLD. Живая частота: $currentLiveRpm rpm"
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
                     } else {
                         if (vol < currentThreshold) {
@@ -157,12 +179,14 @@ class MainActivity : Activity() {
         audioAnalyzer?.start()
     }
 
+    // 10: Форматирование и вывод цифр на главный экран
     private fun updateRpmDisplay(value: Int) {
         val clamped = value.coerceIn(0, 99999)
         val formatted = String.format("%5d", clamped).replace(' ', '\u00A0')
         headerBuilder.rpmTextView.text = formatted
     }
 
+    // 11: Обновление VU-метра (индикатор громкости из 10 квадратов)
     private fun updateVolumeSquaresUI(currentVol: Int) {
         val currentSensitivityThreshold = prefsManager.minVolumeThreshold
         var thresholdIndex = 0
@@ -197,6 +221,7 @@ class MainActivity : Activity() {
         }
     }
 
+    // 12: Синхронизация цветов и состояний всех элементов управления интерфейса
     private fun refreshAllUI() {
         if (!::headerBuilder.isInitialized || !::uiBuilder.isInitialized) return
 
@@ -205,7 +230,6 @@ class MainActivity : Activity() {
         headerBuilder.btnExit.setBackgroundColor(Color.parseColor("#424242"))
         headerBuilder.btnExit.setTextColor(Color.WHITE)
 
-        // Множители /1 - /4
         headerBuilder.btnX1.setBackgroundColor(if (currentMultiplier == 1) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         headerBuilder.btnX1.setTextColor(if (currentMultiplier == 1) Color.BLACK else Color.WHITE)
         headerBuilder.btnX2.setBackgroundColor(if (currentMultiplier == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
@@ -215,14 +239,6 @@ class MainActivity : Activity() {
         headerBuilder.btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         headerBuilder.btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
 
-        // Кнопки плавности в хидере
-        val preset = prefsManager.smoothPreset
-        headerBuilder.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        headerBuilder.btnSmoothNorm.setBackgroundColor(if (preset == 1) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        headerBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        listOf(headerBuilder.btnSmoothSharp, headerBuilder.btnSmoothNorm, headerBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
-
-        // Тип мотора
         val eType = prefsManager.engineType
         uiBuilder.btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         uiBuilder.btn2T.setTextColor(if (eType == 2) Color.BLACK else Color.WHITE)
@@ -231,21 +247,24 @@ class MainActivity : Activity() {
         uiBuilder.btnOthers.setBackgroundColor(if (eType == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         uiBuilder.btnOthers.setTextColor(if (eType == 3) Color.BLACK else Color.WHITE)
 
-        // Лимиты RPM
         val limit = prefsManager.maxAllowedRpm
         uiBuilder.btnLimit1.setBackgroundColor(if (limit == 6000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         uiBuilder.btnLimit2.setBackgroundColor(if (limit == 12000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         uiBuilder.btnLimit3.setBackgroundColor(if (limit == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnLimit1, uiBuilder.btnLimit2, uiBuilder.btnLimit3).forEach { it.setTextColor(Color.WHITE) }
 
-        // Скорость буфера
         val bufSize = prefsManager.audioBufferSize
         uiBuilder.btnRateFast.setBackgroundColor(if (bufSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateNorm.setBackgroundColor(if (bufSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnRateFast, uiBuilder.btnRateNorm, uiBuilder.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
-        // Алгоритмы
+        val preset = prefsManager.smoothPreset
+        uiBuilder.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        uiBuilder.btnSmoothNorm.setBackgroundColor(if (preset == 1) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
+        listOf(uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
+
         val alg = prefsManager.algorithmIndex
         uiBuilder.btnAlg1.setBackgroundColor(if (alg == 0) Color.parseColor("#00BCD4") else Color.parseColor("#424242"))
         uiBuilder.btnAlg2.setBackgroundColor(if (alg == 1) Color.parseColor("#00BCD4") else Color.parseColor("#424242"))

@@ -234,6 +234,55 @@ object UIBuilder {
         table.addView(row)
     }
 
+    // 13: Управление цветами и активностью кнопок алгоритмов в зависимости от мотора
+    fun updateAlgorithmButtons(
+        prefsManager: PreferencesManager,
+        btnAlg1: Button,
+        btnAlg2: Button,
+        btnAlg3: Button,
+        btnAlg4: Button
+    ) {
+        val alg = prefsManager.algorithmIndex
+        val engine = prefsManager.engineType
+
+        val alg1Allowed = prefsManager.isAlgorithmAllowed(0, engine)
+        val alg2Allowed = prefsManager.isAlgorithmAllowed(1, engine)
+        val alg3Allowed = prefsManager.isAlgorithmAllowed(2, engine)
+        val alg4Allowed = prefsManager.isAlgorithmAllowed(3, engine)
+
+        btnAlg1.setBackgroundColor(when {
+            alg == 0 -> Color.parseColor("#00BCD4")
+            !alg1Allowed -> Color.parseColor("#212121") // Заблокирован / не поддерживается
+            else -> Color.parseColor("#424242")
+        })
+        btnAlg1.setTextColor(if (alg1Allowed) Color.WHITE else Color.parseColor("#616161"))
+        btnAlg1.isEnabled = alg1Allowed
+
+        btnAlg2.setBackgroundColor(when {
+            alg == 1 -> Color.parseColor("#00BCD4")
+            !alg2Allowed -> Color.parseColor("#212121")
+            else -> Color.parseColor("#424242")
+        })
+        btnAlg2.setTextColor(if (alg2Allowed) Color.WHITE else Color.parseColor("#616161"))
+        btnAlg2.isEnabled = alg2Allowed
+
+        btnAlg3.setBackgroundColor(when {
+            alg == 2 -> Color.parseColor("#00BCD4")
+            !alg3Allowed -> Color.parseColor("#212121")
+            else -> Color.parseColor("#424242")
+        })
+        btnAlg3.setTextColor(if (alg3Allowed) Color.WHITE else Color.parseColor("#616161"))
+        btnAlg3.isEnabled = alg3Allowed
+
+        btnAlg4.setBackgroundColor(when {
+            alg == 3 -> Color.parseColor("#00BCD4")
+            !alg4Allowed -> Color.parseColor("#212121")
+            else -> Color.parseColor("#424242")
+        })
+        btnAlg4.setTextColor(if (alg4Allowed) Color.WHITE else Color.parseColor("#616161"))
+        btnAlg4.isEnabled = alg4Allowed
+    }
+
     val thresholdValues = intArrayOf(20, 150, 400, 800, 1400, 2200, 3200, 4800, 6800, 9000)
 
     fun getThresholdForSquare(index: Int): Int {

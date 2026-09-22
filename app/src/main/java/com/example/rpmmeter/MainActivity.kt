@@ -16,6 +16,7 @@ import kotlin.math.roundToInt
 
 class MainActivity : Activity() {
 
+    // Ссылки на элементы интерфейса статусов
     private lateinit var statusLine1: TextView
     private lateinit var statusLine2: TextView
     private lateinit var statusLine3: TextView
@@ -49,9 +50,11 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
+        // Инициализация менеджера настроек
         prefsManager = PreferencesManager(this)
         currentAlgorithmIndex = prefsManager.algorithmIndex
 
+        // Создание корневого контейнера с прокруткой
         val scrollView = ScrollView(this).apply {
             setBackgroundColor(Color.parseColor("#121212"))
             isFillViewport = true
@@ -63,6 +66,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
+        // Построение таблицы настроек
         settings = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -72,6 +76,7 @@ class MainActivity : Activity() {
             currentMultiplierGetter = { currentMultiplier }
         )
 
+        // Построение верхней панели (экран RPM, кнопки управления)
         val header = HeaderBuilder.buildAll(
             context = this,
             onExitClick = { finish() },
@@ -96,16 +101,18 @@ class MainActivity : Activity() {
         tvAlgorithmModeLabel = header.tvAlgorithmModeLabel
         for (i in 0..3) { algorithmButtons[i] = header.algorithmButtons[i] }
 
-        // Безопасное получение статусных строк из HeaderBuilder
+        // Получение ссылок на статус-строки
         statusLine1 = header.statusLine1
         statusLine2 = header.statusLine2
         statusLine3 = header.statusLine3
 
+        // Добавление компонентов на главный макет
         rootLayout.addView(header.topPanel)
         rootLayout.addView(header.infoPanel)
         rootLayout.addView(settings.table)
         rootLayout.addView(header.algorithmRow)
 
+        // Метка копирайта внизу
         val copyright = TextView(this).apply {
             text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
             textSize = 12f
@@ -121,6 +128,7 @@ class MainActivity : Activity() {
         refreshAllUI()
         updateAlgorithmButtonsVisibility()
 
+        // Проверка разрешения на запись аудио (микрофон)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
         } else {
@@ -128,6 +136,7 @@ class MainActivity : Activity() {
         }
     }
 
+    // Обновление подсветки кнопок алгоритмов
     private fun refreshAlgorithmButtonsUI() {
         val activeColor = Color.parseColor("#00838F")
         val defaultColor = Color.parseColor("#424242")
@@ -137,6 +146,7 @@ class MainActivity : Activity() {
         }
     }
 
+    // Обновление видимости и текста режима двигателя
     private fun updateAlgorithmButtonsVisibility() {
         val eType = prefsManager.engineType
         tvAlgorithmModeLabel.text = when (eType) {
@@ -147,18 +157,20 @@ class MainActivity : Activity() {
         refreshAlgorithmButtonsUI()
     }
 
+    // Перезапуск аудиоанализатора при смене настроек
     fun restartAnalyzer() {
         audioAnalyzer?.stop()
         audioAnalyzer = null
         initAndStartAudioAnalyzer()
     }
 
+    // Инициализация и старт анализатора звука с обработкой колбэков
     private fun initAndStartAudioAnalyzer() {
         audioAnalyzer?.stop()
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             selectedAlgorithmIndex = currentAlgorithmIndex,
-            onUpdate = { rpm, rawFreq, filteredFreq, vol, status ->
+            onUpdate = { rpm, freq, vol, status ->
                 currentRealRpm = if (currentMultiplier > 0) (rpm / currentMultiplier) else rpm
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
@@ -180,7 +192,7 @@ class MainActivity : Activity() {
                     }
 
                     statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
-                    statusLine3.text = "Pre-Freq: ${rawFreq.roundToInt()}Гц | All: ${filteredFreq.roundToInt()}Гц"
+                    statusLine3.text = "Частота: ${freq.roundToInt()} Гц | Статус: $status"
                     updateVolumeSquaresUI(vol)
                 }
             },
@@ -194,11 +206,13 @@ class MainActivity : Activity() {
         audioAnalyzer?.start()
     }
 
+    // Плавное изменение целевых оборотов (анимация инерции)
     private fun setTargetRpmSmooth(target: Float) {
         targetRpmFloat = target
         if (!isAnimatingRpm) startRpmInertiaLoop()
     }
 
+    // Цикл плавной анимации изменения показаний RPM
     private fun startRpmInertiaLoop() {
         isAnimatingRpm = true
         rpmTextView.postDelayed(object : Runnable {
@@ -225,11 +239,13 @@ class MainActivity : Activity() {
         }, 16L)
     }
 
+    // Форматирование и вывод значения RPM на экран
     private fun updateRpmDisplay(value: Int) {
         val clamped = value.coerceIn(0, 99999)
         rpmTextView.text = String.format("%5d", clamped).replace(' ', '\u00A0')
     }
 
+    // Обновление индикаторов уровня громкости (шкала из квадратов)
     private fun updateVolumeSquaresUI(currentVol: Int) {
         val thresh = prefsManager.minVolumeThreshold
         var threshIdx = 0
@@ -254,6 +270,7 @@ class MainActivity : Activity() {
         }
     }
 
+    // Полное обновление интерфейса при изменении настроек
     private fun refreshAllUI() {
         if (!::btnHold.isInitialized || !::settings.isInitialized) return
 
@@ -300,12 +317,14 @@ class MainActivity : Activity() {
         updateVolumeSquaresUI(0)
     }
 
+    // Обработка результата запроса разрешений
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             initAndStartAudioAnalyzer()
         }
     }
 
+    // Очистка ресурсов при уничтожении активности
     override fun onDestroy() {
         audioAnalyzer?.stop()
         super.onDestroy()

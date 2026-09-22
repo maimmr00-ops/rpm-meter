@@ -39,7 +39,7 @@ class MainActivity : Activity() {
     private var audioAnalyzer: AudioAnalyzer? = null
     private val PERMISSION_CODE = 200
 
-    // Имя текущего алгоритма и его индекс (для передачи в AudioAnalyzer)
+    // Индекс текущего алгоритма (подгружается из памяти)
     private var currentAlgorithmIndex = 0
 
     // Элементы новой строки алгоритмов
@@ -56,6 +56,9 @@ class MainActivity : Activity() {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
         prefsManager = PreferencesManager(this)
+
+        // Загружаем сохраненный алгоритм из постоянной памяти
+        currentAlgorithmIndex = prefsManager.algorithmIndex
 
         val scrollView = ScrollView(this).apply {
             setBackgroundColor(Color.parseColor("#121212"))
@@ -86,7 +89,7 @@ class MainActivity : Activity() {
         rootLayout.addView(buildInfoPanelWithSides())
         rootLayout.addView(settings.table)
         
-        // Добавляем новую строку выбора алгоритмов под таблицей настроек
+        // Добавляем строку выбора алгоритмов под таблицей настроек
         rootLayout.addView(buildAlgorithmSelectionRow())
 
         val copyright = TextView(this).apply {
@@ -111,7 +114,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // Создаем новую строку алгоритмов (слева текст режима, справа кнопки)
+    // Создаем строку алгоритмов (слева текст режима, справа кнопки)
     private fun buildAlgorithmSelectionRow(): View {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -156,6 +159,9 @@ class MainActivity : Activity() {
                 layoutParams = btnParams
                 setOnClickListener {
                     currentAlgorithmIndex = i
+                    // Сохраняем выбранный алгоритм в память устройства
+                    prefsManager.algorithmIndex = i 
+                    
                     refreshAlgorithmButtonsUI()
                     restartAnalyzer()
                 }
@@ -522,7 +528,4 @@ class MainActivity : Activity() {
         settings.btnX2.setTextColor(if (currentMultiplier == 2) Color.BLACK else Color.WHITE)
         settings.btnX3.setBackgroundColor(if (currentMultiplier == 3) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         settings.btnX3.setTextColor(if (currentMultiplier == 3) Color.BLACK else Color.WHITE)
-        settings.btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-        settings.btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
-
-        val eType = prefsManager
+        settings.

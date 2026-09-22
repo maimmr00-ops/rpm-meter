@@ -12,8 +12,7 @@ class HeaderBuilder(
     private val context: Context,
     private val onExit: () -> Unit,
     private val onHoldToggle: () -> Unit,
-    private val onMultiplierSelect: (Int) -> Unit,
-    private val onSmoothSelect: (Int) -> Unit
+    private val onMultiplierSelect: (Int) -> Unit
 ) {
     lateinit var btnExit: Button
     lateinit var btnHold: Button
@@ -23,28 +22,25 @@ class HeaderBuilder(
     lateinit var statusLine2: TextView
     lateinit var statusLine3: TextView
 
-    // Кнопки коэффициентов /1, /2 и плавности (Sharp, Norm, Soft)
-    val btnX1 = Button(context).apply { text = "/1"; textSize = 10f }
-    val btnX2 = Button(context).apply { text = "/2"; textSize = 10f }
-    val btnSmoothSharp = Button(context).apply { text = "Sharp"; textSize = 9f }
-    val btnSmoothNorm = Button(context).apply { text = "Norm"; textSize = 9f }
-    val btnSmoothSoft = Button(context).apply { text = "Soft"; textSize = 9f }
+    // 01: Кнопки множителей /1, /2, /3, /4 по бокам хидера
+    val btnX1 = Button(context).apply { text = "/1"; textSize = 11f }
+    val btnX2 = Button(context).apply { text = "/2"; textSize = 11f }
+    val btnX3 = Button(context).apply { text = "/3"; textSize = 11f }
+    val btnX4 = Button(context).apply { text = "/4"; textSize = 11f }
 
-    // Правые кнопки /3, /4
-    val btnX3 = Button(context).apply { text = "/3"; textSize = 10f }
-    val btnX4 = Button(context).apply { text = "/4"; textSize = 10f }
-
+    // 02: Построение верхней панели (EXIT, Тахометр цифрами, HOLD)
     fun buildTopPanel(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, 4)
+            setPadding(0, 0, 0, 2)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
+        // Левая колонка с кнопкой EXIT
         val leftCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -65,6 +61,7 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
+        // Центральный блок с крупным тахометром
         val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -73,7 +70,7 @@ class HeaderBuilder(
 
         rpmTextView = TextView(context).apply {
             text = "00000"
-            textSize = 82f
+            textSize = 76f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -92,6 +89,7 @@ class HeaderBuilder(
         container.addView(rpmBlock)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
+        // Правая колонка с кнопкой HOLD
         val rightCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -113,52 +111,38 @@ class HeaderBuilder(
         return container
     }
 
+    // 03: Построение информационной панели со строками статуса и боковыми коэффициентами
     fun buildInfoPanelWithSides(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(4, 4, 4, 8)
+            setPadding(2, 2, 2, 4)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        val panelHeight = 48
+        val panelHeight = 44
         val btnParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
             setMargins(1, 0, 1, 0)
         }
 
-        // Левая колонка: /1, /2 и переключатели плавности
-        val leftCol = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
-        }
-        val topMultRow = LinearLayout(context).apply {
+        // Левый блок множителей (/1, /2)
+        val leftMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, panelHeight, 0.22f)
         }
         btnX1.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onMultiplierSelect(1) } }
         btnX2.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onMultiplierSelect(2) } }
-        topMultRow.addView(btnX1); topMultRow.addView(btnX2)
-
-        val bottomSmoothRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-        }
-        btnSmoothSharp.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onSmoothSelect(0) } }
-        btnSmoothNorm.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onSmoothSelect(1) } }
-        val btnSmoothSoftMini = btnSmoothSoft.apply { setPadding(0, 0, 0, 0); layoutParams = btnParams; setOnClickListener { onSmoothSelect(2) } }
-        bottomSmoothRow.addView(btnSmoothSharp); bottomSmoothRow.addView(btnSmoothNorm); bottomSmoothRow.addView(btnSmoothSoftMini)
-
-        leftCol.addView(topMultRow)
-        leftCol.addView(bottomSmoothRow)
-        container.addView(leftCol)
+        leftMultipliers.addView(btnX1)
+        leftMultipliers.addView(btnX2)
+        container.addView(leftMultipliers)
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центр: статусы, громкость, частоты All и Pre-Freq
+        // Центральный блок информационных строк (Статус, Громкость, Частоты)
         val centerTextCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -192,7 +176,7 @@ class HeaderBuilder(
         container.addView(centerTextCol)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правая колонка: /3 и /4
+        // Правый блок множителей (/3, /4)
         val rightMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

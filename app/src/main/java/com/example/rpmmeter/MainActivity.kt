@@ -15,13 +15,11 @@ import androidx.core.content.ContextCompat
 class MainActivity : AppCompatActivity() {
 
     private lateinit var prefsManager: PreferencesManager
-    private lateinit var audioAnalyzer: AudioAnalyzer
-    private lateinit var rootLayout: LinearLayout
+    private var audioAnalyzer: AudioAnalyzer? = null
     
     private lateinit var tvRpmValue: TextView
     private lateinit var tvStatusValue: TextView
     
-    // Строители интерфейса
     private lateinit var headerBuilder: HeaderBuilder
     private lateinit var uiBuilder: UIBuilder
     
@@ -34,74 +32,72 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Инициализируем менеджер настроек
-        prefsManager = PreferencesManager(this)
+        try {
+            prefsManager = PreferencesManager(this)
 
-        // 2. Главный корневой контейнер
-        rootLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212"))
-            setPadding(12, 12, 12, 12)
+            val rootLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(Color.parseColor("#121212"))
+                setPadding(12, 12, 12, 12)
+            }
+            setContentView(rootLayout)
+
+            // Инициализация строителей интерфейса
+            headerBuilder = HeaderBuilder(this, prefsManager) { selectedAlgIndex ->
+                prefsManager.algorithmIndex = selectedAlgIndex
+                restartAnalyzer()
+            }
+
+            tvRpmValue = TextView(this).apply {
+                text = "0 RPM"
+                textSize = 36f
+                setTextColor(Color.parseColor("#00E676"))
+                gravity = Gravity.CENTER
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+            
+            tvStatusValue = TextView(this).apply {
+                text = "Инициализация..."
+                textSize = 12f
+                setTextColor(Color.parseColor("#B0BEC5"))
+                gravity = Gravity.CENTER
+            }
+            
+            headerBuilder.infoPanel.addView(tvRpmValue)
+            headerBuilder.infoPanel.addView(tvStatusValue)
+
+            uiBuilder = UIBuilder(this, prefsManager) {
+                headerBuilder.updateButtonStates()
+                restartAnalyzer()
+            }
+
+            rootLayout.addView(headerBuilder.topPanel)
+            rootLayout.addView(headerBuilder.infoPanel)
+            rootLayout.addView(uiBuilder.table)
+            rootLayout.addView(headerBuilder.algorithmRow)
+
+            val copyright = TextView(this).apply {
+                text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
+                textSize = 11f
+                setTextColor(Color.parseColor("#9E9E9E"))
+                gravity = Gravity.CENTER
+                setPadding(16, 16, 16, 8)
+            }
+            rootLayout.addView(copyright)
+
+        } catch (e: Exception) {
+            Toast.makeText(this, "Ошибка UI: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
-        setContentView(rootLayout)
+    }
 
-        // 3. Собираем UI с помощью наших билдеров
-        setupUI()
-
-        // 4. Проверяем микрофон и запускаем анализ
+    override fun onResume() {
+        super.onResume()
         checkAudioPermissionAndStart()
     }
 
-    private fun setupUI() {
-        // Инициализируем шапку и блок алгоритмов
-        headerBuilder = HeaderBuilder(this, prefsManager) { selectedAlgIndex ->
-            // Действие при клике на алгоритм
-            prefsManager.algorithmIndex = selectedAlgIndex
-            restartAnalyzer()
-        }
-
-        // Информационные поля оборотов и статуса
-        tvRpmValue = TextView(this).apply {
-            text = "0 RPM"
-            textSize = 36f
-            setTextColor(Color.parseColor("#00E676"))
-            gravity = Gravity.CENTER
-            setTypeface(null, android.graphics.Typeface.BOLD)
-        }
-        
-        tvStatusValue = TextView(this).apply {
-            text = "Ожидание запуска..."
-            textSize = 12f
-            setTextColor(Color.parseColor("#B0BEC5"))
-            gravity = Gravity.CENTER
-        }
-        
-        headerBuilder.infoPanel.addView(tvRpmValue)
-        headerBuilder.infoPanel.addView(tvStatusValue)
-
-        // Инициализируем таблицу настроек (мотор, лимит, обновление, плавность)
-        uiBuilder = UIBuilder(this, prefsManager) {
-            // При изменении любого параметра (например, смене типа мотора 2T/4T/Others)
-            // обновляем состояние кнопок алгоритмов (активируем/блокируем нужную пару)
-            headerBuilder.updateButtonStates()
-            restartAnalyzer()
-        }
-
-        // --- ДОБАВЛЯЕМ ВСЁ НА ЭКРАН В СТРОГОМ ПОРЯДКЕ ---
-        rootLayout.addView(headerBuilder.topPanel)
-        rootLayout.addView(headerBuilder.infoPanel)
-        rootLayout.addView(uiBuilder.table)          // Таблица настроек
-        rootLayout.addView(headerBuilder.algorithmRow) // Строка алгоритмов (строго под настройками)
-
-        // Копирайт внизу
-        val copyright = TextView(this).apply {
-            text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
-            textSize = 11f
-            setTextColor(Color.parseColor("#9E9E9E"))
-            gravity = Gravity.CENTER
-            setPadding(16, 16, 16, 8)
-        }
-        rootLayout.addView(copyright)
+    override fun onPause() {
+        super.onPause()
+        stopAnalyzer()
     }
 
     private fun checkAudioPermissionAndStart() {
@@ -121,29 +117,36 @@ class MainActivity : AppCompatActivity() {
         if (isRunning) return
         isRunning = true
 
-        audioAnalyzer = AudioAnalyzer(
-            prefsManager = prefsManager,
-            selectedAlgorithmIndex = prefsManager.algorithmIndex,
-            onUpdate = { rpm, _, _, status ->
-                runOnUiThread {
-                    tvRpmValue.text = "$rpm RPM"
-                    tvStatusValue.text = status
+        try {
+            audioAnalyzer = AudioAnalyzer(
+                prefsManager = prefsManager,
+                selectedAlgorithmIndex = prefsManager.algorithmIndex,
+                onUpdate = { rpm, _, _, status ->
+                    runOnUiThread {
+                        tvRpmValue.text = "$rpm RPM"
+                        tvStatusValue.text = status
+                    }
+                },
+                onError = { err ->
+                    runOnUiThread {
+                        tvStatusValue.text = "Ошибка: $err"
+                    }
                 }
-            },
-            onError = { err ->
-                runOnUiThread {
-                    Toast.makeText(this, err, Toast.LENGTH_SHORT).show()
-                    tvStatusValue.text = "Ошибка: $err"
-                }
-            }
-        )
-        audioAnalyzer.start()
+            )
+            audioAnalyzer?.start()
+        } catch (e: Exception) {
+            isRunning = false
+            tvStatusValue.text = "Сбой потока: ${e.localizedMessage}"
+        }
     }
 
     private fun stopAnalyzer() {
         if (!isRunning) return
         isRunning = false
-        audioAnalyzer.stop()
+        try {
+            audioAnalyzer?.stop()
+        } catch (_: Exception) {}
+        audioAnalyzer = null
     }
 
     fun restartAnalyzer() {
@@ -161,19 +164,9 @@ class MainActivity : AppCompatActivity() {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startAnalyzer()
             } else {
-                Toast.makeText(this, "Нужно разрешение на микрофон!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Требуется доступ к микрофону!", Toast.LENGTH_LONG).show()
                 tvStatusValue.text = "Нет доступа к микрофону"
             }
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        startAnalyzer()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        stopAnalyzer()
     }
 }

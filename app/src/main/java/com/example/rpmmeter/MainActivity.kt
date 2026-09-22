@@ -6,8 +6,6 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
-import android.view.Window
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -49,7 +47,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
         prefsManager = PreferencesManager(this)
         currentAlgorithmIndex = prefsManager.algorithmIndex
@@ -74,7 +72,6 @@ class MainActivity : Activity() {
             currentMultiplierGetter = { currentMultiplier }
         )
 
-        // Собираем весь верх через отдельный класс HeaderBuilder
         val header = HeaderBuilder.buildAll(
             context = this,
             onExitClick = { finish() },
@@ -99,11 +96,10 @@ class MainActivity : Activity() {
         tvAlgorithmModeLabel = header.tvAlgorithmModeLabel
         for (i in 0..3) { algorithmButtons[i] = header.algorithmButtons[i] }
 
-        // Достаем текстовые поля статусов изнутри infoPanel для обновления в реальном времени
-        val infoPanelLayout = header.infoPanel.getChildAt(2) as LinearLayout
-        statusLine1 = infoPanelLayout.getChildAt(0) as TextView
-        statusLine2 = infoPanelLayout.getChildAt(1) as TextView
-        statusLine3 = infoPanelLayout.getChildAt(2) as TextView
+        // Безопасное получение статусных строк из HeaderBuilder
+        statusLine1 = header.statusLine1
+        statusLine2 = header.statusLine2
+        statusLine3 = header.statusLine3
 
         rootLayout.addView(header.topPanel)
         rootLayout.addView(header.infoPanel)
@@ -218,7 +214,7 @@ class MainActivity : Activity() {
                 if (preset == 0) displayedRpmFloat = targetRpmFloat
                 else displayedRpmFloat += diff * smoothingFactor
 
-    updateRpmDisplay(displayedRpmFloat.toInt())
+                updateRpmDisplay(displayedRpmFloat.toInt())
 
                 if (kotlin.math.abs(diff) > 0.5f || targetRpmFloat > 0f) {
                     rpmTextView.postDelayed(this, 16L)

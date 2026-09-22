@@ -67,10 +67,10 @@ class AudioAnalyzer(
                         if (volume >= minThreshold) {
                             val engineType = prefsManager.engineType
 
-                            // Выбор математики в зависимости от режима и алгоритма
+                            // Выбор математики анализа
                             frequency = when (selectedAlgorithmIndex) {
                                 
-                                // АЛГОРИТМ 0: Zero-Crossing (с гистерезисом от звона)
+                                // АЛГОРИТМ 0: Zero-Crossing с гистерезисом (быстрый, для чистых режимов)
                                 0 -> {
                                     var zeroCrossings = 0
                                     val noiseFloor = (volume * 0.15).toShort()
@@ -90,7 +90,7 @@ class AudioAnalyzer(
                                     (zeroCrossings.toFloat() * sampleRate / (readSize * 2f))
                                 }
 
-                                // АЛГОРИТМ 1: Автокорреляция (Идеально для 4T и чистого гула в Others)
+                                // АЛГОРИТМ 1: Автокорреляция (Идеально для 4T и гула в Others)
                                 1 -> {
                                     val minLag = sampleRate / 400
                                     val maxLag = sampleRate / 15
@@ -111,7 +111,7 @@ class AudioAnalyzer(
                                     if (bestLag > 0) sampleRate.toFloat() / bestLag.toFloat() else 50.0f
                                 }
 
-                                // АЛГОРИТМ 2: AMDF (Лучший выбор для 2T со звоном и подавления шумов)
+                                // АЛГОРИТМ 2: AMDF (Лучший для 2T со звоном и подавления шумов)
                                 2 -> {
                                     val minLag = sampleRate / 400
                                     val maxLag = sampleRate / 15
@@ -163,17 +163,21 @@ class AudioAnalyzer(
                                 else -> 50.0f
                             }
 
-                            // Расширяем рамки во избежание зависаний при перегазовках
+                            // Защита от зависаний при перегазовках
                             frequency = frequency.coerceIn(5.0f, 500.0f)
 
-                            // Расчет RPM в зависимости от выбранного типа двигателя
-                            rpm = if (engineType == 4) {
-                                (frequency * 30).toInt() // Для 4T
-                            } else {
-                                (frequency * 60).toInt() // Для 2T и Others
+                            // Точный расчет RPM с учетом типа двигателя (2T, 4T, Others)
+                            rpm = when (engineType) {
+                                4 -> (frequency * 30).toInt()  // 4T: вспышка раз в 2 оборота
+                                2 -> (frequency * 60).toInt()  // 2T: вспышка каждый оборот
+                                else -> (frequency * 60).toInt() // Others: прямая частота
                             }
                             
-                            val modeName = if (engineType == 2) "2T" else "Others"
+                            val modeName = when (engineType) {
+                                2 -> "2T"
+                                4 -> "4T"
+                                else -> "Others"
+                            }
                             statusStr = "$modeName | Алг ${selectedAlgorithmIndex + 1}"
                         } else {
                             statusStr = "Ожидание / Тишина"

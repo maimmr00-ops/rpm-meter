@@ -71,12 +71,12 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // Выбор алгоритма по индексу кнопки (/1 -> 0, /2 -> 1, /3 -> 2, /4 -> 3)
+                // Выбор алгоритма в зависимости от индекса выбранной кнопки в новой строке
                 val rawFreq = when (selectedAlgorithmIndex) {
-                    0 -> findFrequencyAMDF(buffer, readCount, sampleRate)          
-                    1 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate) 
-                    2 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate)
-                    else -> findFrequencySpectral(buffer, readCount, sampleRate)   
+                    0 -> findFrequencyAMDF(buffer, readCount, sampleRate)          // Кнопка 1: AMDF
+                    1 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate) // Кнопка 2: Zero-Crossing
+                    2 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate)// Кнопка 3: Autocorr
+                    else -> findFrequencySpectral(buffer, readCount, sampleRate)   // Кнопка 4: Spectral
                 }
 
                 if (rawFreq < 10.0f || rawFreq > 400.0f) {
@@ -196,7 +196,7 @@ class AudioAnalyzer(
         return bestFreq
     }
 
-    fn stop() {
+    fun stop() {
         isRunning = false
         try { audioRecord?.stop(); audioRecord?.release() } catch (_: Exception) {}
         audioRecord = null

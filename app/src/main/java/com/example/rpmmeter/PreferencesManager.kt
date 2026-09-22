@@ -30,6 +30,11 @@ class PreferencesManager(context: Context) {
         get() = prefs.getInt("smooth_preset", 1)
         set(value) = prefs.edit().putInt("smooth_preset", value).apply()
 
+    // --- НОВОЕ: Сохранение и чтение индекса выбранного алгоритма ---
+    var algorithmIndex: Int
+        get() = prefs.getInt("algorithm_index", 0) // По умолчанию Алг 1 (индекс 0)
+        set(value) = prefs.edit().putInt("algorithm_index", value).apply()
+
     fun saveSmooth(rise: Float, fall: Float) {
         val preset = when {
             rise >= 0.5f -> 0

@@ -252,13 +252,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-tCode, permissions, grantResults)
-        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startAnalyzer()
-            } else {
-                Toast.makeText(this, "Требуется доступ к микрофону!", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-}

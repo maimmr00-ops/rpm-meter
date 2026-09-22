@@ -1,332 +1,295 @@
 package com.example.rpmmeter
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import kotlin.math.roundToInt
 
-class MainActivity : Activity() {
+class MainActivity : AppCompatActivity() {
 
-    // Ссылки на элементы интерфейса статусов
-    private lateinit var statusLine1: TextView
-    private lateinit var statusLine2: TextView
-    private lateinit var statusLine3: TextView
-    
-    private lateinit var rpmTextView: TextView
-    private lateinit var btnHold: Button
-    private lateinit var btnExit: Button
-    
-    private var currentMultiplier = 1
-
-    private lateinit var settings: UIBuilder.SettingsButtons
-    private val volumeStepButtons = arrayOfNulls<Button>(10)
-
-    private var isHoldActive = false
-    private var heldRpmValue = 0
-    private var currentRealRpm = 0
-
+    // Менеджер для сохранения настроек в SharedPreferences (память устройства)
     private lateinit var prefsManager: PreferencesManager
-    private var audioAnalyzer: AudioAnalyzer? = null
-    private val PERMISSION_CODE = 200
-
-    private var currentAlgorithmIndex = 0
+    
+    // Анализатор звука, работающий в фоновом потоке
+    private lateinit var audioAnalyzer: AudioAnalyzer
+    
+    // Главный вертикальный контейнер всего экрана
+    private lateinit var rootLayout: LinearLayout
+    
+    // Текстовые метки для вывода режима (2T, 4T, Others) и текущих оборотов
     private lateinit var tvAlgorithmModeLabel: TextView
+    private lateinit var tvRpmValue: TextView
+    private lateinit var tvStatusValue: TextView
+    
+    // Массив кнопок для переключения алгоритмов (0 до 3)
     private val algorithmButtons = arrayOfNulls<Button>(4)
+    
+    // Флаг состояния работы анализатора
+    private var isRunning = false
 
-    private var displayedRpmFloat = 0f
-    private var targetRpmFloat = 0f
-    private var isAnimatingRpm = false
+    companion object {
+        private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
 
-        // Инициализация менеджера настроек
+        // Инициализируем хранилище настроек
         prefsManager = PreferencesManager(this)
-        currentAlgorithmIndex = prefsManager.algorithmIndex
 
-        // Создание корневого контейнера с прокруткой
-        val scrollView = ScrollView(this).apply {
-            setBackgroundColor(Color.parseColor("#121212"))
-            isFillViewport = true
-        }
-
-        val rootLayout = LinearLayout(this).apply {
+        // 1. Создаем корневой layout (экран приложения с темным фоном)
+        rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 12, 16, 12)
-            gravity = Gravity.CENTER_HORIZONTAL
+            setBackgroundColor(Color.parseColor("#121212"))
+            setPadding(12, 12, 12, 12)
+        }
+        setContentView(rootLayout)
+
+        // 2. Строим пользовательский интерфейс по блокам
+        setupUI()
+
+        // 3. Проверяем разрешение на микрофон и запускаем анализ
+        checkAudioPermissionAndStart()
+    }
+
+    /**
+     * Сборка интерфейса: создание панелей, кнопок и размещение их в нужном порядке.
+     */
+    private fun setupUI() {
+        // --- БЛОК 1: Верхняя панель (Заголовок) ---
+        val topPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(8, 8, 8, 8)
+        }
+        val tvTitle = TextView(this).apply {
+            text = "RPM Meter 2.2"
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+        topPanel.addView(tvTitle)
+
+        // --- БЛОК 2: Информационная панель (Обороты и статус) ---
+        val infoPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 8, 8, 8)
+            setBackgroundColor(Color.parseColor("#1A1A1A"))
+        }
+        
+        tvRpmValue = TextView(this).apply {
+            text = "0 RPM"
+            textSize = 36f
+            setTextColor(Color.parseColor("#00E676")) // Зеленый цвет цифр
+            gravity = Gravity.CENTER
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+        
+        tvStatusValue = TextView(this).apply {
+            text = "Ожидание запуска..."
+            textSize = 12f
+            setTextColor(Color.parseColor("#B0BEC5"))
+            gravity = Gravity.CENTER
+        }
+        
+        infoPanel.addView(tvRpmValue)
+        infoPanel.addView(tvStatusValue)
+
+        // --- БЛОК 3: Таблица настроек (Мотор, Лимит, Обновление, Плавность) ---
+        val settingsTable = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 8, 8, 8)
+            setBackgroundColor(Color.parseColor("#1E1E1E"))
+        }
+        val tvSmoothLabel = TextView(this).apply {
+            text = "Параметры и Плавность"
+            textSize = 13f
+            setTextColor(Color.WHITE)
+        }
+        settingsTable.addView(tvSmoothLabel)
+
+        // --- БЛОК 4: Строка алгоритмов (Размещается строго ПОД плавностью/настройками) ---
+        val algorithmRowContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 8, 8, 8)
+            setBackgroundColor(Color.parseColor("#161616"))
         }
 
-        // Построение таблицы настроек
-        settings = UIBuilder.buildSettingsTable(
-            context = this,
-            prefsManager = prefsManager,
-            onRefreshUI = { refreshAllUI() },
-            volumeStepButtons = volumeStepButtons,
-            onMultiplierChange = { mult -> currentMultiplier = mult; refreshAllUI() },
-            currentMultiplierGetter = { currentMultiplier }
-        )
+        // Подпись текущего режима (динамически отображает 2T, 4T или Others)
+        tvAlgorithmModeLabel = TextView(this).apply {
+            text = updateModeLabelText()
+            textSize = 12f
+            setTextColor(Color.parseColor("#00E676"))
+            setPadding(4, 0, 0, 4)
+        }
+        algorithmRowContainer.addView(tvAlgorithmModeLabel)
 
-        // Построение верхней панели (экран RPM, кнопки управления)
-        val header = HeaderBuilder.buildAll(
-            context = this,
-            onExitClick = { finish() },
-            onHoldClick = {
-                isHoldActive = !isHoldActive
-                if (isHoldActive) heldRpmValue = currentRealRpm
-                refreshAllUI()
-            },
-            onMultiplierClick = { mult -> currentMultiplier = mult; refreshAllUI() },
-            onAlgorithmClick = { idx ->
-                currentAlgorithmIndex = idx
-                prefsManager.algorithmIndex = idx
-                refreshAlgorithmButtonsUI()
-                restartAnalyzer()
-            },
-            settings = settings
-        )
+        // Горизонтальный ряд из 4 кнопок с понятными названиями алгоритмов
+        val buttonsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
 
-        rpmTextView = header.rpmTextView
-        btnHold = header.btnHold
-        btnExit = header.btnExit
-        tvAlgorithmModeLabel = header.tvAlgorithmModeLabel
-        for (i in 0..3) { algorithmButtons[i] = header.algorithmButtons[i] }
+        // Реальные названия алгоритмов для кнопок
+        val algNames = arrayOf("Zero-Cross", "Autocorrel", "AMDF", "Peak-Time")
+        for (i in algNames.indices) {
+            val btn = Button(this).apply {
+                text = algNames[i] // Название алгоритма на кнопке
+                textSize = 10f     // Компактный шрифт, чтобы текст поместился
+                setOnClickListener {
+                    // При нажатии сохраняем индекс алгоритма (0, 1, 2 или 3)
+                    prefsManager.algorithmIndex = i
+                    refreshAlgorithmButtonsUI() // Подсвечиваем активную кнопку
+                    restartAnalyzer()           // Перезапускаем анализатор с новой математикой
+                }
+            }
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            ).apply {
+                setMargins(2, 0, 2, 0)
+            }
+            btn.layoutParams = params
+            algorithmButtons[i] = btn
+            buttonsLayout.addView(btn)
+        }
+        algorithmRowContainer.addView(buttonsLayout)
+        refreshAlgorithmButtonsUI() // Первичная подсветка
 
-        // Получение ссылок на статус-строки
-        statusLine1 = header.statusLine1
-        statusLine2 = header.statusLine2
-        statusLine3 = header.statusLine3
+        // --- СТРОГИЙ ПОРЯДОК ДОБАВЛЕНИЯ ЭЛЕМЕНТОВ НА ЭКРАН ---
+        rootLayout.addView(topPanel)
+        rootLayout.addView(infoPanel)
+        rootLayout.addView(settingsTable)         // 1. Сначала настройки (Плавность)
+        rootLayout.addView(algorithmRowContainer) // 2. Строка алгоритмов — строго ПОД плавностью
 
-        // Добавление компонентов на главный макет
-        rootLayout.addView(header.topPanel)
-        rootLayout.addView(header.infoPanel)
-        rootLayout.addView(settings.table)
-        rootLayout.addView(header.algorithmRow)
-
-        // Метка копирайта внизу
+        // --- БЛОК 5: Копирайт в самом низу ---
         val copyright = TextView(this).apply {
             text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.2"
-            textSize = 12f
+            textSize = 11f
             setTextColor(Color.parseColor("#9E9E9E"))
             gravity = Gravity.CENTER
-            setPadding(16, 12, 16, 8)
+            setPadding(16, 16, 16, 8)
         }
         rootLayout.addView(copyright)
+    }
 
-        scrollView.addView(rootLayout)
-        setContentView(scrollView)
-
-        refreshAllUI()
-        updateAlgorithmButtonsVisibility()
-
-        // Проверка разрешения на запись аудио (микрофон)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
-        } else {
-            initAndStartAudioAnalyzer()
+    /**
+     * Формирует текст метки режима в зависимости от выбранного двигателя в настройках.
+     */
+    private fun updateModeLabelText(): String {
+        return when (prefsManager.engineType) {
+            2 -> "режим: 2T (Защита от звона)"
+            4 -> "режим: 4T (Автокорреляция)"
+            else -> "режим: Others (Гул / Вибрация)"
         }
     }
 
-    // Обновление подсветки кнопок алгоритмов
+    /**
+     * Визуальная подсветка активной кнопки алгоритма (синий цвет для выбранной, темный для остальных).
+     */
     private fun refreshAlgorithmButtonsUI() {
-        val activeColor = Color.parseColor("#00838F")
-        val defaultColor = Color.parseColor("#424242")
-        for (i in 0 until 4) {
-            algorithmButtons[i]?.setBackgroundColor(if (i == currentAlgorithmIndex) activeColor else defaultColor)
-            algorithmButtons[i]?.setTextColor(Color.WHITE)
+        val currentIndex = prefsManager.algorithmIndex
+        for (i in algorithmButtons.indices) {
+            if (i == currentIndex) {
+                algorithmButtons[i]?.setBackgroundColor(Color.parseColor("#3F51B5")) // Активная
+                algorithmButtons[i]?.setTextColor(Color.WHITE)
+            } else {
+                algorithmButtons[i]?.setBackgroundColor(Color.parseColor("#333333")) // Неактивная
+                algorithmButtons[i]?.setTextColor(Color.LTGRAY)
+            }
         }
     }
 
-    // Обновление видимости и текста режима двигателя
-    private fun updateAlgorithmButtonsVisibility() {
-        val eType = prefsManager.engineType
-        tvAlgorithmModeLabel.text = when (eType) {
-            2 -> "режим: 2T"
-            4 -> "режим: 4T"
-            else -> "режим: Others"
+    /**
+     * Проверка разрешений на использование микрофона.
+     */
+    private fun checkAudioPermissionAndStart() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                REQUEST_RECORD_AUDIO_PERMISSION
+            )
+        } else {
+            startAnalyzer()
         }
-        refreshAlgorithmButtonsUI()
     }
 
-    // Перезапуск аудиоанализатора при смене настроек
-    fun restartAnalyzer() {
-        audioAnalyzer?.stop()
-        audioAnalyzer = null
-        initAndStartAudioAnalyzer()
-    }
+    /**
+     * Запуск фонового анализатора звука.
+     */
+    private fun startAnalyzer() {
+        if (isRunning) return
+        isRunning = true
 
-    // Инициализация и старт анализатора звука с обработкой колбэков
-    private fun initAndStartAudioAnalyzer() {
-        audioAnalyzer?.stop()
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
-            selectedAlgorithmIndex = currentAlgorithmIndex,
-            onUpdate = { rpm, freq, vol, status ->
-                currentRealRpm = if (currentMultiplier > 0) (rpm / currentMultiplier) else rpm
+            selectedAlgorithmIndex = prefsManager.algorithmIndex,
+            onUpdate = { rpm, _, _, status ->
+                // Обновляем UI в главном потоке
                 runOnUiThread {
-                    val currentThreshold = prefsManager.minVolumeThreshold
-                    val targetVal = if (isHoldActive) (if (heldRpmValue > 0) heldRpmValue else 0) else currentRealRpm
-                    
-                    setTargetRpmSmooth(targetVal.toFloat())
-                    
-                    if (isHoldActive) {
-                        statusLine1.text = "HOLD. Текущие: $currentRealRpm об/мин"
-                        statusLine1.setTextColor(Color.parseColor("#FF9800"))
-                    } else {
-                        if (vol < currentThreshold) {
-                            statusLine1.text = "Ожидание запуска двигателя"
-                            statusLine1.setTextColor(Color.YELLOW)
-                        } else {
-                            statusLine1.text = "Работа мотора"
-                            statusLine1.setTextColor(Color.parseColor("#00E676"))
-                        }
-                    }
-
-                    statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
-                    statusLine3.text = "Частота: ${freq.roundToInt()} Гц | Статус: $status"
-                    updateVolumeSquaresUI(vol)
+                    tvRpmValue.text = "$rpm RPM"
+                    tvStatusValue.text = status
                 }
             },
-            onError = { errorMsg ->
+            onError = { err ->
                 runOnUiThread {
-                    statusLine1.text = errorMsg
-                    statusLine1.setTextColor(Color.RED)
+                    Toast.makeText(this, err, Toast.LENGTH_SHORT).show()
+                    tvStatusValue.text = "Ошибка: $err"
                 }
             }
         )
-        audioAnalyzer?.start()
+        audioAnalyzer.start()
     }
 
-    // Плавное изменение целевых оборотов (анимация инерции)
-    private fun setTargetRpmSmooth(target: Float) {
-        targetRpmFloat = target
-        if (!isAnimatingRpm) startRpmInertiaLoop()
+    /**
+     * Остановка анализатора.
+     */
+    private fun stopAnalyzer() {
+        if (!isRunning) return
+        isRunning = false
+        audioAnalyzer.stop()
     }
 
-    // Цикл плавной анимации изменения показаний RPM
-    private fun startRpmInertiaLoop() {
-        isAnimatingRpm = true
-        rpmTextView.postDelayed(object : Runnable {
-            override fun run() {
-                val diff = targetRpmFloat - displayedRpmFloat
-                val preset = prefsManager.smoothPreset
-                val smoothingFactor = when (preset) {
-                    0 -> 1.0f
-                    1 -> if (targetRpmFloat < displayedRpmFloat) 0.2f else 0.4f
-                    else -> if (targetRpmFloat < displayedRpmFloat) 0.08f else 0.25f
-                }
+    /**
+     * Перезапуск анализатора (при смене алгоритма или настроек).
+     */
+    fun restartAnalyzer() {
+        stopAnalyzer()
+        startAnalyzer()
+    }
 
-                if (preset == 0) displayedRpmFloat = targetRpmFloat
-                else displayedRpmFloat += diff * smoothingFactor
-
-                updateRpmDisplay(displayedRpmFloat.toInt())
-
-                if (kotlin.math.abs(diff) > 0.5f || targetRpmFloat > 0f) {
-                    rpmTextView.postDelayed(this, 16L)
-                } else {
-                    isAnimatingRpm = false
-                }
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startAnalyzer()
+            } else {
+                Toast.makeText(this, "Нужно разрешение на микрофон!", Toast.LENGTH_LONG).show()
+                tvStatusValue.text = "Нет доступа к микрофону"
             }
-        }, 16L)
-    }
-
-    // Форматирование и вывод значения RPM на экран
-    private fun updateRpmDisplay(value: Int) {
-        val clamped = value.coerceIn(0, 99999)
-        rpmTextView.text = String.format("%5d", clamped).replace(' ', '\u00A0')
-    }
-
-    // Обновление индикаторов уровня громкости (шкала из квадратов)
-    private fun updateVolumeSquaresUI(currentVol: Int) {
-        val thresh = prefsManager.minVolumeThreshold
-        var threshIdx = 0
-        if (prefsManager.hasStoredThreshold()) {
-            for (i in 0 until 10) if (UIBuilder.getThresholdForSquare(i) == thresh) { threshIdx = i; break }
-        }
-        var volIdx = -1
-        if (currentVol > 0) {
-            for (i in 9 downTo 0) if (currentVol >= UIBuilder.getThresholdForSquare(i)) { volIdx = i; break }
-        }
-
-        for (i in 0 until 10) {
-            val btn = volumeStepButtons[i] ?: continue
-            val color = when {
-                i == threshIdx && volIdx >= i -> Color.parseColor("#00E676")
-                i == threshIdx -> Color.parseColor("#FF9800")
-                i < threshIdx && volIdx >= i -> Color.parseColor("#00BCD4")
-                i > threshIdx && volIdx >= i -> Color.parseColor("#D0F8E8")
-                else -> Color.parseColor("#37474F")
-            }
-            btn.setBackgroundColor(color)
         }
     }
 
-    // Полное обновление интерфейса при изменении настроек
-    private fun refreshAllUI() {
-        if (!::btnHold.isInitialized || !::settings.isInitialized) return
-
-        btnHold.setBackgroundColor(if (isHoldActive) Color.parseColor("#FF9800") else Color.parseColor("#424242"))
-        btnHold.setTextColor(if (isHoldActive) Color.BLACK else Color.WHITE)
-        btnExit.setBackgroundColor(Color.parseColor("#424242"))
-        btnExit.setTextColor(Color.WHITE)
-
-        val mults = listOf(settings.btnX1 to 1, settings.btnX2 to 2, settings.btnX3 to 3, settings.btnX4 to 4)
-        mults.forEach { (btn, m) ->
-            btn.setBackgroundColor(if (currentMultiplier == m) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-            btn.setTextColor(if (currentMultiplier == m) Color.BLACK else Color.WHITE)
-        }
-
-        val eType = prefsManager.engineType
-        val engines = listOf(settings.btn2T to 2, settings.btn4T to 4, settings.btnOthers to 3)
-        engines.forEach { (btn, t) ->
-            btn.setBackgroundColor(if (eType == t) Color.parseColor("#00E676") else Color.parseColor("#424242"))
-            btn.setTextColor(if (eType == t) Color.BLACK else Color.WHITE)
-        }
-
-        val limit = prefsManager.maxAllowedRpm
-        val limits = listOf(settings.btnLimit1 to 6000, settings.btnLimit2 to 12000, settings.btnLimit3 to 20000)
-        limits.forEach { (btn, l) ->
-            btn.setBackgroundColor(if (limit == l) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
-            btn.setTextColor(Color.WHITE)
-        }
-
-        val bufSize = prefsManager.audioBufferSize
-        val buffers = listOf(settings.btnRateFast to 1536, settings.btnRateNorm to 2560, settings.btnRateSlow to 4096)
-        buffers.forEach { (btn, b) ->
-            btn.setBackgroundColor(if (bufSize == b) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-            btn.setTextColor(Color.WHITE)
-        }
-
-        val preset = prefsManager.smoothPreset
-        val smooths = listOf(settings.btnSmoothSharp to 0, settings.btnSmoothNorm to 1, settings.btnSmoothSoft to 2)
-        smooths.forEach { (btn, p) ->
-            btn.setBackgroundColor(if (preset == p) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-            btn.setTextColor(Color.WHITE)
-        }
-
-        updateAlgorithmButtonsVisibility()
-        updateVolumeSquaresUI(0)
+    override fun onResume() {
+        super.onResume()
+        startAnalyzer() // Запускаем при возврате в приложение
     }
 
-    // Обработка результата запроса разрешений
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            initAndStartAudioAnalyzer()
-        }
-    }
-
-    // Очистка ресурсов при уничтожении активности
-    override fun onDestroy() {
-        audioAnalyzer?.stop()
-        super.onDestroy()
+    override fun onPause() {
+        super.onPause()
+        stopAnalyzer()  // Останавливаем, когда приложение сворачивается
     }
 }

@@ -26,10 +26,16 @@ class AudioAnalyzer(
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
             
-            val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-            val bufferSize = maxOf(minBufferSize, prefsManager.audioBufferSize)
-
             try {
+                val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+                if (minBufferSize <= 0) {
+                    onError("Ошибка буфера микрофона: $minBufferSize")
+                    isRunning = false
+                    return@Thread
+                }
+                
+                val bufferSize = maxOf(minBufferSize, prefsManager.audioBufferSize)
+
                 audioRecord = AudioRecord(
                     MediaRecorder.AudioSource.MIC,
                     sampleRate,
@@ -39,7 +45,8 @@ class AudioAnalyzer(
                 )
 
                 if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                    onError("Ошибка инициализации AudioRecord")
+                    onError("Микрофон не инициализирован")
+                    isRunning = false
                     return@Thread
                 }
 
@@ -47,7 +54,12 @@ class AudioAnalyzer(
                 val audioBuffer = ShortArray(bufferSize)
 
                 while (isRunning) {
-                    val readSize = audioRecord?.read(audioBuffer, 0, audioBuffer.size) ?: 0
+                    val currentRecord = audioRecord
+                    if (currentRecord == null || currentRecord.state != AudioRecord.STATE_INITIALIZED) {
+                        break
+                    }
+
+                    val readSize = currentRecord.read(audioBuffer, 0, audioBuffer.size)
                     if (readSize > 0) {
                         
                         // Расчет RMS (громкость)
@@ -69,11 +81,9 @@ class AudioAnalyzer(
 
                             // Выбор математики анализа
                             frequency = when (selectedAlgorithmIndex) {
-                                
-                                // АЛГОРИТМ 0: Zero-Crossing с гистерезисом
+                                // Алгоритм 0: Zero-Crossing
                                 0 -> {
                                     var zeroCrossings = 0
-                                    // ИСПРАВЛЕНО: явное приведение к Int перед toShort()
                                     val noiseFloor = (volume * 0.15).toInt().toShort()
                                     var lastState = 0
                                     for (i in 0 until readSize) {
@@ -91,7 +101,7 @@ class AudioAnalyzer(
                                     (zeroCrossings.toFloat() * sampleRate / (readSize * 2f))
                                 }
 
-                                // АЛГОРИТМ 1: Автокорреляция
+                                // Алгоритм 1: Autocorrel
                                 1 -> {
                                     val minLag = sampleRate / 400
                                     val maxLag = sampleRate / 15
@@ -112,7 +122,7 @@ class AudioAnalyzer(
                                     if (bestLag > 0) sampleRate.toFloat() / bestLag.toFloat() else 50.0f
                                 }
 
-                                // АЛГОРИТМ 2: AMDF (Лучший для 2T со звоном)
+                                // Алгоритм 2: AMDF
                                 2 -> {
                                     val minLag = sampleRate / 400
                                     val maxLag = sampleRate / 15
@@ -134,12 +144,11 @@ class AudioAnalyzer(
                                     if (bestLag > 0) sampleRate.toFloat() / bestLag.toFloat() else 50.0f
                                 }
 
-                                // АЛГОРИТМ 3: Межпиковый интервал
+                                // Алгоритм 3: Peak-Time
                                 3 -> {
                                     var lastPeakIdx = -1
                                     var totalIntervals = 0
                                     var sumIntervals = 0f
-                                    // ИСПРАВЛЕНО: явное приведение к Int перед toShort()
                                     val peakThreshold = (volume * 0.6).toInt().toShort()
                                     for (i in 2 until readSize - 2) {
                                         if (audioBuffer[i] > peakThreshold && 
@@ -165,14 +174,12 @@ class AudioAnalyzer(
                                 else -> 50.0f
                             }
 
-                            // Защита от зависаний при перегазовках
                             frequency = frequency.coerceIn(5.0f, 500.0f)
 
-                            // Расчет RPM для 2T, 4T и Others
                             rpm = when (engineType) {
-                                4 -> (frequency * 30).toInt()  // 4T
-                                2 -> (frequency * 60).toInt()  // 2T
-                                else -> (frequency * 60).toInt() // Others
+                                4 -> (frequency * 30).toInt()
+                                2 -> (frequency * 60).toInt()
+                                else -> (frequency * 60).toInt()
                             }
                             
                             val modeName = when (engineType) {
@@ -192,7 +199,7 @@ class AudioAnalyzer(
             } catch (e: SecurityException) {
                 onError("Нет разрешения на микрофон")
             } catch (e: Exception) {
-                onError("Ошибка: ${e.localizedMessage}")
+                onError("Ошибка звука: ${e.localizedMessage}")
             } finally {
                 stopInternal()
             }

@@ -91,10 +91,10 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 2. Расчет базовой частоты буфера (All) через Zero-X
+                // 2. Расчет базовой частоты буфера (All) всегда через Zero-X для отображения
                 val allFreq = zeroCrossing.detect(buffer, readCount, sampleRate)
 
-                // 3. Выбор активного алгоритма анализа
+                // 3. Выбор активного алгоритма анализа на основе настроек пользователя
                 val activeDetector: PitchDetector = when (prefsManager.algorithmIndex) {
                     0 -> zeroCrossing
                     1 -> autoCorr

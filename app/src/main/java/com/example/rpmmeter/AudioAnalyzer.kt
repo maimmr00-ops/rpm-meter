@@ -4,8 +4,11 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import kotlin.math.cos
-import kotlin.math.sin
+import com.example.rpmmeter.detectors.AutocorrelationDetector
+import com.example.rpmmeter.detectors.HybridDetector
+import com.example.rpmmeter.detectors.PitchDetector
+import com.example.rpmmeter.detectors.SpectralDetector
+import com.example.rpmmeter.detectors.ZeroCrossingDetector
 import kotlin.math.sqrt
 
 class AudioAnalyzer(
@@ -17,6 +20,12 @@ class AudioAnalyzer(
     private var isRunning = false
     private var analysisThread: Thread? = null
     private var smoothedVolume = 0f
+
+    // Экземпляры детекторов
+    private val zeroCrossing = ZeroCrossingDetector()
+    private val autoCorr = AutocorrelationDetector()
+    private val spectral = SpectralDetector()
+    private val hybrid = HybridDetector()
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -82,16 +91,18 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 2. Расчет базовой сырой частоты буфера (All)
-                val allFreq = findFrequencyZeroCrossing(buffer, readCount, sampleRate)
+                // 2. Расчет базовой частоты буфера (All) через Zero-X
+                val allFreq = zeroCrossing.detect(buffer, readCount, sampleRate)
 
-                // 3. Выбор алгоритма согласно настройке пользователя
-                val preFreq = when (prefsManager.algorithmIndex) {
-                    0 -> findFrequencyZeroCrossing(buffer, readCount, sampleRate) // Zero-X
-                    1 -> findFrequencyAutocorrelation(buffer, readCount, sampleRate) // AutoCorr
-                    2 -> findFrequencySpectralPeak(buffer, readCount, sampleRate) // Spectral
-                    else -> findFrequencyAutocorrelation(buffer, readCount, sampleRate) // Hybrid
+                // 3. Выбор активного алгоритма анализа
+                val activeDetector: PitchDetector = when (prefsManager.algorithmIndex) {
+                    0 -> zeroCrossing
+                    1 -> autoCorr
+                    2 -> spectral
+                    else -> hybrid
                 }
+
+                val preFreq = activeDetector.detect(buffer, readCount, sampleRate)
 
                 if (preFreq < 10.0f || preFreq > 400.0f) {
                     onUpdate(0f, allFreq, 0f, currentVolInt, "Поиск сигнала...")
@@ -112,76 +123,6 @@ class AudioAnalyzer(
             }
         }
         analysisThread?.start()
-    }
-
-    private fun findFrequencyZeroCrossing(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        var crossings = 0
-        var sum = 0L
-        for (i in 0 until size) sum += buffer[i]
-        val avg = (sum / size).toInt()
-
-        for (i in 0 until size - 1) {
-            val curr = buffer[i] - avg
-            val next = buffer[i + 1] - avg
-            if ((curr <= 0 && next > 0) || (curr >= 0 && next < 0)) {
-                crossings++
-            }
-        }
-        return (crossings.toFloat() / 2.0f) * (sampleRate.toFloat() / size.toFloat())
-    }
-
-    private fun findFrequencyAutocorrelation(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val absoluteMinLag = sampleRate / 300
-        val absoluteMaxLag = sampleRate / 20
-        if (size <= absoluteMaxLag) return 0f
-
-        var bestLag = -1
-        var maxCorrelation = -1.0
-
-        for (lag in absoluteMinLag..absoluteMaxLag step 2) {
-            var correlation = 0.0
-            val limit = size - lag
-            for (i in 0 until limit step 4) {
-                correlation += (buffer[i].toDouble() * buffer[i + lag].toDouble())
-            }
-            if (correlation > maxCorrelation) {
-                maxCorrelation = correlation
-                bestLag = lag
-            }
-        }
-
-        if (bestLag <= 0) return 0f
-        return sampleRate.toFloat() / bestLag.toFloat()
-    }
-
-    private fun findFrequencySpectralPeak(buffer: ShortArray, size: Int, sampleRate: Int): Float {
-        val minFreq = 20.0f
-        val maxFreq = 400.0f
-        var bestFreq = 0f
-        var maxPower = 0.0
-
-        var freq = minFreq
-        while (freq <= maxFreq) {
-            var real = 0.0
-            var imag = 0.0
-            val limit = size.coerceAtMost(256)
-            // Исправлен шаг цикла (обычный шаг +2)
-            var i = 0
-            while (i < limit) {
-                val angle = 2.0 * Math.PI * freq * i / sampleRate
-                val sampleVal = buffer[i].toDouble()
-                real += sampleVal * cos(angle)
-                imag += sampleVal * sin(angle)
-                i += 2
-            }
-            val power = real * real + imag * imag
-            if (power > maxPower) {
-                maxPower = power
-                bestFreq = freq
-            }
-            freq += 2.0f
-        }
-        return bestFreq
     }
 
     fun stop() {

@@ -11,7 +11,7 @@ import android.widget.TextView
 
 object UIBuilder {
 
-    // 01: Контейнер-структура для всех интерактивных кнопок настроек таблицы
+    // 01: Контейнер-структура для всех интерактивных кнопок настроек таблицы (теперь 8 алгоритмов)
     data class SettingsButtons(
         val table: TableLayout,
         val btn2T: Button,
@@ -29,7 +29,11 @@ object UIBuilder {
         val btnAlg1: Button,
         val btnAlg2: Button,
         val btnAlg3: Button,
-        val btnAlg4: Button
+        val btnAlg4: Button,
+        val btnAlg5: Button,
+        val btnAlg6: Button,
+        val btnAlg7: Button,
+        val btnAlg8: Button
     )
 
     fun buildSettingsTable(
@@ -104,18 +108,25 @@ object UIBuilder {
             setOnClickListener { prefsManager.smoothPreset = 2; onRefreshUI() }
         }
 
-        // 07: Кнопки выбора алгоритмов анализа (Zero-X, AutoCorr, Spectral, Hybrid)
+        // 07: Кнопки выбора алгоритмов анализа (1-4 ряд)
         val btnAlg1 = Button(context).apply { text = "Zero-X"; setOnClickListener { prefsManager.algorithmIndex = 0; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
         val btnAlg2 = Button(context).apply { text = "AutoCorr"; setOnClickListener { prefsManager.algorithmIndex = 1; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
         val btnAlg3 = Button(context).apply { text = "Spectral"; setOnClickListener { prefsManager.algorithmIndex = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
         val btnAlg4 = Button(context).apply { text = "Hybrid"; setOnClickListener { prefsManager.algorithmIndex = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
 
-        // 08: Сборка строк таблицы в строгом порядке
+        // Кнопки выбора алгоритмов анализа (5-8 ряд)
+        val btnAlg5 = Button(context).apply { text = "YIN"; setOnClickListener { prefsManager.algorithmIndex = 4; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
+        val btnAlg6 = Button(context).apply { text = "HPS"; setOnClickListener { prefsManager.algorithmIndex = 5; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
+        val btnAlg7 = Button(context).apply { text = "AMDF"; setOnClickListener { prefsManager.algorithmIndex = 6; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
+        val btnAlg8 = Button(context).apply { text = "Comb"; setOnClickListener { prefsManager.algorithmIndex = 7; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
+
+        // 08: Сборка строк таблицы в строгом порядке (теперь алгоритмы занимают 2 строки)
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addRow(context, table, "обновление:", btnRateFast, btnRateNorm, btnRateSlow)
         addRow(context, table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
-        addFourRow(context, table, "алгоритм:", btnAlg1, btnAlg2, btnAlg3, btnAlg4)
+        addFourRow(context, table, "алг. 1-4:", btnAlg1, btnAlg2, btnAlg3, btnAlg4)
+        addFourRow(context, table, "алг. 5-8:", btnAlg5, btnAlg6, btnAlg7, btnAlg8)
         
         // 09: VU-метр (индикатор громкости из 10 квадратов в самом низу таблицы)
         addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
@@ -125,7 +136,8 @@ object UIBuilder {
             btnLimit1, btnLimit2, btnLimit3,
             btnRateFast, btnRateNorm, btnRateSlow,
             btnSmoothSharp, btnSmoothNorm, btnSmoothSoft,
-            btnAlg1, btnAlg2, btnAlg3, btnAlg4
+            btnAlg1, btnAlg2, btnAlg3, btnAlg4,
+            btnAlg5, btnAlg6, btnAlg7, btnAlg8
         )
     }
 
@@ -234,53 +246,35 @@ object UIBuilder {
         table.addView(row)
     }
 
-    // 13: Управление цветами и активностью кнопок алгоритмов в зависимости от мотора
+    // 13: Управление цветами и активностью кнопок всех 8 алгоритмов
     fun updateAlgorithmButtons(
         prefsManager: PreferencesManager,
         btnAlg1: Button,
         btnAlg2: Button,
         btnAlg3: Button,
-        btnAlg4: Button
+        btnAlg4: Button,
+        btnAlg5: Button,
+        btnAlg6: Button,
+        btnAlg7: Button,
+        btnAlg8: Button
     ) {
         val alg = prefsManager.algorithmIndex
         val engine = prefsManager.engineType
 
-        val alg1Allowed = prefsManager.isAlgorithmAllowed(0, engine)
-        val alg2Allowed = prefsManager.isAlgorithmAllowed(1, engine)
-        val alg3Allowed = prefsManager.isAlgorithmAllowed(2, engine)
-        val alg4Allowed = prefsManager.isAlgorithmAllowed(3, engine)
+        val buttons = arrayOf(btnAlg1, btnAlg2, btnAlg3, btnAlg4, btnAlg5, btnAlg6, btnAlg7, btnAlg8)
 
-        btnAlg1.setBackgroundColor(when {
-            alg == 0 -> Color.parseColor("#00BCD4")
-            !alg1Allowed -> Color.parseColor("#212121") // Заблокирован / не поддерживается
-            else -> Color.parseColor("#424242")
-        })
-        btnAlg1.setTextColor(if (alg1Allowed) Color.WHITE else Color.parseColor("#616161"))
-        btnAlg1.isEnabled = alg1Allowed
+        for (i in buttons.indices) {
+            val isAllowed = prefsManager.isAlgorithmAllowed(i, engine)
+            val isSelected = (alg == i)
 
-        btnAlg2.setBackgroundColor(when {
-            alg == 1 -> Color.parseColor("#00BCD4")
-            !alg2Allowed -> Color.parseColor("#212121")
-            else -> Color.parseColor("#424242")
-        })
-        btnAlg2.setTextColor(if (alg2Allowed) Color.WHITE else Color.parseColor("#616161"))
-        btnAlg2.isEnabled = alg2Allowed
-
-        btnAlg3.setBackgroundColor(when {
-            alg == 2 -> Color.parseColor("#00BCD4")
-            !alg3Allowed -> Color.parseColor("#212121")
-            else -> Color.parseColor("#424242")
-        })
-        btnAlg3.setTextColor(if (alg3Allowed) Color.WHITE else Color.parseColor("#616161"))
-        btnAlg3.isEnabled = alg3Allowed
-
-        btnAlg4.setBackgroundColor(when {
-            alg == 3 -> Color.parseColor("#00BCD4")
-            !alg4Allowed -> Color.parseColor("#212121")
-            else -> Color.parseColor("#424242")
-        })
-        btnAlg4.setTextColor(if (alg4Allowed) Color.WHITE else Color.parseColor("#616161"))
-        btnAlg4.isEnabled = alg4Allowed
+            buttons[i].setBackgroundColor(when {
+                isSelected -> Color.parseColor("#00BCD4")
+                !isAllowed -> Color.parseColor("#212121")
+                else -> Color.parseColor("#424242")
+            })
+            buttons[i].setTextColor(if (isAllowed) Color.WHITE else Color.parseColor("#616161"))
+            buttons[i].isEnabled = isAllowed
+        }
     }
 
     val thresholdValues = intArrayOf(20, 150, 400, 800, 1400, 2200, 3200, 4800, 6800, 9000)

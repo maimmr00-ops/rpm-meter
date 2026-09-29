@@ -27,6 +27,9 @@ class HeaderBuilder(
     val btnX3 = Button(context).apply { text = "/3"; textSize = 11f }
     val btnX4 = Button(context).apply { text = "/4"; textSize = 11f }
 
+    // Массив для 15 сегментов тонкой полоски VU-метра оборотов
+    val rpmStepButtons = arrayOfNulls<Button>(15)
+
     fun buildTopPanel(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -65,7 +68,7 @@ class HeaderBuilder(
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.78f)
         }
 
-        // Вернули крупный шрифт, как вы просили
+        // Крупный шрифт цифр
         rpmTextView = TextView(context).apply {
             text = "0000"
             textSize = 92f 
@@ -74,6 +77,31 @@ class HeaderBuilder(
             includeFontPadding = false
         }
         rpmBlock.addView(rpmTextView)
+
+        // ==========================================
+        // ТОНКАЯ ПОЛОСКА ШКАЛЫ (15 сегментов без зазоров)
+        // ==========================================
+        val rpmBarLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                8 // Толщина полоски 8dp, чтобы аккуратно смотрелась под крупными цифрами
+            ).apply { setMargins(4, 1, 4, 3) }
+        }
+
+        for (i in 0 until 15) {
+            rpmStepButtons[i] = Button(context).apply {
+                isClickable = false
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.0f).apply {
+                    setMargins(0, 0, 0, 0) // Без отступов для сплошного вида VU-метра
+                }
+                setBackgroundColor(Color.parseColor("#37474F"))
+            }
+            rpmBarLayout.addView(rpmStepButtons[i])
+        }
+        rpmBlock.addView(rpmBarLayout)
+        // ==========================================
 
         val rpmLabel = TextView(context).apply {
             text = "RPM (об / мин)"

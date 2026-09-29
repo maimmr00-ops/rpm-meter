@@ -88,8 +88,6 @@ class MainActivity : Activity() {
 
         rootLayout.addView(headerBuilder.buildTopPanel())
         rootLayout.addView(headerBuilder.buildInfoPanelWithSides())
-
-        // Добавляем таблицу (со встроенной строкой входа внизу)
         rootLayout.addView(uiBuilder.table)
 
         val copyright = TextView(this).apply {
@@ -128,8 +126,8 @@ class MainActivity : Activity() {
 
                 val preset = prefsManager.smoothPreset
                 val smoothedRpm = when (preset) {
-                    3 -> targetRpm // Off: полное отключение сглаживания, мгновенный вывод
-                    0 -> targetRpm // Sharp 
+                    3 -> targetRpm 
+                    0 -> targetRpm 
                     1 -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 3.0f
                     else -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 7.0f
                 }
@@ -138,20 +136,25 @@ class MainActivity : Activity() {
                 val limitRpm = prefsManager.maxAllowedRpm.toFloat()
                 val isOverLimit = currentDisplayRpm > limitRpm
                 
-                // Если обороты улетели выше лимита, жестко фиксируем их на границе лимита, чтобы табло не зависало
-                val effectiveRpm = if (isOverLimit) limitRpm else currentDisplayRpm
-                val displayFloat = if (isHoldActive) heldRpmValue else effectiveRpm
+                // Исправлено: не обрезаем "насильно" втихую, а передаем реальное значение, 
+                // чтобы зафиксировать перегрузку и вывести OL
+                val displayFloat = if (isHoldActive) heldRpmValue else currentDisplayRpm
 
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
 
                     if (isHoldActive) {
-                        headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", effectiveRpm)} rpm"
+                        headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", currentDisplayRpm)} rpm"
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
+                        headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
                     } else if (isOverLimit) {
+                        // Защита сработала: выводим OL и красим табло в красный цвет
                         headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ: Обороты > ${prefsManager.maxAllowedRpm}!"
                         headerBuilder.statusLine1.setTextColor(Color.RED)
+                        headerBuilder.rpmTextView.text = "   OL"
+                        headerBuilder.rpmTextView.setTextColor(Color.RED)
                     } else {
+                        headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
                         if (vol < currentThreshold) {
                             headerBuilder.statusLine1.text = "Ожидание запуска двигателя"
                             headerBuilder.statusLine1.setTextColor(Color.YELLOW)
@@ -159,12 +162,12 @@ class MainActivity : Activity() {
                             headerBuilder.statusLine1.text = status
                             headerBuilder.statusLine1.setTextColor(Color.parseColor("#00E676"))
                         }
+                        updateRpmDisplay(displayFloat)
                     }
 
                     headerBuilder.statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
                     headerBuilder.statusLine3.text = "All: ${String.format("%.1f", allFreq)} Гц | Pre-Freq: ${String.format("%.1f", preFreq)} Гц"
 
-                    updateRpmDisplay(displayFloat)
                     updateVolumeSquaresUI(vol)
                 }
             },

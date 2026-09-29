@@ -214,63 +214,34 @@ object UIBuilder {
             layoutParams = TableLayout.LayoutParams(0, TableLayout.LayoutParams.WRAP_CONTENT, 3f)
         }
 
-        val marginPx = 1
+        val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(1, 0, 1, 0)
+        }
 
         for (i in 0 until 10) {
             val thresholdValue = getThresholdForSquare(i)
             val squareBtn = Button(context).apply {
                 text = ""
                 textSize = 9f
-                setPadding(0, 0, 0, 0)
                 minWidth = 0
                 minimumWidth = 0
                 minHeight = 0
                 minimumHeight = 0
+                setPadding(0, 2, 0, 2)
+                layoutParams = p
                 setOnClickListener {
                     prefsManager.minVolumeThreshold = thresholdValue
                     onRefreshUI()
                 }
             }
-            
-            // Временные параметры перед точным измерением
-            val p = LinearLayout.LayoutParams(0, 30, 1f).apply {
-                setMargins(marginPx, 0, marginPx, 0)
-            }
-            squareBtn.layoutParams = p
             volumeStepButtons[i] = squareBtn
             squaresLayout.addView(squareBtn)
         }
-
-        // Жестко фиксируем и ширину, и высоту по точным расчетам в пикселях
-        squaresLayout.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
-            override fun onGlobalLayout() {
-                squaresLayout.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                val totalWidth = squaresLayout.width
-                if (totalWidth > 0) {
-                    // Общая ширина минус все отступы между 10 квадратами, деленная на 10
-                    val totalMargins = marginPx * 2 * 10
-                    val squareSize = (totalWidth - totalMargins) / 10
-                    if (squareSize > 0) {
-                        for (i in 0 until 10) {
-                            val btn = volumeStepButtons[i]
-                            val lp = btn?.layoutParams as? LinearLayout.LayoutParams
-                            if (lp != null) {
-                                lp.width = squareSize
-                                lp.height = squareSize
-                                lp.weight = 0f // Отключаем weight, переходим на жесткие размеры
-                                btn.layoutParams = lp
-                            }
-                        }
-                    }
-                }
-            }
-        })
 
         row.addView(label)
         row.addView(squaresLayout)
         table.addView(row)
     }
-
     fun updateAlgorithmButtons(
         prefsManager: PreferencesManager,
         btnZeroX: Button,

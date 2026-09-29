@@ -89,7 +89,7 @@ class MainActivity : Activity() {
         rootLayout.addView(headerBuilder.buildTopPanel())
         rootLayout.addView(headerBuilder.buildInfoPanelWithSides())
 
-        // Добавляем таблицу (теперь со встроенной строкой входа внизу)
+        // Добавляем таблицу (со встроенной строкой входа внизу)
         rootLayout.addView(uiBuilder.table)
 
         val copyright = TextView(this).apply {
@@ -128,7 +128,8 @@ class MainActivity : Activity() {
 
                 val preset = prefsManager.smoothPreset
                 val smoothedRpm = when (preset) {
-                    0 -> targetRpm
+                    3 -> targetRpm // Off: полное отключение сглаживания, мгновенный вывод
+                    0 -> targetRpm // Sharp 
                     1 -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 3.0f
                     else -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 7.0f
                 }
@@ -241,20 +242,23 @@ class MainActivity : Activity() {
         uiBuilder.btnLimit3.setBackgroundColor(if (limit == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnLimit1, uiBuilder.btnLimit2, uiBuilder.btnLimit3).forEach { it.setTextColor(Color.WHITE) }
 
+        // Обновление буфера: Turbo теперь проверяет 1024
         val bufSize = prefsManager.audioBufferSize
-        uiBuilder.btnRateTurbo.setBackgroundColor(if (bufSize == 768) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
+        uiBuilder.btnRateTurbo.setBackgroundColor(if (bufSize == 1024) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateFast.setBackgroundColor(if (bufSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateNorm.setBackgroundColor(if (bufSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnRateTurbo, uiBuilder.btnRateFast, uiBuilder.btnRateNorm, uiBuilder.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
+        // Плавность (Off, Sharp, Norm, Soft)
         val preset = prefsManager.smoothPreset
+        uiBuilder.btnSmoothOff.setBackgroundColor(if (preset == 3) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         uiBuilder.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         uiBuilder.btnSmoothNorm.setBackgroundColor(if (preset == 1) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
-        listOf(uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
+        listOf(uiBuilder.btnSmoothOff, uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // Подсветка кнопок аудиовхода внутри таблицы
+        // Подсветка кнопок аудиовхода
         val audioSrc = prefsManager.audioSource
         uiBuilder.btnAudioMic.setBackgroundColor(if (audioSrc == 0) Color.parseColor("#00BCD4") else Color.parseColor("#424242"))
         uiBuilder.btnAudioMic.setTextColor(if (audioSrc == 0) Color.BLACK else Color.WHITE)

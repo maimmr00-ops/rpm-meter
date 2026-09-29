@@ -69,7 +69,7 @@ class HeaderBuilder(
         }
 
         rpmTextView = TextView(context).apply {
-            text = "00000"
+            text = " 000.0"
             textSize = 76f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
@@ -166,7 +166,8 @@ class HeaderBuilder(
         centerTextCol.addView(statusLine2)
 
         statusLine3 = TextView(context).apply {
-            text = "All: 0 Гц | Pre-Freq: 0 Гц"
+            // Теперь вывод идет с десятыми долями (%.1f)
+            text = "All: 0.0 Гц | Pre-Freq: 0.0 Гц"
             textSize = 10f
             setTextColor(Color.parseColor("#B0BEC5"))
             gravity = Gravity.CENTER

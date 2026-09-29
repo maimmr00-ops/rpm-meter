@@ -122,26 +122,36 @@ class MainActivity : Activity() {
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rawRpm, allFreq, preFreq, vol, status ->
+                // 1. Базовый расчет с учетом множителя
                 val targetRpm = if (currentMultiplier > 0) (rawRpm / currentMultiplier) else rawRpm
                 val limitRpm = prefsManager.maxAllowedRpm.toFloat()
-                
-                // Фиксируем факт перегрузки по реальному текущему замеру
-                val isOverLimit = targetRpm > limitRpm
 
-                // Ограничиваем цель сверху, чтобы сглаживание не накапливало гигантские числа
-                val clampedTarget = targetRpm.coerceAtMost(limitRpm * 1.2f)
-
+                // 2. Шаг алгоритма: применение сглаживания
                 val preset = prefsManager.smoothPreset
                 val smoothedRpm = when (preset) {
-                    3 -> clampedTarget 
-                    0 -> clampedTarget 
-                    1 -> currentDisplayRpm + (clampedTarget - currentDisplayRpm) / 3.0f
-                    else -> currentDisplayRpm + (clampedTarget - currentDisplayRpm) / 7.0f
+                    3 -> targetRpm 
+                    0 -> targetRpm 
+                    1 -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 3.0f
+                    else -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 7.0f
                 }
                 currentDisplayRpm = smoothedRpm
 
+                // ==========================================
+                // 3. ПОСТ-ОБРАБОТКА (ПОСЛЕ алгоритма сглаживания)
+                // ==========================================
+                
+                // Проверяем факт перегрузки по текущему сглаженному значению
+                val isOverLimit = currentDisplayRpm > limitRpm
+
+                // Если ушли за лимит — принудительно гасим инерцию математики, 
+                // чтобы значение не улетало в космос и не заставляло табло "висеть"
+                if (isOverLimit) {
+                    currentDisplayRpm = currentDisplayRpm.coerceAtMost(limitRpm * 1.3f)
+                }
+
                 val displayFloat = if (isHoldActive) heldRpmValue else currentDisplayRpm
 
+                // 4. Рендеринг интерфейса на основе пост-обработанных данных
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
 
@@ -151,7 +161,7 @@ class MainActivity : Activity() {
                         headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
                         updateRpmDisplay(displayFloat)
                     } else if (isOverLimit) {
-                        // Показываем предупреждение и OL
+                        // Срабатывает защита: выводим OL и красное предупреждение
                         headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ: Обороты > ${prefsManager.maxAllowedRpm}!"
                         headerBuilder.statusLine1.setTextColor(Color.RED)
                         headerBuilder.rpmTextView.text = "   OL"

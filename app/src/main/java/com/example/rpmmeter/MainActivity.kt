@@ -123,21 +123,23 @@ class MainActivity : Activity() {
             prefsManager = prefsManager,
             onUpdate = { rawRpm, allFreq, preFreq, vol, status ->
                 val targetRpm = if (currentMultiplier > 0) (rawRpm / currentMultiplier) else rawRpm
+                val limitRpm = prefsManager.maxAllowedRpm.toFloat()
+                
+                // Фиксируем факт перегрузки по реальному текущему замеру
+                val isOverLimit = targetRpm > limitRpm
+
+                // Ограничиваем цель сверху, чтобы сглаживание не накапливало гигантские числа
+                val clampedTarget = targetRpm.coerceAtMost(limitRpm * 1.2f)
 
                 val preset = prefsManager.smoothPreset
                 val smoothedRpm = when (preset) {
-                    3 -> targetRpm 
-                    0 -> targetRpm 
-                    1 -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 3.0f
-                    else -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 7.0f
+                    3 -> clampedTarget 
+                    0 -> clampedTarget 
+                    1 -> currentDisplayRpm + (clampedTarget - currentDisplayRpm) / 3.0f
+                    else -> currentDisplayRpm + (clampedTarget - currentDisplayRpm) / 7.0f
                 }
                 currentDisplayRpm = smoothedRpm
 
-                val limitRpm = prefsManager.maxAllowedRpm.toFloat()
-                val isOverLimit = currentDisplayRpm > limitRpm
-                
-                // Исправлено: не обрезаем "насильно" втихую, а передаем реальное значение, 
-                // чтобы зафиксировать перегрузку и вывести OL
                 val displayFloat = if (isHoldActive) heldRpmValue else currentDisplayRpm
 
                 runOnUiThread {
@@ -147,8 +149,9 @@ class MainActivity : Activity() {
                         headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", currentDisplayRpm)} rpm"
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
                         headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
+                        updateRpmDisplay(displayFloat)
                     } else if (isOverLimit) {
-                        // Защита сработала: выводим OL и красим табло в красный цвет
+                        // Показываем предупреждение и OL
                         headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ: Обороты > ${prefsManager.maxAllowedRpm}!"
                         headerBuilder.statusLine1.setTextColor(Color.RED)
                         headerBuilder.rpmTextView.text = "   OL"

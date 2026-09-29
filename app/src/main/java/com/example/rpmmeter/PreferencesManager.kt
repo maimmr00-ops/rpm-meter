@@ -39,13 +39,12 @@ class PreferencesManager(context: Context) {
         }
     }
 
-    // Проверка совместимости алгоритма с типом двигателя
+        // Проверка совместимости алгоритма с типом двигателя
     fun isAlgorithmAllowed(algIndex: Int, engine: Int): Boolean {
-        return when (engine) {
-            2 -> algIndex == 0 || algIndex == 2 // 2T: Zero-X & Spectral
-            4 -> algIndex == 1 || algIndex == 3 // 4T: AutoCorr & Hybrid
-            else -> algIndex == 0 || algIndex == 1 // Others: Zero-X & AutoCorr
-        }
+        // Заменяем старую проверку на true, чтобы разблокировать все алгоритмы для теста:
+        return true
+    }
+
     }
 
     fun hasStoredThreshold(): Boolean {

@@ -22,13 +22,11 @@ class HeaderBuilder(
     lateinit var statusLine2: TextView
     lateinit var statusLine3: TextView
 
-    // 01: Кнопки множителей /1, /2, /3, /4 по бокам хидера
     val btnX1 = Button(context).apply { text = "/1"; textSize = 11f }
     val btnX2 = Button(context).apply { text = "/2"; textSize = 11f }
     val btnX3 = Button(context).apply { text = "/3"; textSize = 11f }
     val btnX4 = Button(context).apply { text = "/4"; textSize = 11f }
 
-    // 02: Построение верхней панели (EXIT, Тахометр цифрами, HOLD)
     fun buildTopPanel(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -40,7 +38,6 @@ class HeaderBuilder(
             )
         }
 
-        // Левая колонка с узкой кнопкой EXIT (0.11f)
         val leftCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -62,7 +59,6 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок с крупным тахометром (расширен до 0.78f)
         val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -70,8 +66,8 @@ class HeaderBuilder(
         }
 
         rpmTextView = TextView(context).apply {
-            text = "0000" // Без запятых и десятых долей для вывода целых крупных чисел
-            textSize = 92f // Максимальный крупный размер шрифта на всю высоту
+            text = "0000"
+            textSize = 92f 
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -90,7 +86,6 @@ class HeaderBuilder(
         container.addView(rpmBlock)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правая колонка с узкой кнопкой HOLD (0.11f)
         val rightCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -113,7 +108,6 @@ class HeaderBuilder(
         return container
     }
 
-    // 03: Построение информационной панели со строками статуса и боковыми коэффициентами
     fun buildInfoPanelWithSides(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -130,7 +124,6 @@ class HeaderBuilder(
             setMargins(1, 0, 1, 0)
         }
 
-        // Левый блок множителей (/1, /2)
         val leftMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -144,7 +137,6 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок информационных строк
         val centerTextCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -178,7 +170,6 @@ class HeaderBuilder(
         container.addView(centerTextCol)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правый блок множителей (/3, /4)
         val rightMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

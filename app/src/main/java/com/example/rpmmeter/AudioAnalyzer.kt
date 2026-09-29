@@ -4,10 +4,14 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import com.example.rpmmeter.detectors.AmdfDetector
 import com.example.rpmmeter.detectors.AutocorrelationDetector
+import com.example.rpmmeter.detectors.CombFilterDetector
+import com.example.rpmmeter.detectors.HpsDetector
 import com.example.rpmmeter.detectors.HybridDetector
 import com.example.rpmmeter.detectors.PitchDetector
 import com.example.rpmmeter.detectors.SpectralDetector
+import com.example.rpmmeter.detectors.YinDetector
 import com.example.rpmmeter.detectors.ZeroCrossingDetector
 import kotlin.math.sqrt
 
@@ -21,11 +25,15 @@ class AudioAnalyzer(
     private var analysisThread: Thread? = null
     private var smoothedVolume = 0f
 
-    // Экземпляры детекторов
+    // Все 8 детекторов
     private val zeroCrossing = ZeroCrossingDetector()
     private val autoCorr = AutocorrelationDetector()
     private val spectral = SpectralDetector()
     private val hybrid = HybridDetector()
+    private val yin = YinDetector()
+    private val hps = HpsDetector()
+    private val amdf = AmdfDetector()
+    private val comb = CombFilterDetector()
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -91,15 +99,20 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 2. Расчет базовой частоты буфера (All) всегда через Zero-X для отображения
+                // 2. Базовая частота через Zero-X
                 val allFreq = zeroCrossing.detect(buffer, readCount, sampleRate)
 
-                // 3. Выбор активного алгоритма анализа на основе настроек пользователя
+                // 3. Выбор из 8 алгоритмов
                 val activeDetector: PitchDetector = when (prefsManager.algorithmIndex) {
                     0 -> zeroCrossing
                     1 -> autoCorr
                     2 -> spectral
-                    else -> hybrid
+                    3 -> hybrid
+                    4 -> yin
+                    5 -> hps
+                    6 -> amdf
+                    7 -> comb
+                    else -> autoCorr
                 }
 
                 val preFreq = activeDetector.detect(buffer, readCount, sampleRate)

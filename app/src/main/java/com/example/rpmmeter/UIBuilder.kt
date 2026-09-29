@@ -41,16 +41,11 @@ object UIBuilder {
     )
 
     private fun createButton(context: Context, textVal: String, onClick: () -> Unit): Button {
-        val scale = context.resources.displayMetrics.density
-        val minH = (32 * scale + 0.5f).toInt() // компактная минимальная высота кнопок
-
         return Button(context).apply {
             text = textVal
             textSize = 11f
             minWidth = 0
             minimumWidth = 0
-            minHeight = minH
-            minimumHeight = minH
             setPadding(2, 0, 2, 0)
             setOnClickListener { onClick() }
         }
@@ -62,12 +57,12 @@ object UIBuilder {
         onRefreshUI: () -> Unit,
         volumeStepButtons: Array<Button?>
     ): SettingsButtons {
-        // Убираем веса, ставим WRAP_CONTENT — таблица будет узкой и плотной без пустых мест
         val table = TableLayout(context).apply {
             setPadding(0, 1, 0, 1)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                0, 
+                1f
             )
         }
 
@@ -103,7 +98,6 @@ object UIBuilder {
         val btnAudioVoice = createButton(context, "VOICE") { prefsManager.audioSource = 1; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnAudioRaw = createButton(context, "RAW") { prefsManager.audioSource = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        // Собираем все строки подряд плотным списком
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addFourRow(context, table, "обновление:", btnRateTurbo, btnRateFast, btnRateNorm, btnRateSlow)
@@ -111,8 +105,9 @@ object UIBuilder {
         addFourRow(context, table, "алг. 1-4:", btnZeroX, btnAutoCorr, btnSpectral, btnHybrid)
         addFourRow(context, table, "алг. 5-8:", btnYin, btnHps, btnAmdf, btnComb)
         
-        // VU-метр и вход идут сразу следом без разрывов
+        // VU-метр со строгим контролем квадратов внутри строки
         addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
+        
         addRow(context, table, "вход:", btnAudioMic, btnAudioVoice, btnAudioRaw)
 
         return SettingsButtons(
@@ -130,10 +125,7 @@ object UIBuilder {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 1, 0, 1)
-            layoutParams = TableLayout.LayoutParams(
-                TableLayout.LayoutParams.MATCH_PARENT, 
-                TableLayout.LayoutParams.WRAP_CONTENT
-            )
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -145,12 +137,12 @@ object UIBuilder {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val p = TableRow.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            setMargins(1, 1, 1, 1)
+        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
+            setMargins(1, 0, 1, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3)
-        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
 
         row.addView(label); row.addView(bLayout)
         table.addView(row)
@@ -160,10 +152,7 @@ object UIBuilder {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 1, 0, 1)
-            layoutParams = TableLayout.LayoutParams(
-                TableLayout.LayoutParams.MATCH_PARENT, 
-                TableLayout.LayoutParams.WRAP_CONTENT
-            )
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -175,12 +164,12 @@ object UIBuilder {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val p = TableRow.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-            setMargins(1, 1, 1, 1)
+        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
+            setMargins(1, 0, 1, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p; b4.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3); bLayout.addView(b4)
-        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
 
         row.addView(label); row.addView(bLayout)
         table.addView(row)
@@ -194,16 +183,10 @@ object UIBuilder {
         prefsManager: PreferencesManager,
         onRefreshUI: () -> Unit
     ) {
-        val scale = context.resources.displayMetrics.density
-        val squareSizePx = (22 * scale + 0.5f).toInt()
-
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 1, 0, 1)
-            layoutParams = TableLayout.LayoutParams(
-                TableLayout.LayoutParams.MATCH_PARENT, 
-                TableLayout.LayoutParams.WRAP_CONTENT
-            )
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -211,9 +194,11 @@ object UIBuilder {
             setTextColor(Color.parseColor("#B0BEC5"))
             setPadding(0, 0, 6, 0)
         }
+        // Чтобы контейнер квадратов выравнивался по центру строки и не растягивался вертикально в прямоугольник
         val squaresLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
         }
 
         for (i in 0 until 10) {
@@ -231,16 +216,19 @@ object UIBuilder {
                     onRefreshUI()
                 }
             }
-            val p = LinearLayout.LayoutParams(0, squareSizePx).apply {
+            // Используем match_parent по высоте внутри центрированного контейнера, 
+            // но ограничиваем пропорции шириной ячейки, чтобы они оставались ровными квадратиками
+            val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT).apply {
                 weight = 1f
-                setMargins(1, 1, 1, 1)
+                setMargins(1, 2, 1, 2) // небольшие вертикальные отступы делают квадраты аккуратнее
             }
             squareBtn.layoutParams = p
             volumeStepButtons[i] = squareBtn
             squaresLayout.addView(squareBtn)
         }
-        squaresLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
-        row.addView(label); row.addView(squaresLayout)
+        
+        row.addView(label)
+        row.addView(squaresLayout)
         table.addView(row)
     }
 

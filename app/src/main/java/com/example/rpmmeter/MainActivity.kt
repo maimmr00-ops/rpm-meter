@@ -25,6 +25,12 @@ class MainActivity : Activity() {
     private lateinit var uiBuilder: UIBuilder.SettingsButtons
     
     private val volumeStepButtons = arrayOfNulls<Button>(10)
+    
+    // Кнопки выбора источника звука (Mic, Voice, Raw)
+    private lateinit var btnAudioMic: Button
+    private lateinit var btnAudioVoice: Button
+    private lateinit var btnAudioRaw: Button
+
     private var currentMultiplier = 1
     private var isHoldActive = false
     private var heldRpmValue = 0f 
@@ -87,7 +93,63 @@ class MainActivity : Activity() {
 
         rootLayout.addView(headerBuilder.buildTopPanel())
         rootLayout.addView(headerBuilder.buildInfoPanelWithSides())
+
+        // --- СОЗДАНИЕ ПАНЕЛИ ИЗ ТРЕХ КНОПОК ПОД VU-МЕТРОМ ---
+        val audioSourceLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 4, 0, 4)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val btnParams = LinearLayout.LayoutParams(0, 75, 1f).apply {
+            setMargins(4, 0, 4, 0)
+        }
+
+        btnAudioMic = Button(this).apply {
+            text = "MIC"
+            textSize = 12f
+            setOnClickListener {
+                prefsManager.audioSource = 0
+                refreshAllUI()
+                restartAnalyzer()
+            }
+            layoutParams = btnParams
+        }
+
+        btnAudioVoice = Button(this).apply {
+            text = "VOICE"
+            textSize = 12f
+            setOnClickListener {
+                prefsManager.audioSource = 1
+                refreshAllUI()
+                restartAnalyzer()
+            }
+            layoutParams = btnParams
+        }
+
+        btnAudioRaw = Button(this).apply {
+            text = "RAW"
+            textSize = 12f
+            setOnClickListener {
+                prefsManager.audioSource = 2
+                refreshAllUI()
+                restartAnalyzer()
+            }
+            layoutParams = btnParams
+        }
+
+        audioSourceLayout.addView(btnAudioMic)
+        audioSourceLayout.addView(btnAudioVoice)
+        audioSourceLayout.addView(btnAudioRaw)
+        // -----------------------------------------------------
+
+        // Добавляем на экран по порядку: шапка, информация, таблица настроек, кнопки источника звука
         rootLayout.addView(uiBuilder.table)
+        rootLayout.addView(audioSourceLayout)
 
         val copyright = TextView(this).apply {
             text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.8"
@@ -138,7 +200,6 @@ class MainActivity : Activity() {
                     val currentThreshold = prefsManager.minVolumeThreshold
 
                     if (isHoldActive) {
-                        // ИЗМЕНЕНИЕ: В режиме HOLD выводим живую частоту целым числом без запятой
                         headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", currentLiveRpm)} rpm"
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
                     } else {
@@ -152,7 +213,6 @@ class MainActivity : Activity() {
                     }
 
                     headerBuilder.statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
-                    // В строке All / Pre-Freq запятая и десятые сохранены намеренно
                     headerBuilder.statusLine3.text = "All: ${String.format("%.1f", allFreq)} Гц | Pre-Freq: ${String.format("%.1f", preFreq)} Гц"
 
                     updateRpmDisplay(displayFloat)
@@ -169,7 +229,6 @@ class MainActivity : Activity() {
         audioAnalyzer?.start()
     }
 
-    // ИЗМЕНЕНИЕ: Главный тахометр выводит целые числа без запятой (%5.0f)
     private fun updateRpmDisplay(value: Float) {
         val clamped = value.coerceIn(0f, 99999f)
         val formatted = String.format("%5.0f", clamped).trim().replace(' ', '\u00A0')
@@ -226,6 +285,15 @@ class MainActivity : Activity() {
         headerBuilder.btnX3.setTextColor(if (currentMultiplier == 3) Color.BLACK else Color.WHITE)
         headerBuilder.btnX4.setBackgroundColor(if (currentMultiplier == 4) Color.parseColor("#00E676") else Color.parseColor("#424242"))
         headerBuilder.btnX4.setTextColor(if (currentMultiplier == 4) Color.BLACK else Color.WHITE)
+
+        // Подсветка кнопок источника звука (MIC / VOICE / RAW)
+        val audioSrc = prefsManager.audioSource
+        btnAudioMic.setBackgroundColor(if (audioSrc == 0) Color.parseColor("#00BCD4") else Color.parseColor("#424242"))
+        btnAudioMic.setTextColor(if (audioSrc == 0) Color.BLACK else Color.WHITE)
+        btnAudioVoice.setBackgroundColor(if (audioSrc == 1) Color.parseColor("#00BCD4") else Color.parseColor("#424242"))
+        btnAudioVoice.setTextColor(if (audioSrc == 1) Color.BLACK else Color.WHITE)
+        btnAudioRaw.setBackgroundColor(if (audioSrc == 2) Color.parseColor("#00BCD4") else Color.parseColor("#424242"))
+        btnAudioRaw.setTextColor(if (audioSrc == 2) Color.BLACK else Color.WHITE)
 
         val eType = prefsManager.engineType
         uiBuilder.btn2T.setBackgroundColor(if (eType == 2) Color.parseColor("#00E676") else Color.parseColor("#424242"))

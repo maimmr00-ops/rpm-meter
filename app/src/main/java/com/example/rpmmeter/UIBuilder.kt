@@ -58,11 +58,10 @@ object UIBuilder {
         volumeStepButtons: Array<Button?>
     ): SettingsButtons {
         val table = TableLayout(context).apply {
-            setPadding(0, 1, 0, 1)
+            setPadding(0, 2, 0, 2)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
-                0, 
-                1f
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
@@ -105,9 +104,15 @@ object UIBuilder {
         addFourRow(context, table, "алг. 1-4:", btnZeroX, btnAutoCorr, btnSpectral, btnHybrid)
         addFourRow(context, table, "алг. 5-8:", btnYin, btnHps, btnAmdf, btnComb)
         
-        // VU-метр со строгим контролем квадратов внутри строки
+        // Аккуратный отступ ровно 5 dp между алгоритмами и VU-метром
+        addSpacerRow(context, table, 5)
+
+        // VU-метр с гарантированно квадратными кнопками
         addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
         
+        // Небольшой отступ перед входом
+        addSpacerRow(context, table, 3)
+
         addRow(context, table, "вход:", btnAudioMic, btnAudioVoice, btnAudioRaw)
 
         return SettingsButtons(
@@ -121,11 +126,20 @@ object UIBuilder {
         )
     }
 
+    private fun addSpacerRow(context: Context, table: TableLayout, heightDp: Int) {
+        val scale = context.resources.displayMetrics.density
+        val heightPx = (heightDp * scale + 0.5f).toInt()
+        val row = TableRow(context).apply {
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, heightPx)
+        }
+        table.addView(row)
+    }
+
     private fun addRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 1, 0, 1)
-            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            setPadding(0, 3, 0, 3)
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.WRAP_CONTENT)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -137,12 +151,12 @@ object UIBuilder {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
+        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
             setMargins(1, 0, 1, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3)
-        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
+        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
 
         row.addView(label); row.addView(bLayout)
         table.addView(row)
@@ -151,8 +165,8 @@ object UIBuilder {
     private fun addFourRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button, b4: Button) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 1, 0, 1)
-            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            setPadding(0, 3, 0, 3)
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.WRAP_CONTENT)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -164,12 +178,12 @@ object UIBuilder {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
+        val p = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
             setMargins(1, 0, 1, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p; b4.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3); bLayout.addView(b4)
-        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
+        bLayout.layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
 
         row.addView(label); row.addView(bLayout)
         table.addView(row)
@@ -185,8 +199,8 @@ object UIBuilder {
     ) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 1, 0, 1)
-            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            setPadding(0, 3, 0, 3)
+            layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.WRAP_CONTENT)
         }
         val label = TextView(context).apply {
             text = labelText
@@ -194,12 +208,15 @@ object UIBuilder {
             setTextColor(Color.parseColor("#B0BEC5"))
             setPadding(0, 0, 6, 0)
         }
-        // Чтобы контейнер квадратов выравнивался по центру строки и не растягивался вертикально в прямоугольник
         val squaresLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 3f)
+            layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
         }
+
+        val scale = context.resources.displayMetrics.density
+        // Фиксированный размер в квадратах (например, 25dp), чтобы они всегда оставались ровными
+        val squareSizePx = (25 * scale + 0.5f).toInt()
 
         for (i in 0 until 10) {
             val thresholdValue = getThresholdForSquare(i)
@@ -216,19 +233,15 @@ object UIBuilder {
                     onRefreshUI()
                 }
             }
-            // Используем match_parent по высоте внутри центрированного контейнера, 
-            // но ограничиваем пропорции шириной ячейки, чтобы они оставались ровными квадратиками
-            val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT).apply {
-                weight = 1f
-                setMargins(1, 2, 1, 2) // небольшие вертикальные отступы делают квадраты аккуратнее
+            // Ширина и высота равны squareSizePx — никаких деформаций и прямоугольников
+            val p = LinearLayout.LayoutParams(squareSizePx, squareSizePx).apply {
+                setMargins(1, 0, 1, 0)
             }
             squareBtn.layoutParams = p
             volumeStepButtons[i] = squareBtn
             squaresLayout.addView(squareBtn)
         }
-        
-        row.addView(label)
-        row.addView(squaresLayout)
+        row.addView(label); row.addView(squaresLayout)
         table.addView(row)
     }
 

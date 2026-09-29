@@ -77,7 +77,7 @@ object UIBuilder {
         val btnLimit3 = createButton(context, "20k") { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
 
         // Кнопки обновления
-        val btnRateTurbo = createButton(context, "Turbo") { prefsManager.audioBufferSize = 768; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnRateTurbo = createButton(context, "Turbo") { prefsManager.audioBufferSize = 1024; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnRateFast = createButton(context, "Fast") { prefsManager.audioBufferSize = 1536; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnRateNorm = createButton(context, "Norm") { prefsManager.audioBufferSize = 2560; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnRateSlow = createButton(context, "Slow") { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }

@@ -177,12 +177,13 @@ class MainActivity : Activity() {
         audioAnalyzer?.start()
     }
 
-    // 10: Форматирование и вывод цифр с десятыми на главный экран
+        // 10: Форматирование и вывод целых чисел без запятой и десятых на главный экран
     private fun updateRpmDisplay(value: Float) {
         val clamped = value.coerceIn(0f, 99999f)
-        val formatted = String.format("%6.1f", clamped).replace(' ', '\u00A0')
+        val formatted = String.format("%5.0f", clamped).trim().replace(' ', '\u00A0')
         headerBuilder.rpmTextView.text = formatted
     }
+
 
     // 11: Обновление VU-метра
     private fun updateVolumeSquaresUI(currentVol: Int) {

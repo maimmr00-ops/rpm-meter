@@ -249,7 +249,6 @@ class MainActivity : Activity() {
         uiBuilder.btnLimit3.setBackgroundColor(if (limit == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnLimit1, uiBuilder.btnLimit2, uiBuilder.btnLimit3).forEach { it.setTextColor(Color.WHITE) }
 
-        // Обновление буфера: Turbo теперь проверяет 1024
         val bufSize = prefsManager.audioBufferSize
         uiBuilder.btnRateTurbo.setBackgroundColor(if (bufSize == 1024) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateFast.setBackgroundColor(if (bufSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
@@ -257,7 +256,6 @@ class MainActivity : Activity() {
         uiBuilder.btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnRateTurbo, uiBuilder.btnRateFast, uiBuilder.btnRateNorm, uiBuilder.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
-        // Плавность (Off, Sharp, Norm, Soft)
         val preset = prefsManager.smoothPreset
         uiBuilder.btnSmoothOff.setBackgroundColor(if (preset == 3) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         uiBuilder.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
@@ -265,7 +263,6 @@ class MainActivity : Activity() {
         uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnSmoothOff, uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // Подсветка кнопок аудиовхода
         val audioSrc = prefsManager.audioSource
         uiBuilder.btnAudioMic.setBackgroundColor(if (audioSrc == 0) Color.parseColor("#00BCD4") else Color.parseColor("#424242"))
         uiBuilder.btnAudioMic.setTextColor(if (audioSrc == 0) Color.BLACK else Color.WHITE)
@@ -290,7 +287,10 @@ class MainActivity : Activity() {
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        syncPrefsAndRestart() // (или ваш стандартный код обработки разрешений)
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            initAndStartAudioAnalyzer()
+        }
     }
 
     override fun onDestroy() {

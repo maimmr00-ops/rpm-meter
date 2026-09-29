@@ -2,6 +2,8 @@ package com.example.rpmmeter
 
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -31,7 +33,7 @@ class HeaderBuilder(
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, 2)
+            setPadding(0, 6, 0, 6) // Немного увеличили вертикальные отступы контейнера
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -41,7 +43,7 @@ class HeaderBuilder(
         val leftCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.11f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.12f)
         }
 
         btnExit = Button(context).apply {
@@ -62,15 +64,27 @@ class HeaderBuilder(
         val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.78f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.76f)
         }
 
         rpmTextView = TextView(context).apply {
             text = "0000"
-            textSize = 92f 
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
+            singleLine = true
+            
+            // Автоматическое растягивание шрифта под ширину контейнера
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                setAutoSizeTextTypeUniformWithConfiguration(
+                    20,   // минимальный размер шрифта
+                    150,  // максимальный размер шрифта
+                    2,    // шаг изменения
+                    TypedValue.COMPLEX_UNIT_SP
+                )
+            } else {
+                textSize = 104f // Запасной вариант для старых версий Android
+            }
         }
         rpmBlock.addView(rpmTextView)
 
@@ -89,7 +103,7 @@ class HeaderBuilder(
         val rightCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.11f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.12f)
         }
 
         btnHold = Button(context).apply {

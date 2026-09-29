@@ -245,7 +245,8 @@ object UIBuilder {
         val alg = prefsManager.algorithmIndex
         val engine = prefsManager.engineType
 
-        val buttons = arrayOf(btnZeroX, btnAutoCorr, btnSpectral, btnHybrid, btnYin, btnHps, btnAmdf, btnComb]
+        // Исправлено: закрывающая квадратная скобка в конце массива вместо круглой
+        val buttons = arrayOf(btnZeroX, btnAutoCorr, btnSpectral, btnHybrid, btnYin, btnHps, btnAmdf, btnComb)
 
         for (i in buttons.indices) {
             val isAllowed = prefsManager.isAlgorithmAllowed(i, engine)
@@ -266,5 +267,4 @@ object UIBuilder {
     fun getThresholdForSquare(index: Int): Int {
         return if (index in thresholdValues.indices) thresholdValues[index] else 20
     }
-                              }
-                              
+}

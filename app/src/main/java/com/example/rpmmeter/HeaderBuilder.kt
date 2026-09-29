@@ -62,53 +62,61 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
+        // 1. Изменяем WRAP_CONTENT на MATCH_PARENT, чтобы блок по высоте был равен кнопкам EXIT и HOLD
         val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.78f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.78f)
         }
 
-        // Крупный шрифт цифр
-        rpmTextView = TextView(context).apply {
-            text = "0000"
-            textSize = 92f 
-            setTextColor(Color.parseColor("#00E676"))
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-        }
-        rpmBlock.addView(rpmTextView)
-
-        // ==========================================
-        // ТОНКАЯ ПОЛОСКА ШКАЛЫ (15 сегментов без зазоров)
-        // ==========================================
+        // 2. ТОНКАЯ ПОЛОСКА ШКАЛЫ (теперь сверху внутри блока)
         val rpmBarLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                8 // Толщина полоски 8dp, чтобы аккуратно смотрелась под крупными цифрами
-            ).apply { setMargins(4, 1, 4, 3) }
+                10 // Чуть увеличим высоту полоски для лучшей видимости внутри блока
+            ).apply { setMargins(4, 4, 4, 2) }
         }
 
         for (i in 0 until 15) {
             rpmStepButtons[i] = Button(context).apply {
                 isClickable = false
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.0f).apply {
-                    setMargins(0, 0, 0, 0) // Без отступов для сплошного вида VU-метра
+                    setMargins(0, 0, 0, 0)
                 }
                 setBackgroundColor(Color.parseColor("#37474F"))
             }
             rpmBarLayout.addView(rpmStepButtons[i])
         }
         rpmBlock.addView(rpmBarLayout)
-        // ==========================================
 
+        // 3. КРУПНЫЙ ШРИФТ ЦИФР ПОД ПОЛОСКОЙ
+        rpmTextView = TextView(context).apply {
+            text = "0000"
+            textSize = 82f // Немного уменьшили размер, чтобы идеально вписаться между EXIT и HOLD по высоте
+            setTextColor(Color.parseColor("#00E676"))
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1.0f // Занимает центральное пространство
+            )
+        }
+        rpmBlock.addView(rpmTextView)
+
+        // 4. ПОДПИСЬ RPM В САМОМ НИЗУ БЛОКА
         val rpmLabel = TextView(context).apply {
             text = "RPM (об / мин)"
             textSize = 11f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
             includeFontPadding = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(0, 0, 0, 2) }
         }
         rpmBlock.addView(rpmLabel)
 

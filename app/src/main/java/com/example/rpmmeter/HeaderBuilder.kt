@@ -29,21 +29,17 @@ class HeaderBuilder(
     val btnX3 = Button(context).apply { text = "/3"; textSize = 11f }
     val btnX4 = Button(context).apply { text = "/4"; textSize = 11f }
 
-    // ==========================================
-    // СБОРКА ВЕРХНЕЙ ПАНЕЛИ (Кнопка EXIT, Табло RPM, Кнопка HOLD)
-    // ==========================================
     fun buildTopPanel(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 6, 0, 6) // Вертикальные отступы контейнера
+            setPadding(0, 6, 0, 6)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        // Левая колонка (Кнопка EXIT)
         val leftCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -65,31 +61,29 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок с цифрами RPM и подписью
         val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.76f)
         }
 
-        // Главное цифровое табло оборотов (с авторазмером шрифта под ширину)
+        // Возвращаем авторазмер, но с защитой от сильного сжатия
         rpmTextView = TextView(context).apply {
-            text = "0000"
+            text = "0"
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
-            maxLines = 1 // Запрещаем перенос строк
+            maxLines = 1
             
-            // Автоматическое растягивание шрифта под ширину контейнера (начиная с Android 8.0+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 setAutoSizeTextTypeUniformWithConfiguration(
-                    20,   // минимальный размер шрифта (sp)
-                    150,  // максимальный размер шрифта (sp)
-                    2,    // шаг изменения
+                    24, // минимальный размер шрифта в sp, чтобы не превращалось в кашу
+                    72, // максимальный размер
+                    2,  // шаг изменения
                     TypedValue.COMPLEX_UNIT_SP
                 )
             } else {
-                textSize = 104f // Запасной вариант для старых версий Android
+                textSize = 54f // фоллбек для совсем старых версий
             }
         }
         rpmBlock.addView(rpmTextView)
@@ -106,7 +100,6 @@ class HeaderBuilder(
         container.addView(rpmBlock)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правая колонка (Кнопка HOLD)
         val rightCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
@@ -129,9 +122,6 @@ class HeaderBuilder(
         return container
     }
 
-    // ==========================================
-    // СБОРКА ИНФОРМАЦИОННОЙ ПАНЕЛИ С МНОЖИТЕЛЯМИ ПО БОКАМ
-    // ==========================================
     fun buildInfoPanelWithSides(): View {
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -148,7 +138,6 @@ class HeaderBuilder(
             setMargins(1, 0, 1, 0)
         }
 
-        // Левые кнопки множителей (/1, /2)
         val leftMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -162,7 +151,6 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральная колонка с текстовыми строками статуса и отладки
         val centerTextCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -196,7 +184,6 @@ class HeaderBuilder(
         container.addView(centerTextCol)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правые кнопки множителей (/3, /4)
         val rightMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

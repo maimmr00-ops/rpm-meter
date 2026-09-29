@@ -107,7 +107,7 @@ object UIBuilder {
         // Отступ ровно 5 dp между алгоритмами и VU-метром
         addSpacerRow(context, table, 5)
 
-        // VU-метр с идеальным расчетом ширины по кнопке btn2T
+        // VU-метр
         addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
         
         addSpacerRow(context, table, 3)
@@ -211,7 +211,8 @@ object UIBuilder {
         val squaresLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = TableLayout.LayoutParams(0, TableLayout.LayoutParams.WRAP_CONTENT, 3f)
+            // Исправлено: используем TableRow.LayoutParams вместо TableLayout.LayoutParams
+            layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
         }
 
         val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -242,6 +243,7 @@ object UIBuilder {
         row.addView(squaresLayout)
         table.addView(row)
     }
+
     fun updateAlgorithmButtons(
         prefsManager: PreferencesManager,
         btnZeroX: Button,

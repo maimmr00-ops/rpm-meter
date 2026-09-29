@@ -136,35 +136,29 @@ class MainActivity : Activity() {
                 }
                 currentDisplayRpm = smoothedRpm
 
-                // ==========================================
-                // 3. ПОСТ-ОБРАБОТКА (ПОСЛЕ алгоритма сглаживания)
-                // ==========================================
-                
-                // Проверяем факт перегрузки по текущему сглаженному значению
+                // 3. ПОСТ-ОБРАБОТКА (защита от зашкаливания и инерции)
                 val isOverLimit = currentDisplayRpm > limitRpm
-
-                // Если ушли за лимит — принудительно гасим инерцию математики, 
-                // чтобы значение не улетало в космос и не заставляло табло "висеть"
                 if (isOverLimit) {
                     currentDisplayRpm = currentDisplayRpm.coerceAtMost(limitRpm * 1.3f)
                 }
 
                 val displayFloat = if (isHoldActive) heldRpmValue else currentDisplayRpm
 
-                // 4. Рендеринг интерфейса на основе пост-обработанных данных
+                // 4. Рендеринг интерфейса
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
+
+                    // ВСЕГДА обновляем цифры на экране, чтобы избежать залипаний
+                    updateRpmDisplay(displayFloat)
 
                     if (isHoldActive) {
                         headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", currentDisplayRpm)} rpm"
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
                         headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
-                        updateRpmDisplay(displayFloat)
                     } else if (isOverLimit) {
-                        // Срабатывает защита: выводим OL и красное предупреждение
                         headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ: Обороты > ${prefsManager.maxAllowedRpm}!"
                         headerBuilder.statusLine1.setTextColor(Color.RED)
-                        headerBuilder.rpmTextView.text = "   OL"
+                        // Подсвечиваем цифры красным при превышении лимита
                         headerBuilder.rpmTextView.setTextColor(Color.RED)
                     } else {
                         headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
@@ -175,7 +169,6 @@ class MainActivity : Activity() {
                             headerBuilder.statusLine1.text = status
                             headerBuilder.statusLine1.setTextColor(Color.parseColor("#00E676"))
                         }
-                        updateRpmDisplay(displayFloat)
                     }
 
                     headerBuilder.statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
@@ -309,7 +302,7 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onDestroy() {
+    override onDestroy() {
         audioAnalyzer?.stop()
         super.onDestroy()
     }

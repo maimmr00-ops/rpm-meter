@@ -48,8 +48,15 @@ class AudioAnalyzer(
             val bufferSize = maxOf(minBufSize, prefsManager.audioBufferSize)
             val buffer = ShortArray(bufferSize)
 
+            // Динамический выбор источника звука
+            val source = when (prefsManager.audioSource) {
+                1 -> MediaRecorder.AudioSource.VOICE_RECOGNITION
+                2 -> MediaRecorder.AudioSource.UNPROCESSED
+                else -> MediaRecorder.AudioSource.MIC
+            }
+
             val record = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
+                source,
                 sampleRate,
                 channelConfig,
                 audioFormat,

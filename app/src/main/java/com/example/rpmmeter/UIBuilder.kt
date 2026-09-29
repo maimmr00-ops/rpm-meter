@@ -108,7 +108,7 @@ object UIBuilder {
         addSpacerRow(context, table, 5)
 
         // VU-метр с идеальным расчетом ширины по кнопке btn2T
-        addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI, btn2T)
+        addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
         
         addSpacerRow(context, table, 3)
 
@@ -188,7 +188,7 @@ object UIBuilder {
         table.addView(row)
     }
 
-        private fun addVolumeSquaresRow(
+    private fun addVolumeSquaresRow(
         context: Context, 
         table: TableLayout, 
         labelText: String, 
@@ -268,9 +268,8 @@ object UIBuilder {
 
         row.addView(label)
         row.addView(squaresLayout)
-        table.addView( плавно -> table.addView(row)) // оставляем как было: table.addView(row)
+        table.addView(row)
     }
-
 
     fun updateAlgorithmButtons(
         prefsManager: PreferencesManager,

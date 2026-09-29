@@ -265,18 +265,18 @@ class MainActivity : Activity() {
         uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // 13: Вызов инкапсулированной логики алгоритмов из UIBuilder
+        // 13: Вызов инкапсулированной логики алгоритмов из UIBuilder с новыми именами
         UIBuilder.updateAlgorithmButtons(
             prefsManager,
-            settingsButtons.btnAlg1,
-            settingsButtons.btnAlg2,
-            settingsButtons.btnAlg3,
-            settingsButtons.btnAlg4,
-            settingsButtons.btnAlg5,
-            settingsButtons.btnAlg6,
-            settingsButtons.btnAlg7,
-            settingsButtons.btnAlg8
-            )
+            uiBuilder.btnZeroX,
+            uiBuilder.btnAutoCorr,
+            uiBuilder.btnSpectral,
+            uiBuilder.btnHybrid,
+            uiBuilder.btnYin,
+            uiBuilder.btnHps,
+            uiBuilder.btnAmdf,
+            uiBuilder.btnComb
+        )
         
         updateVolumeSquaresUI(0)
     }

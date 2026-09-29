@@ -69,22 +69,24 @@ class PreferencesManager(context: Context) {
         get() = prefs.getInt("key_buffer_size", 2560)
         set(value) = prefs.edit().putInt("key_buffer_size", value).apply()
 
-    // 23: Пресет плавности тахометра (Sharp / Norm / Soft)
+    // 23: Пресет плавности тахометра (Off / Sharp / Norm / Soft) -> индексы 3, 0, 1, 2
     var smoothPreset: Int
         get() = prefs.getInt("key_smooth_preset", 1)
         set(value) = prefs.edit().putInt("key_smooth_preset", value).apply()
 
     fun saveSmooth(rise: Float, fall: Float) {
         val preset = when {
-            rise >= 0.5f -> 0
-            rise >= 0.1f -> 1
-            else -> 2
+            rise >= 1.0f -> 3 // Off (мгновенный вывод)
+            rise >= 0.5f -> 0 // Sharp
+            rise >= 0.1f -> 1 // Norm
+            else -> 2         // Soft
         }
         smoothPreset = preset
     }
 
     val riseTimeConstant: Float
         get() = when (smoothPreset) {
+            3 -> 1.0f // Off: константа 1.0 означает отсутствие фильтрации (берем новое значение на 100%)
             0 -> 0.7f
             1 -> 0.3f
             else -> 0.05f

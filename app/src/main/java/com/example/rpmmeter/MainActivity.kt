@@ -135,15 +135,22 @@ class MainActivity : Activity() {
                 }
                 currentDisplayRpm = smoothedRpm
 
-                val currentLiveRpm = currentDisplayRpm
-                val displayFloat = if (isHoldActive) heldRpmValue else currentLiveRpm
+                val limitRpm = prefsManager.maxAllowedRpm.toFloat()
+                val isOverLimit = currentDisplayRpm > limitRpm
+                
+                // Если обороты улетели выше лимита, жестко фиксируем их на границе лимита, чтобы табло не зависало
+                val effectiveRpm = if (isOverLimit) limitRpm else currentDisplayRpm
+                val displayFloat = if (isHoldActive) heldRpmValue else effectiveRpm
 
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
 
                     if (isHoldActive) {
-                        headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", currentLiveRpm)} rpm"
+                        headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", effectiveRpm)} rpm"
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
+                    } else if (isOverLimit) {
+                        headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ: Обороты > ${prefsManager.maxAllowedRpm}!"
+                        headerBuilder.statusLine1.setTextColor(Color.RED)
                     } else {
                         if (vol < currentThreshold) {
                             headerBuilder.statusLine1.text = "Ожидание запуска двигателя"
@@ -283,10 +290,7 @@ class MainActivity : Activity() {
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            initAndStartAudioAnalyzer()
-        }
+        syncPrefsAndRestart() // (или ваш стандартный код обработки разрешений)
     }
 
     override fun onDestroy() {

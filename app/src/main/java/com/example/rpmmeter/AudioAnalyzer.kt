@@ -25,7 +25,6 @@ class AudioAnalyzer(
     private var analysisThread: Thread? = null
     private var smoothedVolume = 0f
 
-    // Все 8 детекторов
     private val zeroCrossing = ZeroCrossingDetector()
     private val autoCorr = AutocorrelationDetector()
     private val spectral = SpectralDetector()
@@ -84,7 +83,6 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 1. Расчет громкости
                 var sum = 0.0
                 for (i in 0 until readCount) {
                     val v = buffer[i].toDouble()
@@ -99,10 +97,8 @@ class AudioAnalyzer(
                     continue
                 }
 
-                // 2. Базовая частота через Zero-X
                 val allFreq = zeroCrossing.detect(buffer, readCount, sampleRate)
 
-                // 3. Выбор из 8 алгоритмов
                 val activeDetector: PitchDetector = when (prefsManager.algorithmIndex) {
                     0 -> zeroCrossing
                     1 -> autoCorr

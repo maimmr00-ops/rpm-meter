@@ -40,16 +40,17 @@ class HeaderBuilder(
             )
         }
 
-        // Левая колонка с кнопкой EXIT
+        // Левая колонка с узкой кнопкой EXIT (0.11f)
         val leftCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.11f)
         }
 
         btnExit = Button(context).apply {
             text = "EXIT"
-            textSize = 12f
+            textSize = 10f
+            setPadding(0, 0, 0, 0)
             setOnClickListener { onExit() }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
@@ -61,16 +62,16 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок с крупным тахометром
+        // Центральный блок с крупным тахометром (расширен до 0.78f)
         val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.78f)
         }
 
         rpmTextView = TextView(context).apply {
             text = " 000.0"
-            textSize = 76f
+            textSize = 82f // Увеличенный размер шрифта для максимальной читаемости
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -89,16 +90,17 @@ class HeaderBuilder(
         container.addView(rpmBlock)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правая колонка с кнопкой HOLD
+        // Правая колонка с узкой кнопкой HOLD (0.11f)
         val rightCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.FILL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.22f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.11f)
         }
 
         btnHold = Button(context).apply {
             text = "HOLD"
-            textSize = 12f
+            textSize = 10f
+            setPadding(0, 0, 0, 0)
             setOnClickListener { onHoldToggle() }
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
@@ -128,7 +130,7 @@ class HeaderBuilder(
             setMargins(1, 0, 1, 0)
         }
 
-        // Левый блок множителей (/1, /2)
+        // Левый блок множителей (/1, /2) — подогнан под ширину верхних кнопок (0.11f * 2 = 0.22f суммарно для блока)
         val leftMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -146,7 +148,7 @@ class HeaderBuilder(
         val centerTextCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.52f)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.56f)
         }
 
         statusLine1 = TextView(context).apply {
@@ -166,7 +168,6 @@ class HeaderBuilder(
         centerTextCol.addView(statusLine2)
 
         statusLine3 = TextView(context).apply {
-            // Теперь вывод идет с десятыми долями (%.1f)
             text = "All: 0.0 Гц | Pre-Freq: 0.0 Гц"
             textSize = 10f
             setTextColor(Color.parseColor("#B0BEC5"))
@@ -177,7 +178,7 @@ class HeaderBuilder(
         container.addView(centerTextCol)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правый блок множителей (/3, /4)
+        // Правый блок множителей (/3, /4) — подогнан под ширину верхних кнопок (0.22f)
         val rightMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

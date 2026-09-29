@@ -189,7 +189,7 @@ object UIBuilder {
         table.addView(row)
     }
 
-    private fun addVolumeSquaresRow(
+        private fun addVolumeSquaresRow(
         context: Context, 
         table: TableLayout, 
         labelText: String, 
@@ -208,15 +208,15 @@ object UIBuilder {
             setTextColor(Color.parseColor("#B0BEC5"))
             setPadding(0, 0, 6, 0)
         }
+        
+        // Контейнер VU-метра с такими же весами (weight = 3f), как у блоков кнопок
         val squaresLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL
             layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
         }
 
-        val scale = context.resources.displayMetrics.density
-        // Фиксированный размер в квадратах (например, 25dp), чтобы они всегда оставались ровными
-        val squareSizePx = (25 * scale + 0.5f).toInt()
+        val marginPx = 1 // Отступ 1px с каждой стороны (итого 2px между квадратами)
 
         for (i in 0 until 10) {
             val thresholdValue = getThresholdForSquare(i)
@@ -233,17 +233,41 @@ object UIBuilder {
                     onRefreshUI()
                 }
             }
-            // Ширина и высота равны squareSizePx — никаких деформаций и прямоугольников
-            val p = LinearLayout.LayoutParams(squareSizePx, squareSizePx).apply {
-                setMargins(1, 0, 1, 0)
+            
+            // Задаем weight = 1f, чтобы 10 квадратиков равномерно растянулись на всю ширину
+            val p = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(marginPx, 0, marginPx, 0)
             }
             squareBtn.layoutParams = p
             volumeStepButtons[i] = squareBtn
             squaresLayout.addView(squareBtn)
         }
-        row.addView(label); row.addView(squaresLayout)
+
+        // Как только контейнер измерит свою фактическую ширину на экране,
+        // мы устанавливаем высотам кнопок ровно такое же значение, делая их идеальными квадратами!
+        squaresLayout.post {
+            val totalWidth = squaresLayout.width
+            if (totalWidth > 0) {
+                // Вычисляем доступное место для каждого квадрата за вычетом margins
+                val squareWidth = (totalWidth / 10) - (marginPx * 2)
+                if (squareWidth > 0) {
+                    for (i in 0 until 10) {
+                        val btn = volumeStepButtons[i]
+                        val lp = btn?.layoutParams as? LinearLayout.LayoutParams
+                        if (lp != null && lp.height != squareWidth) {
+                            lp.height = squareWidth
+                            btn.layoutParams = lp
+                        }
+                    }
+                }
+            }
+        }
+
+        row.addView(label)
+        row.addView(squaresLayout)
         table.addView(row)
     }
+
 
     fun updateAlgorithmButtons(
         prefsManager: PreferencesManager,

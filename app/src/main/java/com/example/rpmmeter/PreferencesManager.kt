@@ -39,12 +39,10 @@ class PreferencesManager(context: Context) {
         }
     }
 
-        // Проверка совместимости алгоритма с типом двигателя
+    // Проверка совместимости алгоритма с типом двигателя
     fun isAlgorithmAllowed(algIndex: Int, engine: Int): Boolean {
-        // Заменяем старую проверку на true, чтобы разблокировать все алгоритмы для теста:
+        // Разблокируем все алгоритмы для теста:
         return true
-    }
-
     }
 
     fun hasStoredThreshold(): Boolean {

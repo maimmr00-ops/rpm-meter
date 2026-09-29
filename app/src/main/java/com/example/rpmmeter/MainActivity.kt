@@ -132,13 +132,12 @@ class MainActivity : Activity() {
                     1 -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 3.0f
                     else -> currentDisplayRpm + (targetRpm - currentDisplayRpm) / 7.0f
                 }
+                
+                // Переменная полностью свободна и не зажимается искусственно
                 currentDisplayRpm = smoothedRpm
 
+                // Флаг перегрузки используется исключительно для визуального оповещения (без блокировки потока)
                 val isOverLimit = currentDisplayRpm > limitRpm
-                if (isOverLimit) {
-                    currentDisplayRpm = currentDisplayRpm.coerceAtMost(limitRpm * 1.3f)
-                }
-
                 val displayFloat = if (isHoldActive) heldRpmValue else currentDisplayRpm
 
                 runOnUiThread {
@@ -152,7 +151,7 @@ class MainActivity : Activity() {
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
                         headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
                     } else if (isOverLimit) {
-                        headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ: Обороты > ${prefsManager.maxAllowedRpm}!"
+                        headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ (OL): Обороты > ${prefsManager.maxAllowedRpm}!"
                         headerBuilder.statusLine1.setTextColor(Color.RED)
                         headerBuilder.rpmTextView.setTextColor(Color.RED)
                     } else {
@@ -192,8 +191,9 @@ class MainActivity : Activity() {
         val maxLimit = prefsManager.maxAllowedRpm.toFloat()
         if (maxLimit <= 0f) return
 
-        val ratio = (currentRpm / maxLimit).coerceIn(0f, 1.3f)
-        val activeCount = if (currentRpm > maxLimit) 15 else (ratio * 15f).toInt().coerceIn(0, 15)
+        val ratio = currentRpm / maxLimit
+        // Если обороты дошли до лимита или превысили его — шкала полностью заполняется (15 делений) красным цветом
+        val activeCount = if (ratio >= 1.0f) 15 else (ratio * 15f).toInt().coerceIn(0, 15)
 
         for (i in 0 until 15) {
             val btn = headerBuilder.rpmStepButtons[i] ?: continue

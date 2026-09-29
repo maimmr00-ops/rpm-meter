@@ -188,14 +188,13 @@ object UIBuilder {
         table.addView(row)
     }
 
-    private fun addVolumeSquaresRow(
+        private fun addVolumeSquaresRow(
         context: Context, 
         table: TableLayout, 
         labelText: String, 
         volumeStepButtons: Array<Button?>,
         prefsManager: PreferencesManager,
-        onRefreshUI: () -> Unit,
-        sampleButton: Button
+        onRefreshUI: () -> Unit
     ) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -208,13 +207,14 @@ object UIBuilder {
             setTextColor(Color.parseColor("#B0BEC5"))
             setPadding(0, 0, 6, 0)
         }
+        
         val squaresLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 3f)
+            layoutParams = TableLayout.LayoutParams(0, TableLayout.LayoutParams.WRAP_CONTENT, 3f)
         }
 
-        val marginPx = 1 // Отступ 1px с каждой стороны квадратика
+        val marginPx = 1
 
         for (i in 0 until 10) {
             val thresholdValue = getThresholdForSquare(i)
@@ -232,7 +232,8 @@ object UIBuilder {
                 }
             }
             
-            val p = LinearLayout.LayoutParams(30, 30).apply {
+            // Временные параметры перед точным измерением
+            val p = LinearLayout.LayoutParams(0, 30, 1f).apply {
                 setMargins(marginPx, 0, marginPx, 0)
             }
             squareBtn.layoutParams = p
@@ -240,30 +241,36 @@ object UIBuilder {
             squaresLayout.addView(squareBtn)
         }
 
-        // Вычисляем точный размер квадратов на основе реальной ширины обычной кнопки
-        sampleButton.post {
-            val standardBtnWidth = sampleButton.width
-            if (standardBtnWidth > 0) {
-                val totalWidth = standardBtnWidth * 3
-                val squareSize = (totalWidth - (10 * marginPx * 2)) / 10
-                if (squareSize > 0) {
-                    for (i in 0 until 10) {
-                        val btn = volumeStepButtons[i]
-                        val lp = btn?.layoutParams as? LinearLayout.LayoutParams
-                        if (lp != null) {
-                            lp.width = squareSize
-                            lp.height = squareSize
-                            btn.layoutParams = lp
+        // Жестко фиксируем и ширину, и высоту по точным расчетам в пикселях
+        squaresLayout.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                squaresLayout.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                val totalWidth = squaresLayout.width
+                if (totalWidth > 0) {
+                    // Общая ширина минус все отступы между 10 квадратами, деленная на 10
+                    val totalMargins = marginPx * 2 * 10
+                    val squareSize = (totalWidth - totalMargins) / 10
+                    if (squareSize > 0) {
+                        for (i in 0 until 10) {
+                            val btn = volumeStepButtons[i]
+                            val lp = btn?.layoutParams as? LinearLayout.LayoutParams
+                            if (lp != null) {
+                                lp.width = squareSize
+                                lp.height = squareSize
+                                lp.weight = 0f // Отключаем weight, переходим на жесткие размеры
+                                btn.layoutParams = lp
+                            }
                         }
                     }
                 }
             }
-        }
+        })
 
         row.addView(label)
         row.addView(squaresLayout)
-        table.addView(row)
+        table.addView( плавно -> table.addView(row)) // оставляем как было: table.addView(row)
     }
+
 
     fun updateAlgorithmButtons(
         prefsManager: PreferencesManager,

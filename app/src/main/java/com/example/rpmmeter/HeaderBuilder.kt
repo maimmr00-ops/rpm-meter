@@ -27,17 +27,20 @@ class HeaderBuilder(
     val btnX3 = Button(context).apply { text = "/3"; textSize = 11f }
     val btnX4 = Button(context).apply { text = "/4"; textSize = 11f }
 
-    // Массив для 15 сегментов тонкой полоски VU-метра оборотов
+    // Массив для сегментов тонкой полоски VU-метра оборотов
     val rpmStepButtons = arrayOfNulls<Button>(15)
 
     fun buildTopPanel(): View {
+        val scale = context.resources.displayMetrics.density
+        val panelHeightPx = (72 * scale + 0.5f).toInt() // Жесткая высота верхней панели в пикселях
+
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, 2)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                panelHeightPx
             )
         }
 
@@ -62,21 +65,20 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // 1. Изменяем WRAP_CONTENT на MATCH_PARENT, чтобы блок по высоте был равен кнопкам EXIT и HOLD
         val rpmBlock = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.78f)
         }
 
-        // 2. ТОНКАЯ ПОЛОСКА ШКАЛЫ (теперь сверху внутри блока)
+        // 1. ТОНКАЯ ПОЛОСКА ШКАЛЫ СВЕРХУ ВНУТРИ БЛОКА
         val rpmBarLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                10 // Чуть увеличим высоту полоски для лучшей видимости внутри блока
-            ).apply { setMargins(4, 4, 4, 2) }
+                10
+            ).apply { setMargins(4, 2, 4, 1) }
         }
 
         for (i in 0 until 15) {
@@ -91,25 +93,24 @@ class HeaderBuilder(
         }
         rpmBlock.addView(rpmBarLayout)
 
-        // 3. КРУПНЫЙ ШРИФТ ЦИФР ПОД ПОЛОСКОЙ
+        // 2. КРУПНЫЕ ЦИФРЫ ПОД ПОЛОСКОЙ
         rpmTextView = TextView(context).apply {
             text = "0000"
-            textSize = 82f // Немного уменьшили размер, чтобы идеально вписаться между EXIT и HOLD по высоте
+            textSize = 54f
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1.0f // Занимает центральное пространство
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
         rpmBlock.addView(rpmTextView)
 
-        // 4. ПОДПИСЬ RPM В САМОМ НИЗУ БЛОКА
+        // 3. ПОДПИСЬ RPM В САМОМ НИЗУ БЛОКА
         val rpmLabel = TextView(context).apply {
             text = "RPM (об / мин)"
-            textSize = 11f
+            textSize = 10f
             setTextColor(Color.parseColor("#80CBC4"))
             gravity = Gravity.CENTER
             includeFontPadding = false

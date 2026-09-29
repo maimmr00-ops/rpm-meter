@@ -44,8 +44,8 @@ class PreferencesManager(context: Context) {
         }
     }
 
-    // Проверка совместимости алгоритма с типом двигателя
-    fun isAlgorithmAllowed(algIndex: Int, engine: Int): Boolean {
+    // Проверка совместимости алгоритма с типом двигателя (параметры с подчеркиванием, чтобы компилятор не выдавал warning)
+    fun isAlgorithmAllowed(_algIndex: Int, _engine: Int): Boolean {
         // Разблокируем все алгоритмы для теста:
         return true
     }
@@ -74,7 +74,7 @@ class PreferencesManager(context: Context) {
         get() = prefs.getInt("key_smooth_preset", 1)
         set(value) = prefs.edit().putInt("key_smooth_preset", value).apply()
 
-    fun saveSmooth(rise: Float, fall: Float) {
+    fun saveSmooth(rise: Float, _fall: Float) {
         val preset = when {
             rise >= 1.0f -> 3 // Off (мгновенный вывод)
             rise >= 0.5f -> 0 // Sharp

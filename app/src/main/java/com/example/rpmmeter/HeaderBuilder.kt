@@ -70,8 +70,8 @@ class HeaderBuilder(
         }
 
         rpmTextView = TextView(context).apply {
-            text = " 000.0"
-            textSize = 82f // Увеличенный размер шрифта для максимальной читаемости
+            text = "0000" // Без запятых и десятых долей для вывода целых крупных чисел
+            textSize = 92f // Максимальный крупный размер шрифта на всю высоту
             setTextColor(Color.parseColor("#00E676"))
             gravity = Gravity.CENTER
             includeFontPadding = false
@@ -130,7 +130,7 @@ class HeaderBuilder(
             setMargins(1, 0, 1, 0)
         }
 
-        // Левый блок множителей (/1, /2) — подогнан под ширину верхних кнопок (0.11f * 2 = 0.22f суммарно для блока)
+        // Левый блок множителей (/1, /2)
         val leftMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -144,7 +144,7 @@ class HeaderBuilder(
 
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Центральный блок информационных строк (Статус, Громкость, Частоты)
+        // Центральный блок информационных строк
         val centerTextCol = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -178,7 +178,7 @@ class HeaderBuilder(
         container.addView(centerTextCol)
         container.addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(4, 1) })
 
-        // Правый блок множителей (/3, /4) — подогнан под ширину верхних кнопок (0.22f)
+        // Правый блок множителей (/3, /4)
         val rightMultipliers = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

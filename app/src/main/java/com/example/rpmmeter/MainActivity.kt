@@ -268,11 +268,15 @@ class MainActivity : Activity() {
         // 13: Вызов инкапсулированной логики алгоритмов из UIBuilder
         UIBuilder.updateAlgorithmButtons(
             prefsManager,
-            uiBuilder.btnAlg1,
-            uiBuilder.btnAlg2,
-            uiBuilder.btnAlg3,
-            uiBuilder.btnAlg4
-        )
+            settingsButtons.btnAlg1,
+            settingsButtons.btnAlg2,
+            settingsButtons.btnAlg3,
+            settingsButtons.btnAlg4,
+            settingsButtons.btnAlg5,
+            settingsButtons.btnAlg6,
+            settingsButtons.btnAlg7,
+            settingsButtons.btnAlg8
+            )
         
         updateVolumeSquaresUI(0)
     }

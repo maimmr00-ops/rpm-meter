@@ -32,11 +32,11 @@ class MainActivity : Activity() {
     private var currentDisplayRpm = 0f
     private val PERMISSION_CODE = 200
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) { // Строка ~26
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        // 01: Перехватчик фатальных ошибок (сохраняет стек в crash_log.txt для самопроверки)
+        // 01: Перехватчик фатальных ошибок (Строки ~30-45)
         val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
@@ -51,10 +51,10 @@ class MainActivity : Activity() {
             oldHandler?.uncaughtException(thread, throwable)
         }
 
-        // 02: Инициализация менеджера настроек
+        // 02: Инициализация менеджера настроек (Строка ~48)
         prefsManager = PreferencesManager(this)
 
-        // 03: Корневой контейнер с растяжением на весь экран
+        // 03: Корневой контейнер с растяжением на весь экран (Строки ~51-60)
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#121212"))
@@ -66,7 +66,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // 04: Инициализация хелпера шапки (HeaderBuilder)
+        // 04: Инициализация хелпера шапки (Строки ~63-79)
         headerBuilder = HeaderBuilder(
             context = this,
             onExit = { finish() },
@@ -83,7 +83,7 @@ class MainActivity : Activity() {
             }
         )
 
-        // 05: Инициализация таблицы настроек через UIBuilder
+        // 05: Инициализация таблицы настроек через UIBuilder (Строки ~82-88)
         uiBuilder = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -91,12 +91,12 @@ class MainActivity : Activity() {
             volumeStepButtons = volumeStepButtons
         )
 
-        // Сборка интерфейса экрана
+        // Сборка интерфейса экрана (Строки ~91-93)
         rootLayout.addView(headerBuilder.buildTopPanel())
         rootLayout.addView(headerBuilder.buildInfoPanelWithSides())
         rootLayout.addView(uiBuilder.table)
 
-        // 06: Информационный копирайт внизу
+        // 06: Информационный копирайт внизу (Строки ~96-103)
         val copyright = TextView(this).apply {
             text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.8"
             textSize = 11f
@@ -110,7 +110,7 @@ class MainActivity : Activity() {
 
         refreshAllUI()
 
-        // 07: Проверка разрешений на запись аудио
+        // 07: Проверка разрешений на запись аудио (Строки ~110-115)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
         } else {
@@ -118,14 +118,14 @@ class MainActivity : Activity() {
         }
     }
 
-    // 08: Перезапуск аудиоанализатора
+    // 08: Перезапуск аудиоанализатора (Строки ~118-123)
     fun restartAnalyzer() {
         audioAnalyzer?.stop()
         audioAnalyzer = null
         initAndStartAudioAnalyzer()
     }
 
-    // 09: Инициализация и запуск потока анализатора звука
+    // 09: Инициализация и запуск потока анализатора звука (Строки ~126-175)
     private fun initAndStartAudioAnalyzer() {
         audioAnalyzer?.stop()
         
@@ -134,7 +134,6 @@ class MainActivity : Activity() {
             onUpdate = { rawRpm, allFreq, preFreq, vol, status ->
                 val targetRpm = if (currentMultiplier > 0) (rawRpm / currentMultiplier) else rawRpm
 
-                // Применение пресетов плавности тахометра
                 val preset = prefsManager.smoothPreset
                 val smoothedRpm = when (preset) {
                     0 -> targetRpm
@@ -179,14 +178,14 @@ class MainActivity : Activity() {
         audioAnalyzer?.start()
     }
 
-    // 10: Форматирование и вывод цифр на главный экран
+    // 10: Форматирование и вывод цифр на главный экран (Строки ~178-183)
     private fun updateRpmDisplay(value: Int) {
         val clamped = value.coerceIn(0, 99999)
         val formatted = String.format("%5d", clamped).replace(' ', '\u00A0')
         headerBuilder.rpmTextView.text = formatted
     }
 
-    // 11: Обновление VU-метра (индикатор громкости из 10 квадратов)
+    // 11: Обновление VU-метра (Строки ~186-224)
     private fun updateVolumeSquaresUI(currentVol: Int) {
         val currentSensitivityThreshold = prefsManager.minVolumeThreshold
         var thresholdIndex = 0
@@ -221,7 +220,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // 12: Синхронизация цветов и состояний всех элементов управления интерфейса
+    // 12: Синхронизация цветов и состояний всех элементов управления интерфейса (Строки ~227-285)
     private fun refreshAllUI() {
         if (!::headerBuilder.isInitialized || !::uiBuilder.isInitialized) return
 
@@ -253,11 +252,13 @@ class MainActivity : Activity() {
         uiBuilder.btnLimit3.setBackgroundColor(if (limit == 20000) Color.parseColor("#0288D1") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnLimit1, uiBuilder.btnLimit2, uiBuilder.btnLimit3).forEach { it.setTextColor(Color.WHITE) }
 
+        // Подсветка для 4 кнопок скорости обновления (Turbo, Fast, Norm, Slow)
         val bufSize = prefsManager.audioBufferSize
+        uiBuilder.btnRateTurbo.setBackgroundColor(if (bufSize == 768) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateFast.setBackgroundColor(if (bufSize == 1536) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateNorm.setBackgroundColor(if (bufSize == 2560) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
         uiBuilder.btnRateSlow.setBackgroundColor(if (bufSize == 4096) Color.parseColor("#E91E63") else Color.parseColor("#424242"))
-        listOf(uiBuilder.btnRateFast, uiBuilder.btnRateNorm, uiBuilder.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
+        listOf(uiBuilder.btnRateTurbo, uiBuilder.btnRateFast, uiBuilder.btnRateNorm, uiBuilder.btnRateSlow).forEach { it.setTextColor(Color.WHITE) }
 
         val preset = prefsManager.smoothPreset
         uiBuilder.btnSmoothSharp.setBackgroundColor(if (preset == 0) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
@@ -265,7 +266,7 @@ class MainActivity : Activity() {
         uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // 13: Вызов инкапсулированной логики алгоритмов из UIBuilder с новыми именами
+        // 13: Вызов инкапсулированной логики алгоритмов (Строки ~288-299)
         UIBuilder.updateAlgorithmButtons(
             prefsManager,
             uiBuilder.btnZeroX,
@@ -281,14 +282,14 @@ class MainActivity : Activity() {
         updateVolumeSquaresUI(0)
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) { // Строка ~305
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             initAndStartAudioAnalyzer()
         }
     }
 
-    override fun onDestroy() {
+    override fun onDestroy() { // Строка ~312
         audioAnalyzer?.stop()
         super.onDestroy()
     }

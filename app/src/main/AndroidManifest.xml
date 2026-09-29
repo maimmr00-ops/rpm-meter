@@ -7,10 +7,11 @@
         android:allowBackup="true"
         android:label="RPM Meter"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"> <!-- Вот эта строка решает проблему -->
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
         
         <activity
             android:name=".MainActivity"
+            android:screenOrientation="portrait"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

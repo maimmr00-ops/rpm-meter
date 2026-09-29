@@ -23,6 +23,7 @@ object UIBuilder {
         val btnRateFast: Button,
         val btnRateNorm: Button,
         val btnRateSlow: Button,
+        val btnSmoothOff: Button,
         val btnSmoothSharp: Button,
         val btnSmoothNorm: Button,
         val btnSmoothSoft: Button,
@@ -39,7 +40,6 @@ object UIBuilder {
         val btnAudioRaw: Button
     )
 
-    // Вспомогательный метод для создания кнопок без жестких ограничений ширины
     private fun createButton(context: Context, textVal: String, onClick: () -> Unit): Button {
         return Button(context).apply {
             text = textVal
@@ -76,13 +76,14 @@ object UIBuilder {
         val btnLimit2 = createButton(context, "12k") { prefsManager.maxAllowedRpm = 12000; onRefreshUI() }
         val btnLimit3 = createButton(context, "20k") { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
 
-        // Кнопки обновления
+        // Кнопки обновления (Turbo теперь устанавливает 1024)
         val btnRateTurbo = createButton(context, "Turbo") { prefsManager.audioBufferSize = 1024; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnRateFast = createButton(context, "Fast") { prefsManager.audioBufferSize = 1536; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnRateNorm = createButton(context, "Norm") { prefsManager.audioBufferSize = 2560; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnRateSlow = createButton(context, "Slow") { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        // Кнопки плавности
+        // Кнопки плавности (4 штуки: Off, Sharp, Norm, Soft)
+        val btnSmoothOff = createButton(context, "Off") { prefsManager.smoothPreset = 3; onRefreshUI() }
         val btnSmoothSharp = createButton(context, "Sharp") { prefsManager.smoothPreset = 0; onRefreshUI() }
         val btnSmoothNorm = createButton(context, "Norm") { prefsManager.smoothPreset = 1; onRefreshUI() }
         val btnSmoothSoft = createButton(context, "Soft") { prefsManager.smoothPreset = 2; onRefreshUI() }
@@ -98,30 +99,30 @@ object UIBuilder {
         val btnAmdf = createButton(context, "AMDF") { prefsManager.algorithmIndex = 6; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnComb = createButton(context, "Comb") { prefsManager.algorithmIndex = 7; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        // Кнопки выбора аудиовхода (MIC, VOICE, RAW)
+        // Кнопки выбора аудиовхода
         val btnAudioMic = createButton(context, "MIC") { prefsManager.audioSource = 0; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnAudioVoice = createButton(context, "VOICE") { prefsManager.audioSource = 1; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
         val btnAudioRaw = createButton(context, "RAW") { prefsManager.audioSource = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        // Сборка строк таблицы по порядку
+        // Сборка строк таблицы
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addFourRow(context, table, "обновление:", btnRateTurbo, btnRateFast, btnRateNorm, btnRateSlow)
-        addRow(context, table, "плавность:", btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
+        addFourRow(context, table, "плавность:", btnSmoothOff, btnSmoothSharp, btnSmoothNorm, btnSmoothSoft)
         addFourRow(context, table, "алг. 1-4:", btnZeroX, btnAutoCorr, btnSpectral, btnHybrid)
         addFourRow(context, table, "алг. 5-8:", btnYin, btnHps, btnAmdf, btnComb)
         
         // VU-метр
         addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
 
-        // Строка выбора аудиовхода в едином стиле таблицы
+        // Вход
         addRow(context, table, "вход:", btnAudioMic, btnAudioVoice, btnAudioRaw)
 
         return SettingsButtons(
             table, btn2T, btn4T, btnOthers,
             btnLimit1, btnLimit2, btnLimit3,
             btnRateTurbo, btnRateFast, btnRateNorm, btnRateSlow,
-            btnSmoothSharp, btnSmoothNorm, btnSmoothSoft,
+            btnSmoothOff, btnSmoothSharp, btnSmoothNorm, btnSmoothSoft,
             btnZeroX, btnAutoCorr, btnSpectral, btnHybrid,
             btnYin, btnHps, btnAmdf, btnComb,
             btnAudioMic, btnAudioVoice, btnAudioRaw

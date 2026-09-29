@@ -18,6 +18,11 @@ class PreferencesManager(context: Context) {
             }
         }
 
+    // Источник звука (0 = MIC, 1 = VOICE_RECOGNITION, 2 = UNPROCESSED)
+    var audioSource: Int
+        get() = prefs.getInt("key_audio_source", 0)
+        set(value) = prefs.edit().putInt("key_audio_source", value).apply()
+
     // 78: Выбранный пользователем алгоритм анализа звука
     var algorithmIndex: Int
         get() {

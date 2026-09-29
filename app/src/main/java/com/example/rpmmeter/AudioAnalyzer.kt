@@ -120,7 +120,8 @@ class AudioAnalyzer(
 
                 val preFreq = activeDetector.detect(buffer, readCount, sampleRate)
 
-                if (preFreq < 10.0f || preFreq > 400.0f) {
+                // Расширяем диапазон частот до 800 Гц для высоких оборотов
+                if (preFreq < 10.0f || preFreq > 800.0f) {
                     onUpdate(0f, allFreq, 0f, currentVolInt, "Поиск сигнала...")
                     continue
                 }
@@ -132,8 +133,8 @@ class AudioAnalyzer(
                     else -> preFreq * 60.0f
                 }
 
-                val maxAllowed = prefsManager.maxAllowedRpm.toFloat()
-                if (rawRpm > maxAllowed) continue
+                // Убрано ограничение maxAllowedRpm, ломавшее поток. 
+                // Теперь лимит работает только на отображение шкалы в интерфейсе.
 
                 onUpdate(rawRpm, allFreq, preFreq, currentVolInt, "Работа мотора")
             }

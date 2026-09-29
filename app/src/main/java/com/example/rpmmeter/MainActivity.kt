@@ -27,7 +27,7 @@ class MainActivity : Activity() {
     private val volumeStepButtons = arrayOfNulls<Button>(10)
     private var currentMultiplier = 1
     private var isHoldActive = false
-    private var heldRpmValue = 0f // Изменено на Float для точности с десятыми
+    private var heldRpmValue = 0f 
     private var currentDisplayRpm = 0f
     private val PERMISSION_CODE = 200
 
@@ -35,7 +35,6 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-        // 01: Перехватчик фатальных ошибок
         val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
@@ -50,10 +49,8 @@ class MainActivity : Activity() {
             oldHandler?.uncaughtException(thread, throwable)
         }
 
-        // 02: Инициализация менеджера настроек
         prefsManager = PreferencesManager(this)
 
-        // 03: Корневой контейнер с растяжением на весь экран
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#121212"))
@@ -65,14 +62,13 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // 04: Инициализация хелпера шапки
         headerBuilder = HeaderBuilder(
             context = this,
             onExit = { finish() },
             onHoldToggle = {
                 isHoldActive = !isHoldActive
                 if (isHoldActive) {
-                    heldRpmValue = currentDisplayRpm // Сохраняем Float без округления
+                    heldRpmValue = currentDisplayRpm
                 }
                 refreshAllUI()
             },
@@ -82,7 +78,6 @@ class MainActivity : Activity() {
             }
         )
 
-        // 05: Инициализация таблицы настроек через UIBuilder
         uiBuilder = UIBuilder.buildSettingsTable(
             context = this,
             prefsManager = prefsManager,
@@ -90,12 +85,10 @@ class MainActivity : Activity() {
             volumeStepButtons = volumeStepButtons
         )
 
-        // Сборка интерфейса экрана
         rootLayout.addView(headerBuilder.buildTopPanel())
         rootLayout.addView(headerBuilder.buildInfoPanelWithSides())
         rootLayout.addView(uiBuilder.table)
 
-        // 06: Информационный копирайт внизу
         val copyright = TextView(this).apply {
             text = "2026 © YouTube_VRT \"Рациональный Труд\" | ver 2.8"
             textSize = 11f
@@ -109,7 +102,6 @@ class MainActivity : Activity() {
 
         refreshAllUI()
 
-        // 07: Проверка разрешений на запись аудио
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), PERMISSION_CODE)
         } else {
@@ -117,14 +109,12 @@ class MainActivity : Activity() {
         }
     }
 
-    // 08: Перезапуск аудиоанализатора
     fun restartAnalyzer() {
         audioAnalyzer?.stop()
         audioAnalyzer = null
         initAndStartAudioAnalyzer()
     }
 
-    // 09: Инициализация и запуск потока анализатора звука
     private fun initAndStartAudioAnalyzer() {
         audioAnalyzer?.stop()
         
@@ -141,14 +131,15 @@ class MainActivity : Activity() {
                 }
                 currentDisplayRpm = smoothedRpm
 
-                val currentLiveRpm = currentDisplayRpm // Оставляем Float
+                val currentLiveRpm = currentDisplayRpm
                 val displayFloat = if (isHoldActive) heldRpmValue else currentLiveRpm
 
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
 
                     if (isHoldActive) {
-                        headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.1f", currentLiveRpm)} rpm"
+                        // ИЗМЕНЕНИЕ: В режиме HOLD выводим живую частоту целым числом без запятой
+                        headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", currentLiveRpm)} rpm"
                         headerBuilder.statusLine1.setTextColor(Color.parseColor("#FF9800"))
                     } else {
                         if (vol < currentThreshold) {
@@ -161,6 +152,7 @@ class MainActivity : Activity() {
                     }
 
                     headerBuilder.statusLine2.text = "Громкость: $vol | Порог: $currentThreshold"
+                    // В строке All / Pre-Freq запятая и десятые сохранены намеренно
                     headerBuilder.statusLine3.text = "All: ${String.format("%.1f", allFreq)} Гц | Pre-Freq: ${String.format("%.1f", preFreq)} Гц"
 
                     updateRpmDisplay(displayFloat)
@@ -177,15 +169,13 @@ class MainActivity : Activity() {
         audioAnalyzer?.start()
     }
 
-        // 10: Форматирование и вывод целых чисел без запятой и десятых на главный экран
+    // ИЗМЕНЕНИЕ: Главный тахометр выводит целые числа без запятой (%5.0f)
     private fun updateRpmDisplay(value: Float) {
         val clamped = value.coerceIn(0f, 99999f)
         val formatted = String.format("%5.0f", clamped).trim().replace(' ', '\u00A0')
         headerBuilder.rpmTextView.text = formatted
     }
 
-
-    // 11: Обновление VU-метра
     private fun updateVolumeSquaresUI(currentVol: Int) {
         val currentSensitivityThreshold = prefsManager.minVolumeThreshold
         var thresholdIndex = 0
@@ -220,7 +210,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // 12: Синхронизация цветов и состояний всех элементов управления интерфейса
     private fun refreshAllUI() {
         if (!::headerBuilder.isInitialized || !::uiBuilder.isInitialized) return
 
@@ -265,7 +254,6 @@ class MainActivity : Activity() {
         uiBuilder.btnSmoothSoft.setBackgroundColor(if (preset == 2) Color.parseColor("#AB47BC") else Color.parseColor("#424242"))
         listOf(uiBuilder.btnSmoothSharp, uiBuilder.btnSmoothNorm, uiBuilder.btnSmoothSoft).forEach { it.setTextColor(Color.WHITE) }
 
-        // 13: Вызов логики алгоритмов
         UIBuilder.updateAlgorithmButtons(
             prefsManager,
             uiBuilder.btnZeroX,

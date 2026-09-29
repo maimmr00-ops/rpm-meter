@@ -11,7 +11,6 @@ import android.widget.TextView
 
 object UIBuilder {
 
-    // 01: Контейнер-структура с понятными именами кнопок (включая Turbo для обновления)
     data class SettingsButtons(
         val table: TableLayout,
         val btn2T: Button,
@@ -34,10 +33,24 @@ object UIBuilder {
         val btnYin: Button,
         val btnHps: Button,
         val btnAmdf: Button,
-        val btnComb: Button
+        val btnComb: Button,
+        val btnAudioMic: Button,
+        val btnAudioVoice: Button,
+        val btnAudioRaw: Button
     )
 
-    // 02: Сборка таблицы настроек
+    // Вспомогательный метод для создания кнопок без жестких ограничений ширины
+    private fun createButton(context: Context, textVal: String, onClick: () -> Unit): Button {
+        return Button(context).apply {
+            text = textVal
+            textSize = 11f
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(2, 0, 2, 0)
+            setOnClickListener { onClick() }
+        }
+    }
+
     fun buildSettingsTable(
         context: Context,
         prefsManager: PreferencesManager,
@@ -45,7 +58,7 @@ object UIBuilder {
         volumeStepButtons: Array<Button?>
     ): SettingsButtons {
         val table = TableLayout(context).apply {
-            setPadding(0, 4, 0, 4)
+            setPadding(0, 2, 0, 2)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 
                 0, 
@@ -53,78 +66,44 @@ object UIBuilder {
             )
         }
 
-        // 03: Кнопки выбора типа двигателя (2T, 4T, Others)
-        val btn2T = Button(context).apply {
-            text = "2T"
-            setOnClickListener { prefsManager.engineType = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
-        }
-        val btn4T = Button(context).apply {
-            text = "4T"
-            setOnClickListener { prefsManager.engineType = 4; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
-        }
-        val btnOthers = Button(context).apply {
-            text = "Others"
-            setOnClickListener { prefsManager.engineType = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
-        }
+        // Кнопки двигателя
+        val btn2T = createButton(context, "2T") { prefsManager.engineType = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btn4T = createButton(context, "4T") { prefsManager.engineType = 4; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnOthers = createButton(context, "Others") { prefsManager.engineType = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        // 04: Кнопки лимитов оборотов (6k, 12k, 20k)
-        val btnLimit1 = Button(context).apply {
-            text = "6k"
-            setOnClickListener { prefsManager.maxAllowedRpm = 6000; onRefreshUI() }
-        }
-        val btnLimit2 = Button(context).apply {
-            text = "12k"
-            setOnClickListener { prefsManager.maxAllowedRpm = 12000; onRefreshUI() }
-        }
-        val btnLimit3 = Button(context).apply {
-            text = "20k"
-            setOnClickListener { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
-        }
+        // Кнопки лимитов
+        val btnLimit1 = createButton(context, "6k") { prefsManager.maxAllowedRpm = 6000; onRefreshUI() }
+        val btnLimit2 = createButton(context, "12k") { prefsManager.maxAllowedRpm = 12000; onRefreshUI() }
+        val btnLimit3 = createButton(context, "20k") { prefsManager.maxAllowedRpm = 20000; onRefreshUI() }
 
-        // 05: Кнопки размера буфера аудио (Turbo, Fast, Norm, Slow) — теперь 4 штуки
-        val btnRateTurbo = Button(context).apply {
-            text = "Turbo"
-            setOnClickListener { prefsManager.audioBufferSize = 768; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
-        }
-        val btnRateFast = Button(context).apply {
-            text = "Fast"
-            setOnClickListener { prefsManager.audioBufferSize = 1536; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
-        }
-        val btnRateNorm = Button(context).apply {
-            text = "Norm"
-            setOnClickListener { prefsManager.audioBufferSize = 2560; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
-        }
-        val btnRateSlow = Button(context).apply {
-            text = "Slow"
-            setOnClickListener { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
-        }
+        // Кнопки обновления
+        val btnRateTurbo = createButton(context, "Turbo") { prefsManager.audioBufferSize = 768; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnRateFast = createButton(context, "Fast") { prefsManager.audioBufferSize = 1536; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnRateNorm = createButton(context, "Norm") { prefsManager.audioBufferSize = 2560; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnRateSlow = createButton(context, "Slow") { prefsManager.audioBufferSize = 4096; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        // 06: Кнопки управления плавностью (Sharp, Norm, Soft)
-        val btnSmoothSharp = Button(context).apply {
-            text = "Sharp"
-            setOnClickListener { prefsManager.smoothPreset = 0; onRefreshUI() }
-        }
-        val btnSmoothNorm = Button(context).apply {
-            text = "Norm"
-            setOnClickListener { prefsManager.smoothPreset = 1; onRefreshUI() }
-        }
-        val btnSmoothSoft = Button(context).apply {
-            text = "Soft"
-            setOnClickListener { prefsManager.smoothPreset = 2; onRefreshUI() }
-        }
+        // Кнопки плавности
+        val btnSmoothSharp = createButton(context, "Sharp") { prefsManager.smoothPreset = 0; onRefreshUI() }
+        val btnSmoothNorm = createButton(context, "Norm") { prefsManager.smoothPreset = 1; onRefreshUI() }
+        val btnSmoothSoft = createButton(context, "Soft") { prefsManager.smoothPreset = 2; onRefreshUI() }
 
-        // 07: Кнопки выбора алгоритмов (первая и вторая четверки)
-        val btnZeroX = Button(context).apply { text = "Zero-X"; setOnClickListener { prefsManager.algorithmIndex = 0; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
-        val btnAutoCorr = Button(context).apply { text = "AutoCorr"; setOnClickListener { prefsManager.algorithmIndex = 1; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
-        val btnSpectral = Button(context).apply { text = "Spectral"; setOnClickListener { prefsManager.algorithmIndex = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
-        val btnHybrid = Button(context).apply { text = "Hybrid"; setOnClickListener { prefsManager.algorithmIndex = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
+        // Кнопки алгоритмов
+        val btnZeroX = createButton(context, "Zero-X") { prefsManager.algorithmIndex = 0; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnAutoCorr = createButton(context, "AutoCorr") { prefsManager.algorithmIndex = 1; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnSpectral = createButton(context, "Spectral") { prefsManager.algorithmIndex = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnHybrid = createButton(context, "Hybrid") { prefsManager.algorithmIndex = 3; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        val btnYin = Button(context).apply { text = "YIN"; setOnClickListener { prefsManager.algorithmIndex = 4; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
-        val btnHps = Button(context).apply { text = "HPS"; setOnClickListener { prefsManager.algorithmIndex = 5; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
-        val btnAmdf = Button(context).apply { text = "AMDF"; setOnClickListener { prefsManager.algorithmIndex = 6; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
-        val btnComb = Button(context).apply { text = "Comb"; setOnClickListener { prefsManager.algorithmIndex = 7; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() } }
+        val btnYin = createButton(context, "YIN") { prefsManager.algorithmIndex = 4; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnHps = createButton(context, "HPS") { prefsManager.algorithmIndex = 5; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnAmdf = createButton(context, "AMDF") { prefsManager.algorithmIndex = 6; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnComb = createButton(context, "Comb") { prefsManager.algorithmIndex = 7; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
 
-        // 08: Сборка строк таблицы (обновление теперь переведено на addFourRow)
+        // Кнопки выбора аудиовхода (MIC, VOICE, RAW)
+        val btnAudioMic = createButton(context, "MIC") { prefsManager.audioSource = 0; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnAudioVoice = createButton(context, "VOICE") { prefsManager.audioSource = 1; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+        val btnAudioRaw = createButton(context, "RAW") { prefsManager.audioSource = 2; onRefreshUI(); (context as? MainActivity)?.restartAnalyzer() }
+
+        // Сборка строк таблицы по порядку
         addRow(context, table, "мотор:", btn2T, btn4T, btnOthers)
         addRow(context, table, "лимит:", btnLimit1, btnLimit2, btnLimit3)
         addFourRow(context, table, "обновление:", btnRateTurbo, btnRateFast, btnRateNorm, btnRateSlow)
@@ -132,8 +111,11 @@ object UIBuilder {
         addFourRow(context, table, "алг. 1-4:", btnZeroX, btnAutoCorr, btnSpectral, btnHybrid)
         addFourRow(context, table, "алг. 5-8:", btnYin, btnHps, btnAmdf, btnComb)
         
-        // 09: VU-метр
+        // VU-метр
         addVolumeSquaresRow(context, table, "VU-метр:", volumeStepButtons, prefsManager, onRefreshUI)
+
+        // Строка выбора аудиовхода в едином стиле таблицы
+        addRow(context, table, "вход:", btnAudioMic, btnAudioVoice, btnAudioRaw)
 
         return SettingsButtons(
             table, btn2T, btn4T, btnOthers,
@@ -141,29 +123,29 @@ object UIBuilder {
             btnRateTurbo, btnRateFast, btnRateNorm, btnRateSlow,
             btnSmoothSharp, btnSmoothNorm, btnSmoothSoft,
             btnZeroX, btnAutoCorr, btnSpectral, btnHybrid,
-            btnYin, btnHps, btnAmdf, btnComb
+            btnYin, btnHps, btnAmdf, btnComb,
+            btnAudioMic, btnAudioVoice, btnAudioRaw
         )
     }
 
-    // 10: Вспомогательный метод для 3 кнопок в строке
     private fun addRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 2, 0, 2)
+            setPadding(0, 1, 0, 1)
             layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
             textSize = 12f
             setTextColor(Color.parseColor("#B0BEC5"))
-            setPadding(0, 0, 8, 0)
+            setPadding(0, 0, 6, 0)
         }
         val bLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
         val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
-            setMargins(2, 0, 2, 0)
+            setMargins(1, 0, 1, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3)
@@ -173,25 +155,24 @@ object UIBuilder {
         table.addView(row)
     }
 
-    // 11: Вспомогательный метод для 4 кнопок в строке
     private fun addFourRow(context: Context, table: TableLayout, labelText: String, b1: Button, b2: Button, b3: Button, b4: Button) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 2, 0, 2)
+            setPadding(0, 1, 0, 1)
             layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
             textSize = 12f
             setTextColor(Color.parseColor("#B0BEC5"))
-            setPadding(0, 0, 8, 0)
+            setPadding(0, 0, 6, 0)
         }
         val bLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
         val p = TableRow.LayoutParams(0, TableRow.LayoutParams.MATCH_PARENT, 1f).apply {
-            setMargins(2, 0, 2, 0)
+            setMargins(1, 0, 1, 0)
         }
         b1.layoutParams = p; b2.layoutParams = p; b3.layoutParams = p; b4.layoutParams = p
         bLayout.addView(b1); bLayout.addView(b2); bLayout.addView(b3); bLayout.addView(b4)
@@ -201,7 +182,6 @@ object UIBuilder {
         table.addView(row)
     }
 
-    // 12: Генерация ряда квадратов для шкалы громкости
     private fun addVolumeSquaresRow(
         context: Context, 
         table: TableLayout, 
@@ -212,14 +192,14 @@ object UIBuilder {
     ) {
         val row = TableRow(context).apply {
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 2, 0, 2)
+            setPadding(0, 1, 0, 1)
             layoutParams = TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         val label = TextView(context).apply {
             text = labelText
             textSize = 12f
             setTextColor(Color.parseColor("#B0BEC5"))
-            setPadding(0, 0, 8, 0)
+            setPadding(0, 0, 6, 0)
         }
         val squaresLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -229,7 +209,7 @@ object UIBuilder {
             val thresholdValue = getThresholdForSquare(i)
             val squareBtn = Button(context).apply {
                 text = ""
-                textSize = 10f
+                textSize = 9f
                 setPadding(0, 0, 0, 0)
                 minWidth = 0
                 minimumWidth = 0
@@ -250,7 +230,6 @@ object UIBuilder {
         table.addView(row)
     }
 
-    // 13: Управление подсветкой кнопок алгоритмов
     fun updateAlgorithmButtons(
         prefsManager: PreferencesManager,
         btnZeroX: Button,
@@ -265,7 +244,7 @@ object UIBuilder {
         val alg = prefsManager.algorithmIndex
         val engine = prefsManager.engineType
 
-        val buttons = arrayOf(btnZeroX, btnAutoCorr, btnSpectral, btnHybrid, btnYin, btnHps, btnAmdf, btnComb)
+        val buttons = arrayOf(btnZeroX, btnAutoCorr, btnSpectral, btnHybrid, btnYin, btnHps, btnAmdf, btnComb]
 
         for (i in buttons.indices) {
             val isAllowed = prefsManager.isAlgorithmAllowed(i, engine)
@@ -286,4 +265,5 @@ object UIBuilder {
     fun getThresholdForSquare(index: Int): Int {
         return if (index in thresholdValues.indices) thresholdValues[index] else 20
     }
-}
+                              }
+                              

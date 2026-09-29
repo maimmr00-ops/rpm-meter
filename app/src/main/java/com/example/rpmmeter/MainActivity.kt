@@ -122,11 +122,9 @@ class MainActivity : Activity() {
         audioAnalyzer = AudioAnalyzer(
             prefsManager = prefsManager,
             onUpdate = { rawRpm, allFreq, preFreq, vol, status ->
-                // 1. Базовый расчет с учетом множителя
                 val targetRpm = if (currentMultiplier > 0) (rawRpm / currentMultiplier) else rawRpm
                 val limitRpm = prefsManager.maxAllowedRpm.toFloat()
 
-                // 2. Шаг алгоритма: применение сглаживания
                 val preset = prefsManager.smoothPreset
                 val smoothedRpm = when (preset) {
                     3 -> targetRpm 
@@ -136,7 +134,6 @@ class MainActivity : Activity() {
                 }
                 currentDisplayRpm = smoothedRpm
 
-                // 3. ПОСТ-ОБРАБОТКА (защита от зашкаливания и инерции)
                 val isOverLimit = currentDisplayRpm > limitRpm
                 if (isOverLimit) {
                     currentDisplayRpm = currentDisplayRpm.coerceAtMost(limitRpm * 1.3f)
@@ -144,12 +141,11 @@ class MainActivity : Activity() {
 
                 val displayFloat = if (isHoldActive) heldRpmValue else currentDisplayRpm
 
-                // 4. Рендеринг интерфейса
                 runOnUiThread {
                     val currentThreshold = prefsManager.minVolumeThreshold
 
-                    // ВСЕГДА обновляем цифры на экране, чтобы избежать залипаний
                     updateRpmDisplay(displayFloat)
+                    updateRpmBarUI(displayFloat)
 
                     if (isHoldActive) {
                         headerBuilder.statusLine1.text = "HOLD. Живая частота: ${String.format("%.0f", currentDisplayRpm)} rpm"
@@ -158,7 +154,6 @@ class MainActivity : Activity() {
                     } else if (isOverLimit) {
                         headerBuilder.statusLine1.text = "ПРЕДУПРЕЖДЕНИЕ: Обороты > ${prefsManager.maxAllowedRpm}!"
                         headerBuilder.statusLine1.setTextColor(Color.RED)
-                        // Подсвечиваем цифры красным при превышении лимита
                         headerBuilder.rpmTextView.setTextColor(Color.RED)
                     } else {
                         headerBuilder.rpmTextView.setTextColor(Color.parseColor("#00E676"))
@@ -191,6 +186,27 @@ class MainActivity : Activity() {
         val clamped = value.coerceIn(0f, 99999f)
         val formatted = String.format("%5.0f", clamped).trim().replace(' ', '\u00A0')
         headerBuilder.rpmTextView.text = formatted
+    }
+
+    private fun updateRpmBarUI(currentRpm: Float) {
+        val maxLimit = prefsManager.maxAllowedRpm.toFloat()
+        if (maxLimit <= 0f) return
+
+        val ratio = (currentRpm / maxLimit).coerceIn(0f, 1.3f)
+        val activeCount = if (currentRpm > maxLimit) 15 else (ratio * 15f).toInt().coerceIn(0, 15)
+
+        for (i in 0 until 15) {
+            val btn = headerBuilder.rpmStepButtons[i] ?: continue
+            if (i < activeCount) {
+                when {
+                    i < 9 -> btn.setBackgroundColor(Color.parseColor("#00E676")) // Зеленый
+                    i < 13 -> btn.setBackgroundColor(Color.parseColor("#FFEB3B")) // Желтый
+                    else -> btn.setBackgroundColor(Color.parseColor("#F44336"))     // Красный
+                }
+            } else {
+                btn.setBackgroundColor(Color.parseColor("#37474F")) // Неактивный цвет
+            }
+        }
     }
 
     private fun updateVolumeSquaresUI(currentVol: Int) {
@@ -302,7 +318,7 @@ class MainActivity : Activity() {
         }
     }
 
-    override onDestroy() {
+    override fun onDestroy() {
         audioAnalyzer?.stop()
         super.onDestroy()
     }
